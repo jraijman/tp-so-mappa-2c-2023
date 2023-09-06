@@ -9,7 +9,26 @@
 #include<readline/readline.h>
 #include <utils/utils.h>
 #include <sockets/sockets.h>
+#include <comunicacion.h>
 
+int conexion_dispatch;
+int conexion_interrupt;
+int conexion_memoria;
+int conexion_fileSystem;
+char* ip_memoria;
+char* ip_cpu;
+char* puerto_memoria;
+char* ip_filesystem;
+char* puerto_filesystem;
+char* puerto_cpu_interrupt;
+char* puerto_cpu_dispatch;
+char* algoritmo_planificacion;
+char* quantum;
+char* grado_multiprogramacion;
+char* recursos;
+char* instancia_recursos;
 
+t_log* logger_kernel;
+t_config* config;
 
 #endif 

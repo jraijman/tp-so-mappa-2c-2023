@@ -10,5 +10,13 @@
 #include <utils/utils.h>
 #include <sockets/sockets.h>
 
+int  conexion_cpu_memoria;
+char* ip_memoria;
+char* puerto_memoria;
+char* puerto_dispatch;
+char* puerto_interrupt;
+
+t_log* logger_cpu;
+t_config* config;
 
 #endif 
