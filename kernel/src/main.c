@@ -28,14 +28,14 @@ int main(int argc, char* argv[]) {
 
     // CONFIG y logger
     levantar_config("kernel.config");
-/*
+
     // conexiones a cpu
     conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
     conexion_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
 
     //conexion a memoria
     conexion_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
-*/
+    
     //conexion a FileSystem
     conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
 

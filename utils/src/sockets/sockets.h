@@ -23,6 +23,8 @@ int cliente_interrupt;
 
 int fd_filesystem;
 
+int fd_memoria;
+
 
 int iniciar_servidor(t_log* logger, const char* name, char* ip, char* puerto);
 int esperar_cliente(t_log* logger, const char* name, int socket_servidor);

@@ -11,4 +11,18 @@
 #include <sockets/sockets.h>
 #include <comunicacion.h>
 
+int conexion_memoria_filesystem;
+
+char* puerto_escucha;
+char* ip_filesystem;
+char* puerto_filesystem;
+char* tam_memoria;
+char* tam_pagina;
+char* path_instrucciones;
+char* retardo_respuesta;
+char* algoritmo_reemplazo;
+
+t_log* logger_memoria;
+t_config* config;
+
 #endif 
