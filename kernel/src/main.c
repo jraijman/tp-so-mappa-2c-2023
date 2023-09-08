@@ -40,7 +40,7 @@ int main(int argc, char* argv[]) {
     conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
 
     //mando mensaje de prueba
-    send_aprobar_operativos(conexion_fileSystem, 1, 14);
+    //send_aprobar_operativos(conexion_fileSystem, 1, 14);
 
 
     // libero conexiones, log y config

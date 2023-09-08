@@ -11,6 +11,9 @@
 #include <sockets/sockets.h>
 #include <comunicacion.h>
 
+uint32_t handshake = 1;
+uint32_t result;
+
 int conexion_dispatch;
 int conexion_interrupt;
 int conexion_memoria;

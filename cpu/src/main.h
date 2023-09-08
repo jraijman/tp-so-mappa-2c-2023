@@ -9,6 +9,7 @@
 #include<readline/readline.h>
 #include <utils/utils.h>
 #include <sockets/sockets.h>
+#include <comunicacion.h>
 
 int  conexion_cpu_memoria;
 char* ip_memoria;

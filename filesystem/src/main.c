@@ -32,10 +32,8 @@ int main(int argc, char* argv[]) {
     //genero conexion a memoria
     conexion_filesystem_memoria = crear_conexion(logger_filesystem,"MEMORIA",ip_memoria,puerto_memoria);
 
-
     //espero clientes kernel y memoria
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem));
-
 
     //CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_filesystem, config);

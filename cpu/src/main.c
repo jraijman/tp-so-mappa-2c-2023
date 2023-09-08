@@ -17,20 +17,23 @@ void levantar_config(char* ruta){
 int main(int argc, char* argv[]) {
     
     // CONFIG y logger
-    levantar_config("cpu.config")
+    levantar_config("cpu.config");
 
 
     // inicio servidor de dispatch e interrupt para kernel
     fd_cpu_dispatch = iniciar_servidor(logger_cpu,"CPU DISPATCH",NULL,puerto_dispatch);
     fd_cpu_interrupt = iniciar_servidor(logger_cpu,"CPU INTERRUPT",NULL,puerto_interrupt);
 
+    //genero conexion a memoria
+    conexion_cpu_memoria = crear_conexion(logger_cpu,"MEMORIA",ip_memoria,puerto_memoria);
+
+
     //espero clientes de dispatch e interrupt
     cliente_dispatch = esperar_cliente(logger_cpu,"CPU DISPATCH",fd_cpu_dispatch);
     cliente_interrupt = esperar_cliente(logger_cpu,"CPU INTERRUPT",fd_cpu_interrupt);
 
-
-    //genero conexion a memoria
-    conexion_cpu_memoria = crear_conexion(logger_cpu,"MEMORIA",ip_memoria,puerto_memoria);
+     //espero clientes kernel y memoria
+    while(server_escuchar_cpu(logger_cpu,"CPU",fd_cpu_dispatch,fd_cpu_interrupt));
 
 
     //CIERRO LOG Y CONFIG y libero conexion
