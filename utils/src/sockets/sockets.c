@@ -54,7 +54,7 @@ int esperar_cliente(t_log* logger, const char* name, int socket_servidor)
 
     int socket_cliente = accept(socket_servidor, (void*) &dir_cliente, &tam_direccion);
 
-    log_info(logger, "Cliente conectado a (%s)\n", name);
+    log_info(logger, "Cliente se conecto a (%s)\n", name);
 
     return socket_cliente;
 
@@ -87,11 +87,11 @@ int crear_conexion(t_log* logger,const char* server_name, char* ip, char* puerto
 
     // Error conectando
     if(connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1) {
-        log_error(logger, "Error al conectar (a %s)\n", server_name);
+        log_error(logger, "Error al conectarme (a %s)\n", server_name);
         freeaddrinfo(server_info);
         return 0;
     } else
-        log_info(logger, "Cliente conectado en %s:%s (a %s)\n", ip, puerto, server_name);
+        log_info(logger, "Me conecte en %s:%s (a %s)\n", ip, puerto, server_name);
 
     freeaddrinfo(server_info);
 

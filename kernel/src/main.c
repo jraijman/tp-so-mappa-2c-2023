@@ -22,6 +22,18 @@ void levantar_config(char* ruta){
     log_info(logger_kernel,"Config cargada");
 }
 
+void leer_consola()
+{
+	char* leido;
+
+	// El resto, las vamos leyendo y logueando hasta recibir un string vacío
+		leido = readline("> ");
+		printf("Lei de la consola: %s\n",leido);
+	// ¡No te olvides de liberar las lineas antes de regresar!
+	free(leido);
+
+}
+
 int main(int argc, char* argv[]) {
     
     
@@ -40,7 +52,12 @@ int main(int argc, char* argv[]) {
     conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
 
     //mando mensaje de prueba
-    //send_aprobar_operativos(conexion_fileSystem, 1, 14);
+    send_aprobar_operativos(conexion_fileSystem, 1, 14);
+
+    while(true){
+        leer_consola();
+    }
+    
 
 
     // libero conexiones, log y config

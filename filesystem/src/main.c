@@ -28,9 +28,10 @@ int main(int argc, char* argv[]) {
     
     // inicio servidor de escucha
     fd_filesystem = iniciar_servidor(logger_filesystem,"FILESYSTEM",NULL,puerto_escucha);
-
+ 
+    //NO SE SI VA ESTO
     //genero conexion a memoria
-    conexion_filesystem_memoria = crear_conexion(logger_filesystem,"MEMORIA",ip_memoria,puerto_memoria);
+    //conexion_filesystem_memoria = crear_conexion(logger_filesystem,"MEMORIA",ip_memoria,puerto_memoria);
 
     //espero clientes kernel y memoria
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem));
