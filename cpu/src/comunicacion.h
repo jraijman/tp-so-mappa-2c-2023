@@ -7,9 +7,9 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
-#include <utils/utils.h>
-#include <sockets/sockets.h>
-#include <protocolo/protocolo.h>
+#include "../../utils/src/utils/utils.h"
+#include "../../utils/src/sockets/sockets.h"
+#include "../../utils/src/protocolo/protocolo.h"
 
 typedef struct {
     t_log* log;

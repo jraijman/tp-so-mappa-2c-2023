@@ -7,9 +7,9 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
-#include <utils/utils.h>
-#include <sockets/sockets.h>
-#include <comunicacion.h>
+#include "../../utils/src/utils/utils.h"
+#include "../../utils/src/sockets/sockets.h"
+#include "comunicacion.h"
 
 uint32_t handshake = 1;
 uint32_t result;

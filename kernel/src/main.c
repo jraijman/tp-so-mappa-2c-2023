@@ -1,4 +1,4 @@
-#include <main.h>
+#include "main.h"
 
 void levantar_config(char* ruta){
     logger_kernel = iniciar_logger("kernel.log", "KERNEL:");

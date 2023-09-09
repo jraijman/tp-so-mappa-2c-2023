@@ -7,7 +7,7 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
-#include <utils/utils.h>
+#include "../utils/utils.h"
 #include<sys/socket.h>
 #include<unistd.h>
 #include<netdb.h>
