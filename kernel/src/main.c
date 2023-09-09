@@ -58,26 +58,26 @@ void levantar_config(char* ruta){
 
 void leer_consola()
 {
-	char* leido;
-	// El resto, las vamos leyendo y logueando hasta recibir un string vacío
-	    //LISTADO DE FUNCIONES
+	int leido;
+
+    // El resto, las vamos leyendo y logueando hasta recibir un string vacío
+	//LISTADO DE FUNCIONES
     printf("1-INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD] \n");
     printf("2-FINALIZAR_PROCESO [PID] \n");
     printf("3-DETENER_PLANIFICACION \n");
     printf("4-INICIAR_PLANIFICACION \n");
     printf("5-MULTIPROGRAMACION [NIVEL] \n");
     printf("6-PROCESO_ESTADO \n");
-    leido = readline("> ");
-	printf("Lei de la consola: %s\n",leido);
+    scanf("%d", &leido);
     switch (leido)
     {        
     // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
     case 1:
-        iniciar_proceso(path, size, prioridad);
+        iniciar_proceso(/*path, size, prioridad*/);
         break;
     //FINALIZAR_PROCESO [PID]
     case 2:
-        finalizar_proceso(pid);
+        finalizar_proceso(/*pid*/);
         break;
     //DETENER_PLANIFICACION
     case 3:
@@ -89,7 +89,7 @@ void leer_consola()
         break;
     //MULTIPROGRAMACION [VALOR]
     case 5:
-        multiprogramacion(valor);
+        multiprogramacion(/*valor*/);
         break;
     //PROCESO_ESTADO
     case 6:
@@ -99,32 +99,32 @@ void leer_consola()
         printf("Comando incorrecto \n");
         break;
     }
-	// ¡No te olvides de liberar las lineas antes de regresar!
-	free(leido);
-
 }
 
-void iniciar_proceso(char* path, int size, int prio)
+void iniciar_proceso(/*char* path, int size, int prio*/)
 {
     printf("entre a iniciar proceso \n");
+    conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
+    conexion_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
+
 }
-void finalizar_proceso(char* PID)
+void finalizar_proceso(/*char* PID*/)
 {
     printf("entre a finalizar proceso \n");
 }
-void detener_planificacion();
+void detener_planificacion()
 {
     printf("detengo planificacion \n");
 }
-void iniciar_planificacion();
+void iniciar_planificacion()
 {
     printf("inicio planificacion \n");
 }
-void multiprogramacion(char* grado_multiprogramacion);
+void multiprogramacion(/*char* grado_multiprogramacion*/)
 {
     printf("multiprogramacion \n");
 }
-void proceso_estado();
+void proceso_estado()
 {
     printf("proceso_estado \n");
 }

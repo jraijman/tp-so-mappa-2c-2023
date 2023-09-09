@@ -34,13 +34,13 @@ char* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
-
-
-void iniciar_proceso(char*, int, int);
-void finalizar_proceso(char*);
+void leer_consola();
+void levantar_config(char* ruta);
+void iniciar_proceso(/*char*, int, int*/);
+void finalizar_proceso(/*char**/);
 void detener_planificacion(void);
 void iniciar_planificacion(void);
-void multiprogramacion(char*);
+void multiprogramacion(/*char**/);
 void proceso_estado(void);
 
 #endif 

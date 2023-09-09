@@ -20,5 +20,4 @@ typedef struct {
 
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch,int server_socket_interupt);
 
-
 #endif 

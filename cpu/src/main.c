@@ -36,6 +36,8 @@ int main(int argc, char* argv[]) {
     while(server_escuchar_cpu(logger_cpu,"CPU",fd_cpu_dispatch,fd_cpu_interrupt));
 
 
+
+    
     //CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);
