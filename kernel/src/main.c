@@ -1,5 +1,39 @@
 #include "main.h"
 
+int main(int argc, char* argv[]) {
+    
+   
+
+    // CONFIG y logger
+    levantar_config("kernel.config");
+
+    // conexiones a cpu LLAMAR CUANDO SE CREA O INTERRUMPE UN PROCESO, NO DESDE EL INICIO
+    conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
+    conexion_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
+
+    //conexion a memoria
+    conexion_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
+    
+    //conexion a FileSystem
+    conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
+
+    //mando mensaje de prueba
+    send_aprobar_operativos(conexion_fileSystem, 1, 14);
+
+    while(true){
+        leer_consola();
+    }
+    
+
+
+    // libero conexiones, log y config
+    terminar_programa(logger_kernel, config);
+    liberar_conexion(conexion_dispatch);
+    liberar_conexion(conexion_interrupt);
+    liberar_conexion(conexion_memoria);
+    liberar_conexion(conexion_fileSystem);
+}
+
 void levantar_config(char* ruta){
     logger_kernel = iniciar_logger("kernel.log", "KERNEL:");
 
@@ -25,45 +59,72 @@ void levantar_config(char* ruta){
 void leer_consola()
 {
 	char* leido;
-
 	// El resto, las vamos leyendo y logueando hasta recibir un string vacío
-		leido = readline("> ");
-		printf("Lei de la consola: %s\n",leido);
+	    //LISTADO DE FUNCIONES
+    printf("1-INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD] \n");
+    printf("2-FINALIZAR_PROCESO [PID] \n");
+    printf("3-DETENER_PLANIFICACION \n");
+    printf("4-INICIAR_PLANIFICACION \n");
+    printf("5-MULTIPROGRAMACION [NIVEL] \n");
+    printf("6-PROCESO_ESTADO \n");
+    leido = readline("> ");
+	printf("Lei de la consola: %s\n",leido);
+    switch (leido)
+    {        
+    // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
+    case 1:
+        iniciar_proceso(path, size, prioridad);
+        break;
+    //FINALIZAR_PROCESO [PID]
+    case 2:
+        finalizar_proceso(pid);
+        break;
+    //DETENER_PLANIFICACION
+    case 3:
+        detener_planificacion();
+        break;
+    //INICIAR_PLANIFICACION
+    case 4:
+        iniciar_planificacion();
+        break;
+    //MULTIPROGRAMACION [VALOR]
+    case 5:
+        multiprogramacion(valor);
+        break;
+    //PROCESO_ESTADO
+    case 6:
+        proceso_estado();
+        break;
+    default:
+        printf("Comando incorrecto \n");
+        break;
+    }
 	// ¡No te olvides de liberar las lineas antes de regresar!
 	free(leido);
 
 }
 
-int main(int argc, char* argv[]) {
-    
-    
-
-    // CONFIG y logger
-    levantar_config("kernel.config");
-
-    // conexiones a cpu
-    conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
-    conexion_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
-
-    //conexion a memoria
-    conexion_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
-    
-    //conexion a FileSystem
-    conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
-
-    //mando mensaje de prueba
-    send_aprobar_operativos(conexion_fileSystem, 1, 14);
-
-    while(true){
-        leer_consola();
-    }
-    
-
-
-    // libero conexiones, log y config
-    terminar_programa(logger_kernel, config);
-    liberar_conexion(conexion_dispatch);
-    liberar_conexion(conexion_interrupt);
-    liberar_conexion(conexion_memoria);
-    liberar_conexion(conexion_fileSystem);
+void iniciar_proceso(char* path, int size, int prio)
+{
+    printf("entre a iniciar proceso \n");
+}
+void finalizar_proceso(char* PID)
+{
+    printf("entre a finalizar proceso \n");
+}
+void detener_planificacion();
+{
+    printf("detengo planificacion \n");
+}
+void iniciar_planificacion();
+{
+    printf("inicio planificacion \n");
+}
+void multiprogramacion(char* grado_multiprogramacion);
+{
+    printf("multiprogramacion \n");
+}
+void proceso_estado();
+{
+    printf("proceso_estado \n");
 }
