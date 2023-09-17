@@ -59,8 +59,6 @@ void levantar_config(char* ruta){
 void leer_consola()
 {
 	int leido;
-
-    // El resto, las vamos leyendo y logueando hasta recibir un string vacío
 	//LISTADO DE FUNCIONES
     printf("1-INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD] \n");
     printf("2-FINALIZAR_PROCESO [PID] \n");
@@ -73,7 +71,20 @@ void leer_consola()
     {        
     // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
     case 1:
-        iniciar_proceso(/*path, size, prioridad*/);
+        //leo de la consola los parametros separados por espacio, y los mando a la funcion
+        char * leido = readline("ingrese PATH SIZE PRIORIDAD:");
+        //no se si usar free
+        char * parametros[3];
+        int i = 0;
+        char *p = strtok (leido, " ");
+        while (p)
+            {
+                parametros[i++] = p;
+                p = strtok (NULL, " ");
+            }
+        iniciar_proceso(parametros[0], parametros[1], parametros[2]);
+        free(leido);  
+        free (p);
         break;
     //FINALIZAR_PROCESO [PID]
     case 2:
@@ -101,7 +112,7 @@ void leer_consola()
     }
 }
 
-void iniciar_proceso(/*char* path, int size, int prio*/)
+void iniciar_proceso(char * path, char* size, char* prioridad)
 {
     printf("entre a iniciar proceso \n");
     conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
