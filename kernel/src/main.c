@@ -1,8 +1,8 @@
 #include "main.h"
 
+int contador_proceso = 0;
+
 int main(int argc, char* argv[]) {
-    
-   
 
     // CONFIG y logger
     levantar_config("kernel.config");
@@ -72,7 +72,7 @@ void leer_consola()
     // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
     case 1:
         //leo de la consola los parametros separados por espacio, y los mando a la funcion
-        char * leido = readline("ingrese PATH SIZE PRIORIDAD:");
+        char * leido = readline("Ingrese PATH SIZE PRIORIDAD: ");
         //no se si usar free
         char * parametros[3];
         int i = 0;
@@ -88,7 +88,9 @@ void leer_consola()
         break;
     //FINALIZAR_PROCESO [PID]
     case 2:
-        finalizar_proceso(/*pid*/);
+        char * pid = readline("Ingrese PID: ");
+        finalizar_proceso(pid);
+        free (pid);
         break;
     //DETENER_PLANIFICACION
     case 3:
@@ -115,13 +117,31 @@ void leer_consola()
 void iniciar_proceso(char * path, char* size, char* prioridad)
 {
     printf("entre a iniciar proceso \n");
-    conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
-    conexion_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
+    int isize = *size - '0';
+    int iprioridad = *prioridad - '0';
+    
+    //generar estructura PCB
+    pcb* pcb_proceso = malloc(sizeof(pcb));
+
+    pcb_proceso->pid = contador_proceso;
+    pcb_proceso->tamanio = isize;
+    pcb_proceso->pc = 0;//arranca desde la instruccion 0
+    pcb_proceso->prioridad = iprioridad;
+    pcb_proceso->estado = 1;//arranca en NEW
+    //pcb_proceso->registros =
+    //pcb_proceso->archivos =
+
+
+
+    //hacer log de crear proceso
+    //le sumo uno al contador que funciona como id de proceso
+    contador_proceso++;
 
 }
-void finalizar_proceso(/*char* PID*/)
+void finalizar_proceso(char * pid)
 {
-    printf("entre a finalizar proceso \n");
+    printf("entre a finalizar proceso\n");
+    // hacer log de fin de proceso
 }
 void detener_planificacion()
 {

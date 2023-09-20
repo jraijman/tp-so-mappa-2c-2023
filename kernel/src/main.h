@@ -34,10 +34,21 @@ char* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
+// Definición de estructura para representar un proceso (PCB)
+typedef struct {
+    int pid;            // Identificador del proceso
+    int pc; // Número de la próxima instrucción a ejecutar.
+    int tamanio;
+    //char registros []; // valores de los registros de uso general de la CPU.
+    int prioridad;      // Prioridad del proceso
+    //char archivos []; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= RUNNING, 4 =BLOCK, 5 = FINISH.)
+} pcb;
+
 void leer_consola();
 void levantar_config(char* ruta);
-void iniciar_proceso(/*char*, int, int*/);
-void finalizar_proceso(/*char**/);
+void iniciar_proceso(char*, char*, char*);
+void finalizar_proceso(char*);
 void detener_planificacion(void);
 void iniciar_planificacion(void);
 void multiprogramacion(/*char**/);
