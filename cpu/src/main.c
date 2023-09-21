@@ -47,25 +47,22 @@ int main(int argc, char* argv[]) {
     cliente_dispatch = esperar_cliente(logger_cpu,"CPU DISPATCH",fd_cpu_dispatch);
     cliente_interrupt = esperar_cliente(logger_cpu,"CPU INTERRUPT",fd_cpu_interrupt);
 
-    struct ContextoEjecucion contexto_proceso;
-     //espero clientes kernel y memoria
+    struct ContextoEjecucion contexto;
+    struct Instruccion instruccion;
+    struct PeticionMemoria peticion;
+    //espero clientes kernel y memoria
     while(server_escuchar_cpu(logger_cpu,"CPU",fd_cpu_dispatch,fd_cpu_interrupt)){
-    int bytes_recibidos = recv(cliente_dispatch, &contexto_proceso, sizeof(struct ContextoEjecucion), 0);
+    int bytes_recibidos = recv(cliente_dispatch, &contexto, sizeof(struct ContextoEjecucion), 0);
     if (bytes_recibidos == sizeof(struct ContextoEjecucion)) {
     }
-    int i=0;
-    while(contexto_proceso.instrucciones[i][0]!='/0')
-    {
-        if(strcmp(contexto_proceso.instrucciones[i],'EXIT') != 0)
-        char instruccion[3]=string_split(contexto_proceso.instrucciones[i], " ");
-        ejecutarInstruccion(&contexto_proceso,instruccion[1],instruccion[2],instruccion[3]);
-        }
-        else
-        {
-            //ejecutar exit
-        }
-        i++;
-    }
+    //Con el contexto de ejecucion, cargo la peticion a memoria
+    peticion->pid=contexto->pid;
+    peticion->program_counter=contexto->program_counter;
+    //Con la peticion cargada, envio el mensaje, debo implementar algun ciclo para que pida instruccion tras otra hasta que no queden mas o laburar con lista de instrucciones
+    send_peticion(conexion_cpu_memoria, &peticion->pid,&peticion->program_counter);
+    recv_instruccion(conexion_cpu_memoria,&instruccion);
+    ejecutarInstruccion(&contexto_proceso,instruccion->opcode,instruccion->operando1,instruccion->operando2);
+    //Lo de arriba ejecuta solo sum sub y set, ver de implementar exit.
     //CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);

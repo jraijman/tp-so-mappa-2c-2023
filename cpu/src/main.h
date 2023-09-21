@@ -17,12 +17,20 @@ char* puerto_memoria;
 char* puerto_dispatch;
 char* puerto_interrupt;
 
-struct ContextoEjecucion {//Modificar en el futuro segun lo que se reciba de kernel
+typedef struct {//Modificar en el futuro segun lo que se reciba de kernel
     uint32_t pid;
     uint32_t program_counter;
     uint32_t registros[4];//Registros de uso general (AX, BX, CX, DX)
-    char instrucciones[100][50]; // Array de instrucciones
-};
+} ContextoEjecucion;
+typedef struct {
+    char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
+    char operando1[25];
+    char operando2[25];
+} Instruccion;
+typedef struct {
+    uint32_t pid;
+    uint32_t program_counter;
+} PeticionMemoria;
 
 t_log* logger_cpu;
 t_config* config;

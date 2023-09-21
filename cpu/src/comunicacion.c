@@ -1,4 +1,5 @@
 #include <comunicacion.h>
+
 static void procesar_conexion(void* void_args) {
     t_procesar_conexion_args* args = (t_procesar_conexion_args*) void_args;
     t_log* logger = args->log;
@@ -25,6 +26,57 @@ static void procesar_conexion(void* void_args) {
     log_warning(logger, "El cliente se desconectó de %s server", server_name);
     return;
 }
+
+static void* serializar_peticion(uint32_t pid, uint32_t program_counter) {
+    void* stream = malloc(sizeof(PeticionMemoria));
+    PeticionMemoria peticion;
+    peticion.pid = pid;
+    peticion.program_counter = program_counter;
+    memcpy(stream, &peticion, sizeof(PeticionMemoria));
+    return stream;
+}
+
+/*static void deserializar_peticion(void* stream, uint32_t* pid, uint32_t* program_counter) {
+    PeticionMemoria peticion;
+    memcpy(&peticion, stream, sizeof(PeticionMemoria));
+    *pid = peticion.pid;
+    *program_counter = peticion.program_counter;
+}
+
+static void* serializar_instruccion(const Instruccion* instruccion) {
+    void* stream = malloc(sizeof(Instruccion));
+    memcpy(stream, instruccion, sizeof(Instruccion));
+    return stream;
+}
+*/
+static void deserializar_instruccion(void* stream, Instruccion* instruccion) {
+    memcpy(instruccion, stream, sizeof(Instruccion));
+}
+bool send_peticion(int fd, uint32_t pid, uint32_t program_counter) {
+    size_t size = sizeof(PeticionMemoria);
+    void* stream = serializar_peticion(pid, program_counter);
+    if (send(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+    free(stream);
+    return true;
+}
+bool recv_instruccion(int fd, Instruccion *instruccion) {
+    size_t size = sizeof(Instruccion);
+    void* stream = malloc(size);
+
+    if (recv(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    deserializar_instruccion(stream, &instruccion);
+
+    free(stream);
+    return true;
+}
+
 
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch,int server_socket_interupt){
      int cliente_socket_dispatch = esperar_cliente(logger, server_name, server_socket_dispatch);
