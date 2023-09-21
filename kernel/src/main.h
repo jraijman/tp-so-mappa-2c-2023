@@ -43,13 +43,26 @@ t_list* listaBlock;
 t_list* listaExit;
 
 // Definición de estructura para representar un proceso (PCB)
+
+struct Registros {
+        //aca van los registros
+        int a;
+};
+
+//estructura de PCBs
 typedef struct {
     int pid;            // Identificador del proceso
     int pc; // Número de la próxima instrucción a ejecutar.
     int tamanio;
-    char* registros; // valores de los registros de uso general de la CPU.
+    struct Reg 
+    {
+        uint32_t ax;
+        uint32_t bx;
+        uint32_t cx;
+        uint32_t dx;
+    } registros;  // valores de los registros de uso general de la CPU.
     int prioridad;      // Prioridad del proceso
-    char* archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= RUNNING, 4 =BLOCK, 5 = FINISH.)
 } pcb;
 
