@@ -1,5 +1,4 @@
 #include <comunicacion.h>
-
 static void procesar_conexion(void* void_args) {
     t_procesar_conexion_args* args = (t_procesar_conexion_args*) void_args;
     t_log* logger = args->log;
@@ -8,55 +7,24 @@ static void procesar_conexion(void* void_args) {
     char* server_name = args->server_name;
     free(args);
 
-    op_code cop;
-    while(cliente_socket_dispatch != -1 && cliente_socket_interrupt != -1){
-        //OP CODES
-        // aca van todos los tipos de mensaje que puede recibir, indicando en cada caso que hace
-        // ver como es con los dos servidores dispatch e interrupt
-
-
-        /*
-        if (recv(cliente_socket_dispatch, &cop, sizeof(cop), 0) != sizeof(cop)) {
-    		log_info(logger, "DISCONNECT!");
-    		return;
-    	}
-
-         switch (cop) {
-            case PRUEBA:
-                log_info(logger, "mw llwgo mensaje de prueba");
-                break;
-
-            case APROBAR_OPERATIVOS:
-            {
-                uint8_t nota1, nota2;
-
-                if (!recv_aprobar_operativos(cliente_socket, &nota1, &nota2)) {
-                    log_error(logger, "Fallo recibiendo APROBAR_OPERATIVOS");
-                    break;
-                }
-
-                log_info(logger, "Aprobe operativos ");
-
-                break;
-            }
-
-            // Errores
-            case -1:
-                log_error(logger, "Cliente desconectado de %s...", server_name);
-                return;
-            default:
-                log_error(logger, "Algo anduvo mal en el server de %s", server_name);
-                return;
+    while (cliente_socket_dispatch != -1 && cliente_socket_interrupt != -1) {
+        // RECIBO LA ESTRUCTURA DE CONTEXTO DE EJECUCION
+        struct ContextoEjecucion contexto_proceso;
+        if (recv(cliente_socket_dispatch, &contexto_proceso, sizeof(struct ContextoEjecucion), 0) != sizeof(struct ContextoEjecucion)) {
+            log_info(logger, "DISCONNECT!");
+            return;
         }
-        */
-
+        
+        // PROCESO LA ESTRUCTURA RECIBIDA
+        log_info(logger, "Se recibió un contexto de ejecución desde %s", server_name);
+        log_info(logger, "PID: %u", contexto_proceso.pid);
+        log_info(logger, "Program Counter: %u", contexto_proceso.program_counter);
+        log_info(logger, "AX: %u", contexto_proceso.registros[0]);
     }
-    
 
-    log_warning(logger, "El cliente se desconecto de %s server", server_name);
+    log_warning(logger, "El cliente se desconectó de %s server", server_name);
     return;
 }
-
 
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch,int server_socket_interupt){
      int cliente_socket_dispatch = esperar_cliente(logger, server_name, server_socket_dispatch);
