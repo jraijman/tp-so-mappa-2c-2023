@@ -26,8 +26,6 @@ void ejecutarInstruccion(struct ContextoEjecucion *contexto_ejecucion,char* inst
         if (strcmp(arg1, "AX") == 0 && strcmp(arg2, "BX") == 0) {
             contexto_ejecucion->registros[0] = contexto_ejecucion->registros[0] - contexto_ejecucion->registros[1];
         }
-    } else if (strcmp(instr, "EXIT") == 0) {
-        exit(0);//ACA SE MODIFICA EL CONTEXTO_EJECUCION PARA DARLE FINALIZACION TODO DESPUES DE VER COMO ES BIEN LA ESTRUCTURA RECIBIDA
     }
 }
 
@@ -58,8 +56,14 @@ int main(int argc, char* argv[]) {
     int i=0;
     while(contexto_proceso.instrucciones[i][0]!='/0')
     {
+        if(strcmp(contexto_proceso.instrucciones[i],'EXIT') != 0)
         char instruccion[3]=string_split(contexto_proceso.instrucciones[i], " ");
         ejecutarInstruccion(&contexto_proceso,instruccion[1],instruccion[2],instruccion[3]);
+        }
+        else
+        {
+            //ejecutar exit
+        }
         i++;
     }
     //CIERRO LOG Y CONFIG y libero conexion
