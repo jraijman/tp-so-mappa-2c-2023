@@ -6,6 +6,8 @@ int main(int argc, char* argv[]) {
 
     // CONFIG y logger
     levantar_config("kernel.config");
+    iniciar_listas();
+
 
     // conexiones a cpu LLAMAR CUANDO SE CREA O INTERRUMPE UN PROCESO, NO DESDE EL INICIO
     conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
@@ -60,12 +62,12 @@ void leer_consola()
 {
 	int leido;
 	//LISTADO DE FUNCIONES
-    printf("1-INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD] \n");
-    printf("2-FINALIZAR_PROCESO [PID] \n");
+    printf("\n\n1-INICIAR_PROCESO \n");
+    printf("2-FINALIZAR_PROCESO\n");
     printf("3-DETENER_PLANIFICACION \n");
     printf("4-INICIAR_PLANIFICACION \n");
-    printf("5-MULTIPROGRAMACION [NIVEL] \n");
-    printf("6-PROCESO_ESTADO \n");
+    printf("5-MULTIPROGRAMACION\n");
+    printf("6-PROCESO_ESTADO \n\n");
     scanf("%d", &leido);
     switch (leido)
     {        
@@ -114,26 +116,35 @@ void leer_consola()
     }
 }
 
+void iniciar_listas(){
+
+//ver si no hay que usar colas
+	listaNew = list_create();
+	listaReady = list_create();
+	listaExec = list_create();
+	listaBlock = list_create();
+	listaExit = list_create();
+}
+
 void iniciar_proceso(char * path, char* size, char* prioridad)
 {
-    printf("entre a iniciar proceso \n");
-    int isize = *size - '0';
-    int iprioridad = *prioridad - '0';
+    int isize = atoi(size);
+    int iprioridad = atoi(prioridad);
     
     //generar estructura PCB
-    pcb* pcb_proceso = malloc(sizeof(pcb));
+    pcb* proceso = malloc(sizeof(pcb));
 
-    pcb_proceso->pid = contador_proceso;
-    pcb_proceso->tamanio = isize;
-    pcb_proceso->pc = 0;//arranca desde la instruccion 0
-    pcb_proceso->prioridad = iprioridad;
-    pcb_proceso->estado = 1;//arranca en NEW
-    //pcb_proceso->registros =
-    //pcb_proceso->archivos =
+    proceso->pid = contador_proceso;
+    proceso->tamanio = isize;
+    proceso->pc = 0;//arranca desde la instruccion 0
+    proceso->prioridad = iprioridad;
+    proceso->estado = 1;//arranca en NEW
+    //proceso->registros =
+    //proceso->archivos =
 
+    agregarNew(proceso);
+    log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
 
-
-    //hacer log de crear proceso
     //le sumo uno al contador que funciona como id de proceso
     contador_proceso++;
 
@@ -158,4 +169,11 @@ void multiprogramacion(/*char* grado_multiprogramacion*/)
 void proceso_estado()
 {
     printf("proceso_estado \n");
+}
+
+//OPERACIONES DE LISTAS
+void agregarNew(pcb* proceso) {
+
+	list_add(listaNew, proceso);
+
 }

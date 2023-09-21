@@ -7,6 +7,8 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
+#include <pthread.h>
+#include <semaphore.h>
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
@@ -34,14 +36,20 @@ char* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
+t_list* listaNew;
+t_list* listaReady;
+t_list* listaExec;
+t_list* listaBlock;
+t_list* listaExit;
+
 // Definición de estructura para representar un proceso (PCB)
 typedef struct {
     int pid;            // Identificador del proceso
     int pc; // Número de la próxima instrucción a ejecutar.
     int tamanio;
-    //char registros []; // valores de los registros de uso general de la CPU.
+    char* registros; // valores de los registros de uso general de la CPU.
     int prioridad;      // Prioridad del proceso
-    //char archivos []; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    char* archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= RUNNING, 4 =BLOCK, 5 = FINISH.)
 } pcb;
 
@@ -53,5 +61,9 @@ void detener_planificacion(void);
 void iniciar_planificacion(void);
 void multiprogramacion(/*char**/);
 void proceso_estado(void);
+
+void iniciar_listas();
+
+void agregarNew(pcb* proceso);
 
 #endif 
