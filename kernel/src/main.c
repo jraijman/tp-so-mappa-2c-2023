@@ -127,21 +127,23 @@ void iniciar_listas(){
 
 void iniciar_proceso(char * path, char* size, char* prioridad)
 {
-    int isize = atoi(size);
-    int iprioridad = atoi(prioridad);
-    
+        
     //generar estructura PCB
     pcb* proceso = malloc(sizeof(pcb));
 
     proceso->pid = contador_proceso;
-    proceso->tamanio = isize;
+    proceso->size = atoi(size);
     proceso->pc = 0;//arranca desde la instruccion 0
-    proceso->prioridad = iprioridad;
+    proceso->prioridad = atoi(prioridad);
     proceso->estado = 1;//arranca en NEW
-    //proceso->registros =
+    proceso->registros.ax =0;
+    proceso->registros.bx =0;
+    proceso->registros.cx =0;
+    proceso->registros.dx =0;
     //proceso->archivos =
 
     agregarNew(proceso);
+    
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
 
     //le sumo uno al contador que funciona como id de proceso
