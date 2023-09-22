@@ -19,14 +19,11 @@ int main(int argc, char* argv[]) {
     //conexion a FileSystem
     conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
 
-    //mando mensaje de prueba
-    send_aprobar_operativos(conexion_fileSystem, 1, 14);
+    //creo hilo para la consola
+    if (0 != pthread_create(&hiloConsola, NULL, leer_consola, NULL))
+        return -1;
 
-    while(true){
-        leer_consola();
-    }
-    
-
+    pthread_join(hiloConsola,NULL);
 
     // libero conexiones, log y config
     terminar_programa(logger_kernel, config);
@@ -58,61 +55,63 @@ void levantar_config(char* ruta){
     log_info(logger_kernel,"Config cargada");
 }
 
-void leer_consola()
+void * leer_consola(void * arg)
 {
-	int leido;
-	//LISTADO DE FUNCIONES
-    printf("\n\n1-INICIAR_PROCESO \n");
-    printf("2-FINALIZAR_PROCESO\n");
-    printf("3-DETENER_PLANIFICACION \n");
-    printf("4-INICIAR_PLANIFICACION \n");
-    printf("5-MULTIPROGRAMACION\n");
-    printf("6-PROCESO_ESTADO \n\n");
-    scanf("%d", &leido);
-    switch (leido)
-    {        
-    // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
-    case 1:
-        //leo de la consola los parametros separados por espacio, y los mando a la funcion
-        char * leido = readline("Ingrese PATH SIZE PRIORIDAD: ");
-        //no se si usar free
-        char * parametros[3];
-        int i = 0;
-        char *p = strtok (leido, " ");
-        while (p)
-            {
-                parametros[i++] = p;
-                p = strtok (NULL, " ");
-            }
-        iniciar_proceso(parametros[0], parametros[1], parametros[2]);
-        free(leido);  
-        free (p);
-        break;
-    //FINALIZAR_PROCESO [PID]
-    case 2:
-        char * pid = readline("Ingrese PID: ");
-        finalizar_proceso(pid);
-        free (pid);
-        break;
-    //DETENER_PLANIFICACION
-    case 3:
-        detener_planificacion();
-        break;
-    //INICIAR_PLANIFICACION
-    case 4:
-        iniciar_planificacion();
-        break;
-    //MULTIPROGRAMACION [VALOR]
-    case 5:
-        multiprogramacion(/*valor*/);
-        break;
-    //PROCESO_ESTADO
-    case 6:
-        proceso_estado();
-        break;
-    default:
-        printf("Comando incorrecto \n");
-        break;
+    while (true){
+        int leido;
+        //LISTADO DE FUNCIONES
+        printf("\n\n1-INICIAR_PROCESO \n");
+        printf("2-FINALIZAR_PROCESO\n");
+        printf("3-DETENER_PLANIFICACION \n");
+        printf("4-INICIAR_PLANIFICACION \n");
+        printf("5-MULTIPROGRAMACION\n");
+        printf("6-PROCESO_ESTADO \n\n");
+        scanf("%d", &leido);
+        switch (leido)
+        {        
+        // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
+        case 1:
+            //leo de la consola los parametros separados por espacio, y los mando a la funcion
+            char * leido = readline("Ingrese PATH SIZE PRIORIDAD: ");
+            //no se si usar free
+            char * parametros[3];
+            int i = 0;
+            char *p = strtok (leido, " ");
+            while (p)
+                {
+                    parametros[i++] = p;
+                    p = strtok (NULL, " ");
+                }
+            iniciar_proceso(parametros[0], parametros[1], parametros[2]);
+            free(leido);  
+            free (p);
+            break;
+        //FINALIZAR_PROCESO [PID]
+        case 2:
+            char * pid = readline("Ingrese PID: ");
+            finalizar_proceso(pid);
+            free (pid);
+            break;
+        //DETENER_PLANIFICACION
+        case 3:
+            detener_planificacion();
+            break;
+        //INICIAR_PLANIFICACION
+        case 4:
+            iniciar_planificacion();
+            break;
+        //MULTIPROGRAMACION [VALOR]
+        case 5:
+            multiprogramacion(/*valor*/);
+            break;
+        //PROCESO_ESTADO
+        case 6:
+            proceso_estado();
+            break;
+        default:
+            printf("Comando incorrecto \n");
+            break;
+        }
     }
 }
 

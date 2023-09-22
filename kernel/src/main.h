@@ -36,20 +36,18 @@ char* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
+//listas de estados
 t_list* listaNew;
 t_list* listaReady;
 t_list* listaExec;
 t_list* listaBlock;
 t_list* listaExit;
 
+
+// hilos
+pthread_t hiloConsola;
+
 // Definición de estructura para representar un proceso (PCB)
-
-struct Registros {
-        //aca van los registros
-        int a;
-};
-
-//estructura de PCBs
 typedef struct {
     int pid;            // Identificador del proceso
     int pc; // Número de la próxima instrucción a ejecutar.
@@ -66,7 +64,7 @@ typedef struct {
     int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= RUNNING, 4 =BLOCK, 5 = FINISH.)
 } pcb;
 
-void leer_consola();
+void* leer_consola(void * args);
 void levantar_config(char* ruta);
 void iniciar_proceso(char*, char*, char*);
 void finalizar_proceso(char*);
