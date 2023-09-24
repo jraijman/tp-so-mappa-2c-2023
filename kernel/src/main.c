@@ -20,12 +20,14 @@ int main(int argc, char* argv[]) {
     //conexion a FileSystem
     conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
 
-    //creo hilo para la consola
-    if (0 != pthread_create(&hiloConsola, NULL, leer_consola, NULL))
-        return -1;
+    // inicio hilos
+    iniciar_hilos();
 
-    pthread_join(hiloConsola,NULL);
-
+    while ((1))
+    {
+        /* code */
+    }
+   
     // libero conexiones, log y config
     terminar_programa(logger_kernel, config);
     liberar_conexion(conexion_dispatch);
@@ -116,6 +118,18 @@ void * leer_consola(void * arg)
     }
 }
 
+void iniciar_hilos(){
+    //creo hilo para la consola
+    pthread_create(&hiloConsola, NULL, leer_consola, NULL);
+
+    //creo hilo para pasar a cola de ready
+    pthread_create(&hilo_new_ready,NULL, pasarAReady, NULL);
+    pthread_detach(hiloConsola);
+    pthread_detach(hilo_new_ready);
+    
+
+}
+
 void iniciar_listas(){
 
 //ver si no hay que usar colas
@@ -145,9 +159,8 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
 
     agregarNew(proceso);
 
-    //pasar a ready si multiprogramacion permite
-    pasarAReady();
-
+     //mandar mensaje a memoria
+    send_iniciar_estructuras(conexion_memoria, proceso);
     
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
 
@@ -181,44 +194,44 @@ void proceso_estado()
 void agregarNew(pcb* proceso) {
 
 	queue_push(colaNew, proceso);
+    sem_post(&cantidad_new);
 
 }
 
-void pasarAReady(){
+void* pasarAReady(void* args){
     int valor;
     int s;
     int ss;
-    sem_getvalue(&cola_ready,&valor);
-
-    sem_wait(&cola_ready);
-
-    sem_getvalue(&cola_ready,&valor);
-
-    pcb* proceso = queue_peek(colaNew);
-
-    //cambio estado de pcb
-    proceso->estado = 2;
-
-    s = queue_size(colaNew);
-
-    //sacar de new y meter en ready
-    queue_pop(colaNew);
-
-     s = queue_size(colaNew);
-     ss = list_size(listaReady);
-    list_add(listaReady, proceso);
-
-      ss = list_size(listaReady);
-
-    //mandar mensaje a memoria
+    while(1){
+        sem_wait(&cantidad_new);
+        sem_getvalue(&cola_ready,&valor);
+        sem_wait(&cola_ready);
+        sem_getvalue(&cola_ready,&valor);
 
 
+        pcb* proceso = queue_peek(colaNew);
+        //cambio estado de pcb
+        proceso->estado = 2;
 
-    
-    
+        s = queue_size(colaNew);
+
+        //sacar de new y meter en ready
+        queue_pop(colaNew);
+
+        s = queue_size(colaNew);
+        ss = list_size(listaReady);
+        list_add(listaReady, proceso);
+
+        ss = list_size(listaReady);
+
+        printf("cantidad ready: %d", ss);
+        printf("cantidad new: %d", s);
+
+    }
 }
 
 
 void iniciar_semaforos(){
     sem_init(&cola_ready,0,grado_multiprogramacion);
+    sem_init(&cantidad_new,0,0);
 }

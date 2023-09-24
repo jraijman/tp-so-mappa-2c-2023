@@ -46,9 +46,11 @@ t_list* listaExit;
 
 //semaforos
 sem_t cola_ready;
+sem_t cantidad_new;
 
 // hilos
 pthread_t hiloConsola;
+pthread_t hilo_new_ready;
 
 // Definición de estructura para representar un proceso (PCB)
 typedef struct {
@@ -82,10 +84,10 @@ void multiprogramacion(/*char**/);
 void proceso_estado(void);
 
 void iniciar_listas();
-
+void iniciar_hilos();
 void iniciar_semaforos();
 
 void agregarNew(pcb* proceso);
-void pasarAReady();
+void * pasarAReady(void * args);
 
 #endif 
