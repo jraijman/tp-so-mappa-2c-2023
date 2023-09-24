@@ -1,12 +1,13 @@
 #include "main.h"
 
-int contador_proceso = 0;
-
 int main(int argc, char* argv[]) {
 
+    
     // CONFIG y logger
     levantar_config("kernel.config");
     iniciar_listas();
+    iniciar_semaforos();
+
 
 
     // conexiones a cpu LLAMAR CUANDO SE CREA O INTERRUMPE UN PROCESO, NO DESDE EL INICIO
@@ -50,7 +51,7 @@ void levantar_config(char* ruta){
     recursos = config_get_string_value(config,"RECURSOS");
     //es una lista VER
     instancia_recursos = config_get_string_value(config,"INSTANCIAS_RECURSOS");
-    grado_multiprogramacion = config_get_string_value(config,"GRADO_MULTIPROGRAMACION_INI");
+    grado_multiprogramacion = config_get_int_value(config,"GRADO_MULTIPROGRAMACION_INI");
     
     log_info(logger_kernel,"Config cargada");
 }
@@ -118,7 +119,7 @@ void * leer_consola(void * arg)
 void iniciar_listas(){
 
 //ver si no hay que usar colas
-	listaNew = list_create();
+	colaNew = queue_create();
 	listaReady = list_create();
 	listaExec = list_create();
 	listaBlock = list_create();
@@ -143,6 +144,10 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     //proceso->archivos =
 
     agregarNew(proceso);
+
+    //pasar a ready si multiprogramacion permite
+    pasarAReady();
+
     
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
 
@@ -175,6 +180,45 @@ void proceso_estado()
 //OPERACIONES DE LISTAS
 void agregarNew(pcb* proceso) {
 
-	list_add(listaNew, proceso);
+	queue_push(colaNew, proceso);
 
+}
+
+void pasarAReady(){
+    int valor;
+    int s;
+    int ss;
+    sem_getvalue(&cola_ready,&valor);
+
+    sem_wait(&cola_ready);
+
+    sem_getvalue(&cola_ready,&valor);
+
+    pcb* proceso = queue_peek(colaNew);
+
+    //cambio estado de pcb
+    proceso->estado = 2;
+
+    s = queue_size(colaNew);
+
+    //sacar de new y meter en ready
+    queue_pop(colaNew);
+
+     s = queue_size(colaNew);
+     ss = list_size(listaReady);
+    list_add(listaReady, proceso);
+
+      ss = list_size(listaReady);
+
+    //mandar mensaje a memoria
+
+
+
+    
+    
+}
+
+
+void iniciar_semaforos(){
+    sem_init(&cola_ready,0,grado_multiprogramacion);
 }

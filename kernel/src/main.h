@@ -7,6 +7,7 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
+#include<commons/collections/queue.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include "../../utils/src/utils/utils.h"
@@ -29,7 +30,7 @@ char* puerto_cpu_interrupt;
 char* puerto_cpu_dispatch;
 char* algoritmo_planificacion;
 char* quantum;
-char* grado_multiprogramacion;
+int grado_multiprogramacion;
 char* recursos;
 char* instancia_recursos;
 
@@ -37,12 +38,14 @@ t_log* logger_kernel;
 t_config* config;
 
 //listas de estados
-t_list* listaNew;
+t_queue* colaNew;
 t_list* listaReady;
 t_list* listaExec;
 t_list* listaBlock;
 t_list* listaExit;
 
+//semaforos
+sem_t cola_ready;
 
 // hilos
 pthread_t hiloConsola;
@@ -65,6 +68,9 @@ typedef struct {
 } pcb;
 
 
+// contador para id de procesos unico
+int contador_proceso = 0;
+
 
 void* leer_consola(void * arg);
 void levantar_config(char* ruta);
@@ -77,6 +83,9 @@ void proceso_estado(void);
 
 void iniciar_listas();
 
+void iniciar_semaforos();
+
 void agregarNew(pcb* proceso);
+void pasarAReady();
 
 #endif 
