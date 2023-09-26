@@ -1,5 +1,51 @@
 #include "./protocolo.h"
 
+// -------------------------------------OPERACIONES DE ENVIO DE PCB----------------------------------------
+
+
+static void* serializar_pid(int pid) {
+   void* stream = malloc(sizeof(int));
+    memcpy(stream, &pid, sizeof(int));
+    return stream;
+}
+
+void deserializar_pid(void* stream, int* pid) {
+    memcpy(pid, stream ,sizeof(int));
+}
+//enviar un entero, sirve para PID, pc, size
+bool send_int(int fd,int pid){
+	size_t size = sizeof(int);
+	void* stream = serializar_pid(pid);
+    if (send(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    free(stream);
+    return true;
+}
+
+//recibir un entero, sirve para PID, pc, size
+bool recv_int(int fd, int* pid) {
+    size_t size = sizeof(int);
+    void* stream = malloc(size);
+    if (recv(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+    deserializar_pid(stream, pid);
+    free(stream);
+    return true;
+}
+
+//----------------------------------------------
+
+
+
+
+
+// -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------
+
 static void* serializar_aprobar_operativos(uint8_t nota1, uint8_t nota2) {
     void* stream = malloc(sizeof(op_code) + sizeof(uint8_t) * 2);
 

@@ -41,13 +41,7 @@ typedef enum {
 
 ///
 
-bool send_aprobar_operativos(int fd, uint8_t  nota1, uint8_t  nota2);
-bool recv_aprobar_operativos(int fd, uint8_t* nota1, uint8_t* nota2);
-
-bool send_mirar_netflix(int fd, char*  peli, uint8_t  cant_pochoclos);
-bool recv_mirar_netflix(int fd, char** peli, uint8_t* cant_pochoclos);
-
-bool send_debug(int fd);
-
+bool send_int(int fd,int pid)
+bool recv_int(int fd, int* pid);
 
 #endif 

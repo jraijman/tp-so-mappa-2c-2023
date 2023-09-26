@@ -159,8 +159,8 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
 
     agregarNew(proceso);
 
-     //mandar mensaje a memoria
-    send_iniciar_estructuras(conexion_memoria, proceso);
+    //mandar mensaje a memoria
+    //send_iniciar_estructuras(conexion_memoria, );
     
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
 

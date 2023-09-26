@@ -10,6 +10,10 @@
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "../../utils/src/protocolo/protocolo.h"
+#include "main.h"
 
+
+
+send_creo_proceso(int conexion, pcb* proceso);
 
 #endif 
