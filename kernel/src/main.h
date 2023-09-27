@@ -99,6 +99,7 @@ void agregar_a_ready(pcb* proceso);
 void * pasar_new_a_ready(void * args);
 
 
-int pid_lista_ready (t_list* lista);
+char* pid_lista_ready (t_list* lista);
+
 
 #endif 

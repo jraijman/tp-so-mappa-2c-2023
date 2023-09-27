@@ -229,7 +229,7 @@ void agregar_a_ready(pcb* proceso){
     log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
 	list_add(lista_ready, proceso);
     // debe loguear los pids que hay en la cola
-	log_info(logger_kernel, "Cola Ready %s: %d",algoritmo_planificacion,list_size(lista_ready));
+	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
     //send_TAM(fd_memoria,METER_EN_MEM_PRINCIPAL);
 	//send_TAM(fd_memoria,proceso->indice_tabla_paginas);
 
@@ -268,15 +268,18 @@ void iniciar_semaforos(){
     
 
 }
+
 //------------------------------
 //imprimir pid de pćb lista de ready NO ANDA
-int pid_lista_ready (t_list* lista){
+char* pid_lista_ready (t_list* lista){
+    char pids [200] = "";
 	int size =  list_size(lista);
-    int pp;
+    strcpy(pids, "[ ");
 	for(int i = 0; i < size; i++) {
-       pcb * p= list_get(lista, i);
-       pp = p->pid;
+        pcb * p= list_get(lista, i);
+        sprintf( &pids[ strlen(pids) ],  "%d, ", p->pid );
     }
-    return 0;
+    strcat(pids, " ]");
+    return pids;
     
 }
