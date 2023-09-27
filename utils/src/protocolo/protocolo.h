@@ -17,10 +17,10 @@
 #include<pthread.h>
 
 typedef enum {
-    APROBAR_OPERATIVOS,
+    /*APROBAR_OPERATIVOS,
     MIRAR_NETFLIX,
     PRUEBA = 69,
-
+    */
     // ver si faltan (seguramente)
 
     //OP CODES DE KERNEL
@@ -41,7 +41,7 @@ typedef enum {
 
 ///
 
-bool send_int(int fd,int pid)
+bool send_int(int fd,int pid);
 bool recv_int(int fd, int* pid);
 
 #endif 

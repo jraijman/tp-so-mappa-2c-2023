@@ -46,7 +46,7 @@ bool recv_int(int fd, int* pid) {
 
 // -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------
 
-static void* serializar_aprobar_operativos(uint8_t nota1, uint8_t nota2) {
+/*static void* serializar_aprobar_operativos(uint8_t nota1, uint8_t nota2) {
     void* stream = malloc(sizeof(op_code) + sizeof(uint8_t) * 2);
 
     op_code cop = APROBAR_OPERATIVOS;
@@ -157,4 +157,4 @@ bool send_debug(int fd) {
     if (send(fd, &cop, sizeof(op_code), 0) != sizeof(op_code))
         return false;
     return true;
-}
+}*/

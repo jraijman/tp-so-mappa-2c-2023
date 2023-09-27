@@ -14,8 +14,7 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
 
-uint32_t handshake = 1;
-uint32_t result;
+
 
 int conexion_dispatch;
 int conexion_interrupt;
@@ -38,23 +37,30 @@ t_log* logger_kernel;
 t_config* config;
 
 //listas de estados
-t_queue* colaNew;
-t_list* listaReady;
-t_list* listaExec;
-t_list* listaBlock;
-t_list* listaExit;
+t_queue* cola_new;
+t_list* lista_ready;
+t_list* lista_exec;
+t_list* lista_block;
+t_list* lista_exit;
 
 //semaforos
-sem_t cola_ready;
+sem_t cantidad_multiprogramacion;
 sem_t cantidad_new;
+sem_t cantidad_ready;
+
+pthread_mutex_t mutex_new;
+pthread_mutex_t mutex_ready;
+pthread_mutex_t mutex_exec;
+pthread_mutex_t mutex_block;
+pthread_mutex_t mutex_exit;
 
 // hilos
-pthread_t hiloConsola;
+pthread_t hilo_consola;
 pthread_t hilo_new_ready;
 
 // Definición de estructura para representar un proceso (PCB)
 typedef struct {
-    int pid;            // Identificador del proceso
+    int pid; // Identificador del proceso
     int pc; // Número de la próxima instrucción a ejecutar.
     int size;
     struct Reg 
@@ -87,7 +93,12 @@ void iniciar_listas();
 void iniciar_hilos();
 void iniciar_semaforos();
 
-void agregarNew(pcb* proceso);
-void * pasarAReady(void * args);
+void agregar_a_new(pcb* proceso);
+pcb* sacar_de_new();
+void agregar_a_ready(pcb* proceso);
+void * pasar_new_a_ready(void * args);
+
+
+int pid_lista_ready (t_list* lista);
 
 #endif 

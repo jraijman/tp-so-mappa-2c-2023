@@ -120,11 +120,18 @@ void * leer_consola(void * arg)
 
 void iniciar_hilos(){
     //creo hilo para la consola
-    pthread_create(&hiloConsola, NULL, leer_consola, NULL);
+    pthread_create(&hilo_consola, NULL, leer_consola, NULL);
 
     //creo hilo para pasar a cola de ready
-    pthread_create(&hilo_new_ready,NULL, pasarAReady, NULL);
-    pthread_detach(hiloConsola);
+    pthread_create(&hilo_new_ready,NULL, pasar_new_a_ready, NULL);
+
+    //creo hilo que espera mensaje de CPU de finalizar proceso
+    //pthread_create(&hilo_new_ready,NULL, pasarAReady, NULL);
+
+
+
+
+    pthread_detach(hilo_consola);
     pthread_detach(hilo_new_ready);
     
 
@@ -133,11 +140,11 @@ void iniciar_hilos(){
 void iniciar_listas(){
 
 //ver si no hay que usar colas
-	colaNew = queue_create();
-	listaReady = list_create();
-	listaExec = list_create();
-	listaBlock = list_create();
-	listaExit = list_create();
+	cola_new = queue_create();
+	lista_ready = list_create();
+	lista_exec = list_create();
+	lista_block = list_create();
+	lista_exit = list_create();
 }
 
 void iniciar_proceso(char * path, char* size, char* prioridad)
@@ -157,12 +164,10 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->registros.dx =0;
     //proceso->archivos =
 
-    agregarNew(proceso);
+    agregar_a_new(proceso);
 
-    //mandar mensaje a memoria
-    //send_iniciar_estructuras(conexion_memoria, );
-    
-    log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
+    //MANDAR MENSAJE A MEMORIA- CREACION DE PROCESO--------------------------------
+    //send_creo_proceso(conexion_memoria, proceso);
 
     //le sumo uno al contador que funciona como id de proceso
     contador_proceso++;
@@ -190,48 +195,88 @@ void proceso_estado()
     printf("proceso_estado \n");
 }
 
-//OPERACIONES DE LISTAS
-void agregarNew(pcb* proceso) {
+//-----------------------------------OPERACIONES DE LISTAS/COLAS-------------------------------------------
+void agregar_a_new(pcb* proceso) {
+    int estado_anterior = proceso->estado;
 
-	queue_push(colaNew, proceso);
+    //uso un mutex por seccion critica
+    pthread_mutex_lock(&mutex_new);
+	queue_push(cola_new, proceso);
+    pthread_mutex_unlock(&mutex_new);
+
+    log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
+
+    proceso->estado = 1;
+    log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
     sem_post(&cantidad_new);
 
 }
+pcb* sacar_de_new(){
 
-void* pasarAReady(void* args){
-    int valor;
-    int s;
-    int ss;
+    //me fijo que hay en new para sacar y uso un mutex por seccion critica
+	sem_wait(&cantidad_new);
+	pthread_mutex_lock(&mutex_new);
+	pcb* proceso = queue_pop(cola_new);
+	pthread_mutex_unlock(&mutex_new);
+	return proceso;
+}
+
+
+void agregar_a_ready(pcb* proceso){
+    int estado_anterior = proceso->estado;
+	pthread_mutex_lock(&mutex_ready);
+    proceso->estado = 2;
+    log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
+	list_add(lista_ready, proceso);
+    // debe loguear los pids que hay en la cola
+	log_info(logger_kernel, "Cola Ready %s: %d",algoritmo_planificacion,list_size(lista_ready));
+    //send_TAM(fd_memoria,METER_EN_MEM_PRINCIPAL);
+	//send_TAM(fd_memoria,proceso->indice_tabla_paginas);
+
+	pthread_mutex_unlock(&mutex_ready);
+	sem_post(&cantidad_ready);
+}
+
+
+
+
+//-----------------------------------------------------------------------
+
+void* pasar_new_a_ready(void* args){
     while(1){
-        sem_wait(&cantidad_new);
-        sem_getvalue(&cola_ready,&valor);
-        sem_wait(&cola_ready);
-        sem_getvalue(&cola_ready,&valor);
-
-
-        pcb* proceso = queue_peek(colaNew);
-        //cambio estado de pcb
-        proceso->estado = 2;
-
-        s = queue_size(colaNew);
-
-        //sacar de new y meter en ready
-        queue_pop(colaNew);
-
-        s = queue_size(colaNew);
-        ss = list_size(listaReady);
-        list_add(listaReady, proceso);
-
-        ss = list_size(listaReady);
-
-        printf("cantidad ready: %d", ss);
-        printf("cantidad new: %d", s);
+        //verifica que el grado de multiprogramacion permite varios procesos en ready
+        sem_wait(&cantidad_multiprogramacion);
+        //saco proceso de new
+        pcb* proceso = sacar_de_new();
+        agregar_a_ready(proceso);
 
     }
 }
 
 
 void iniciar_semaforos(){
-    sem_init(&cola_ready,0,grado_multiprogramacion);
+    sem_init(&cantidad_multiprogramacion,0,grado_multiprogramacion);
     sem_init(&cantidad_new,0,0);
+    sem_init(&cantidad_ready,0,0);
+
+    //mutex de colas de planificacion
+    pthread_mutex_init(&mutex_new, NULL);
+	pthread_mutex_init(&mutex_ready, NULL);
+	pthread_mutex_init(&mutex_exec, NULL);
+    pthread_mutex_init(&mutex_block, NULL);
+	pthread_mutex_init(&mutex_exit, NULL);
+    
+
+}
+//------------------------------
+//imprimir pid de pćb lista de ready NO ANDA
+int pid_lista_ready (t_list* lista){
+	int size =  list_size(lista);
+    int pp;
+	for(int i = 0; i < size; i++) {
+       pcb * p= list_get(lista, i);
+       pp = p->pid;
+    }
+    return 0;
+    
 }
