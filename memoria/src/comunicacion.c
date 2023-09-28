@@ -18,20 +18,16 @@ static void procesar_conexion(void* void_args) {
     	}
 
          switch (cop) {
-            case PRUEBA:
-                log_info(logger, "mw llwgo mensaje de prueba");
-                break;
-
-            case APROBAR_OPERATIVOS:
+           case ENVIO_PCB:
             {
-                uint8_t nota1, nota2;
+                pcb proceso;
 
-                if (!recv_aprobar_operativos(cliente_socket, &nota1, &nota2)) {
-                    log_error(logger, "Fallo recibiendo APROBAR_OPERATIVOS");
+                if (!recv_pcb(cliente_socket, &proceso)) {
+                    log_error(logger, "Fallo recibiendo ENVIO_PCB");
                     break;
                 }
 
-                log_info(logger, "Aprobe operativos ");
+                log_info(logger, "recibi pcb id: %d, prioridad: %d", proceso.pid, proceso.prioridad);
 
                 break;
             }

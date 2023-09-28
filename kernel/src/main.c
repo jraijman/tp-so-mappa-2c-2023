@@ -126,14 +126,14 @@ void iniciar_hilos(){
     pthread_create(&hilo_new_ready,NULL, pasar_new_a_ready, NULL);
 
     //creo hilo que espera mensaje de CPU de finalizar proceso
-    //pthread_create(&hilo_new_ready,NULL, pasarAReady, NULL);
+    pthread_create(&hilo_cpu_exit, NULL, finalizar_proceso_cpu, NULL);
 
 
 
 
     pthread_detach(hilo_consola);
     pthread_detach(hilo_new_ready);
-    
+    pthread_detach(hilo_cpu_exit);
 
 }
 
@@ -157,7 +157,7 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->size = atoi(size);
     proceso->pc = 0;//arranca desde la instruccion 0
     proceso->prioridad = atoi(prioridad);
-    proceso->estado = 1;//arranca en NEW
+    proceso->estado = 0;
     proceso->registros.ax =0;
     proceso->registros.bx =0;
     proceso->registros.cx =0;
@@ -203,10 +203,8 @@ void agregar_a_new(pcb* proceso) {
     pthread_mutex_lock(&mutex_new);
 	queue_push(cola_new, proceso);
     pthread_mutex_unlock(&mutex_new);
-
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
-
-    proceso->estado = 1;
+    proceso->estado = NEW;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
     sem_post(&cantidad_new);
 
@@ -230,8 +228,6 @@ void agregar_a_ready(pcb* proceso){
 	list_add(lista_ready, proceso);
     // debe loguear los pids que hay en la cola
 	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
-    //send_TAM(fd_memoria,METER_EN_MEM_PRINCIPAL);
-	//send_TAM(fd_memoria,proceso->indice_tabla_paginas);
 
 	pthread_mutex_unlock(&mutex_ready);
 	sem_post(&cantidad_ready);
@@ -246,11 +242,16 @@ void* pasar_new_a_ready(void* args){
     while(1){
         //verifica que el grado de multiprogramacion permite varios procesos en ready
         sem_wait(&cantidad_multiprogramacion);
-        //saco proceso de new
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
+        //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
+        send_pcb(conexion_memoria, proceso);
 
     }
+}
+
+void * finalizar_proceso_cpu(void * args){
+    
 }
 
 
@@ -270,7 +271,8 @@ void iniciar_semaforos(){
 }
 
 //------------------------------
-//imprimir pid de pćb lista de ready NO ANDA
+//NO ANDA
+//imprimir pid de pćb lista de ready
 char* pid_lista_ready (t_list* lista){
     char pids [200] = "";
 	int size =  list_size(lista);

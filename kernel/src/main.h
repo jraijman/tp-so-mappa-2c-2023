@@ -57,24 +57,7 @@ pthread_mutex_t mutex_exit;
 // hilos
 pthread_t hilo_consola;
 pthread_t hilo_new_ready;
-
-// Definición de estructura para representar un proceso (PCB)
-typedef struct {
-    int pid; // Identificador del proceso
-    int pc; // Número de la próxima instrucción a ejecutar.
-    int size;
-    struct Reg 
-    {
-        uint32_t ax;
-        uint32_t bx;
-        uint32_t cx;
-        uint32_t dx;
-    } registros;  // valores de los registros de uso general de la CPU.
-    int prioridad;      // Prioridad del proceso
-    t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
-    int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= RUNNING, 4 =BLOCK, 5 = FINISH.)
-} pcb;
-
+pthread_t hilo_cpu_exit;
 
 // contador para id de procesos unico
 int contador_proceso = 0;
@@ -97,6 +80,7 @@ void agregar_a_new(pcb* proceso);
 pcb* sacar_de_new();
 void agregar_a_ready(pcb* proceso);
 void * pasar_new_a_ready(void * args);
+void * finalizar_proceso_cpu(void * args);
 
 
 char* pid_lista_ready (t_list* lista);

@@ -39,8 +39,45 @@ bool recv_int(int fd, int* pid) {
 }
 
 //----------------------------------------------
+//envio de pcb
 
+static void* serializar_pcb(pcb proceso) {
+    void* stream = malloc(sizeof(op_code) + sizeof(pcb));
 
+    op_code cop = ENVIO_PCB;
+    memcpy(stream, &cop, sizeof(op_code));
+    memcpy(stream+sizeof(op_code), &proceso, sizeof(pcb));
+    return stream;
+}
+
+static void deserializar_pcb(void* stream, pcb* proceso) {
+    memcpy(proceso, stream, sizeof(pcb));
+}
+bool send_pcb(int fd,pcb* proceso){
+    size_t size = sizeof(op_code) + sizeof(pcb);
+    void* stream = serializar_pcb(*proceso);
+    if (send(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+    free(stream);
+    return true;
+}
+
+bool recv_pcb(int fd,pcb* proceso) {
+    size_t size = sizeof(pcb);
+    void* stream = malloc(size);
+
+    if (recv(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    deserializar_pcb(stream, proceso);
+
+    free(stream);
+    return true;
+}
 
 
 

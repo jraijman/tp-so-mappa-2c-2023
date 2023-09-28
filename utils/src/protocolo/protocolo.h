@@ -16,32 +16,40 @@
 #include<assert.h>
 #include<pthread.h>
 
+#define NEW 1
+#define READY 2
+#define EXEC 3
+#define BLOCK 4
+#define EXIT 5
+// Definición de estructura para representar un proceso (PCB)
+typedef struct {
+    int pid; // Identificador del proceso
+    int pc; // Número de la próxima instrucción a ejecutar.
+    int size;
+    struct Reg 
+    {
+        uint32_t ax;
+        uint32_t bx;
+        uint32_t cx;
+        uint32_t dx;
+    } registros;  // valores de los registros de uso general de la CPU.
+    int prioridad;      // Prioridad del proceso
+    t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= EXEC, 4 =BLOCK, 5 = EXIT.)
+} pcb;
+
+
 typedef enum {
-    /*APROBAR_OPERATIVOS,
-    MIRAR_NETFLIX,
-    PRUEBA = 69,
-    */
-    // ver si faltan (seguramente)
-
-    //OP CODES DE KERNEL
-    INICIAR_ESTRUCTURA, // enviando un mensaje al módulo Memoria para que inicialice sus estructuras necesarias
-    FINALIZAR_PROCESO, //Cuando se reciba un mensaje de CPU con motivo de finalizar el proceso, dar aviso al módulo Memoria para que éste libere sus estructuras.
-    CONTEXTO_EJECUCION, // se enviará su Contexto de Ejecución al CPU a través del puerto de dispatch
-    INTERRUPCION, //se enviará una interrupción a través de la conexión de interrupt para forzar el desalojo del mismo
-    CREAR_PROCESO, //informarle a la memoria que debe crear un proceso
-    LIBERAR_ESTUCTURA, //solicitar a la memoria que libere todas las estructuras asociadas al proceso
-    PAGE_FAULT, //el módulo CPU devuelva un PCB desalojado por Page Fault
-    CARGAR_PAGINA, //Solicitar al módulo memoria que se cargue en memoria principal la página correspondiente
+   ENVIO_PCB
     
-
-
-
-
 } op_code;
 
 ///
 
 bool send_int(int fd,int pid);
 bool recv_int(int fd, int* pid);
+
+bool send_pcb(int fd,pcb* proceso);
+bool recv_pcb(int fd,pcb* proceso);
 
 #endif 
