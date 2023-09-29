@@ -13,20 +13,21 @@ void levantar_config(char* ruta){
     log_info(logger_cpu,"puerto_dispatch: %s y puerto_interrupt: %s ",puerto_dispatch,puerto_interrupt);
 }
 
-void ejecutarInstruccion(struct ContextoEjecucion *contexto_ejecucion,char* instr, char* arg1, char* arg2) {
+void ejecutarInstruccion(ContextoEjecucion *contexto_ejecucion,char* instr, char* arg1, char* arg2) {
     if (strcmp(instr, "SET") == 0) {
         if (strcmp(arg1, "AX") == 0) {
-            contexto_ejecucion->registros[0] = atoi(arg2);
+            contexto_ejecucion->registros.ax= atoi(arg2);
         }
     } else if (strcmp(instr, "SUM") == 0) {
         if (strcmp(arg1, "AX") == 0 && strcmp(arg2, "BX") == 0) {
-            contexto_ejecucion->registros[0] = contexto_ejecucion->registros[0] + contexto_ejecucion->registros[1];
+            contexto_ejecucion->registros.ax = contexto_ejecucion->registros.ax + contexto_ejecucion->registros.bx;
         }
     } else if (strcmp(instr, "SUB") == 0) {
         if (strcmp(arg1, "AX") == 0 && strcmp(arg2, "BX") == 0) {
-            contexto_ejecucion->registros[0] = contexto_ejecucion->registros[0] - contexto_ejecucion->registros[1];
+            contexto_ejecucion->registros.ax = contexto_ejecucion->registros.ax - contexto_ejecucion->registros.bx;
         }
-    }
+    }   
+    
 }
 
 int main(int argc, char* argv[]) {
@@ -47,22 +48,37 @@ int main(int argc, char* argv[]) {
     cliente_dispatch = esperar_cliente(logger_cpu,"CPU DISPATCH",fd_cpu_dispatch);
     cliente_interrupt = esperar_cliente(logger_cpu,"CPU INTERRUPT",fd_cpu_interrupt);
 
-    struct ContextoEjecucion contexto;
-    struct Instruccion instruccion;
-    struct PeticionMemoria peticion;
+    pcb contexto;
+    int bytes_recibidos=0;
+    Instruccion instruccion;
     //espero clientes kernel y memoria
     while(server_escuchar_cpu(logger_cpu,"CPU",fd_cpu_dispatch,fd_cpu_interrupt)){
-    int bytes_recibidos = recv(cliente_dispatch, &contexto, sizeof(struct ContextoEjecucion), 0);
-    if (bytes_recibidos == sizeof(struct ContextoEjecucion)) {
+    int bytes = recv(cliente_dispatch, (char*)&contexto + bytes_recibidos, sizeof(pcb) - bytes_recibidos, 0);
+    if (bytes <= 0) {
+        // Manejo de error o desconexión del cliente
+        break;
     }
+    bytes_recibidos += bytes;
+    }
+    if (bytes_recibidos == sizeof(pcb)) {
+    //Una vez que tengo el pcb del proceso copiado en contexto, hago mi logica de instrucciones y eso
     //Con el contexto de ejecucion, cargo la peticion a memoria
-    peticion->pid=contexto->pid;
-    peticion->program_counter=contexto->program_counter;
-    //Con la peticion cargada, envio el mensaje, debo implementar algun ciclo para que pida instruccion tras otra hasta que no queden mas o laburar con lista de instrucciones
-    send_peticion(conexion_cpu_memoria, &peticion->pid,&peticion->program_counter);
-    recv_instruccion(conexion_cpu_memoria,&instruccion);
-    ejecutarInstruccion(&contexto_proceso,instruccion->opcode,instruccion->operando1,instruccion->operando2);
-    //Lo de arriba ejecuta solo sum sub y set, ver de implementar exit.
+    send_peticion(conexion_cpu_memoria, &contexto.pid);
+    while (1) {
+    int bytes_instruccion = recv_instruccion(cliente_dispatch, &instruccion);
+    if (bytes_instruccion <= 0) {
+        // Se terminaron las instrucciones o se produjo un error en la recepción.
+        break;
+    }
+    if(strcmp(instruccion.opcode,"EXIT"))
+    {
+        contexto.estado=5;
+        //Devuelve el contexto
+    }
+    else
+        ejecutarInstruccion(&contexto, instruccion.opcode, instruccion.operando1, instruccion.operando2);
+    }
+    }
     //CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);

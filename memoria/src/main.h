@@ -10,6 +10,11 @@
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
+typedef struct {
+    char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
+    char operando1[25];
+    char operando2[25];
+} Instruccion;
 
 int conexion_memoria_filesystem;
 

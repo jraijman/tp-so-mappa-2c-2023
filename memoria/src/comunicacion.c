@@ -1,4 +1,4 @@
-#include <comunicacion.h>
+#include "comunicacion.h"
 
 static void procesar_conexion(void* void_args) {
     t_procesar_conexion_args* args = (t_procesar_conexion_args*) void_args;
@@ -47,7 +47,24 @@ static void procesar_conexion(void* void_args) {
     return;
 }
 
+void serializar_instruccion(const Instruccion *instruccion, void *buffer, size_t buffer_size) {
+    if (buffer_size >= sizeof(Instruccion)) {
+        memcpy(buffer, instruccion, sizeof(Instruccion));
+    }
+}
+bool send_instruccion(int socket_fd, const Instruccion *instruccion) {
+    char buffer[sizeof(Instruccion)];
+    serializar_instruccion(instruccion, buffer, sizeof(buffer));
 
+    ssize_t bytes_sent = send(socket_fd, buffer, sizeof(buffer), 0);
+    
+    if (bytes_sent == -1) {
+        perror("Error al enviar la instrucción");
+        return false;
+    }
+
+    return true;
+}
 int server_escuchar_memoria(t_log* logger,char* server_name,int server_socket){
      int cliente_socket = esperar_cliente(logger, server_name, server_socket);
 
@@ -63,4 +80,41 @@ int server_escuchar_memoria(t_log* logger,char* server_name,int server_socket){
         return 1;
     }
     return 0;
+}
+
+void insertarProcesoOrdenado(Proceso* lista, int pid, int estado, const char* rutaArchivo) {
+    Proceso* nuevoProceso = (Proceso*)malloc(sizeof(Proceso));
+    char* nombreArchivo[25];
+    nuevoProceso->pid = pid;
+    nuevoProceso->estado = estado;
+    sprintf(nombreArchivo, '%d', pid);
+    strcat(rutaArchivo, nombreArchivo);
+    strcpy(nuevoProceso->rutaArchivo, rutaArchivo);
+    nuevoProceso->siguiente = NULL;
+   
+    if (lista == NULL || pid < lista->pid) {
+        nuevoProceso->siguiente = lista;
+        lista = nuevoProceso;
+    }
+
+ 
+    Proceso* aux = lista;
+    while (aux->siguiente != NULL && aux->siguiente->pid < pid) {
+        aux = aux->siguiente;
+    }
+
+    nuevoProceso->siguiente = aux->siguiente;
+    aux->siguiente = nuevoProceso;
+
+}
+
+Proceso* buscarProcesoPorPID(Proceso* lista, int pid) {
+    Proceso* aux = lista;
+    while (aux != NULL) {
+        if (aux->pid == pid) {
+            return aux; 
+        }
+        aux = aux->siguiente;
+    }
+    return NULL; 
 }

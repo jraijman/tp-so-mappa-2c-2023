@@ -17,25 +17,35 @@ char* puerto_memoria;
 char* puerto_dispatch;
 char* puerto_interrupt;
 
-typedef struct {//Modificar en el futuro segun lo que se reciba de kernel
-    uint32_t pid;
-    uint32_t program_counter;
-    uint32_t registros[4];//Registros de uso general (AX, BX, CX, DX)
+typedef struct {
+    int pid; // Identificador del proceso
+    int pc; // Número de la próxima instrucción a ejecutar.
+    int size;
+    struct Reg 
+    {
+        uint32_t ax;
+        uint32_t bx;
+        uint32_t cx;
+        uint32_t dx;
+    } registros;  // valores de los registros de uso general de la CPU.
+    int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= EXEC, 4 =BLOCK, 5 = EXIT.)
 } ContextoEjecucion;
+
 typedef struct {
     char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
     char operando1[25];
     char operando2[25];
 } Instruccion;
+/*
 typedef struct {
     uint32_t pid;
     uint32_t program_counter;
 } PeticionMemoria;
-
+*/
 t_log* logger_cpu;
 t_config* config;
 
-void ejecutarInstruccion(char* instr, char* arg1, char* arg2);
+void ejecutarInstruccion(ContextoEjecucion*,char* instr, char* arg1, char* arg2);
 
 
 #endif 
