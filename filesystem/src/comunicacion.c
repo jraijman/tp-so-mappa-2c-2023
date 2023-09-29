@@ -18,24 +18,6 @@ static void procesar_conexion(void* void_args) {
     	}
 
          switch (cop) {
-            case PRUEBA:
-                log_info(logger, "mw llwgo mensaje de prueba");
-                break;
-
-            case APROBAR_OPERATIVOS:
-            {
-                uint8_t nota1, nota2;
-
-                if (!recv_aprobar_operativos(cliente_socket, &nota1, &nota2)) {
-                    log_error(logger, "Fallo recibiendo APROBAR_OPERATIVOS");
-                    break;
-                }
-
-                log_info(logger, "Aprobe operativos ");
-
-                break;
-            }
-
             // Errores
             case -1:
                 log_error(logger, "Cliente desconectado de %s...", server_name);
