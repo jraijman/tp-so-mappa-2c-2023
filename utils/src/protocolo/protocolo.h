@@ -41,7 +41,6 @@ typedef struct {
 
 typedef enum {
    ENVIO_PCB
-    
 } op_code;
 
 ///

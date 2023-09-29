@@ -22,7 +22,6 @@ int main(int argc, char* argv[]) {
 
     // inicio hilos
     iniciar_hilos();
-
     while ((1))
     {
         /* code */
@@ -123,7 +122,10 @@ void iniciar_hilos(){
     pthread_create(&hilo_consola, NULL, leer_consola, NULL);
 
     //creo hilo para pasar a cola de ready
-    pthread_create(&hilo_new_ready,NULL, pasar_new_a_ready, NULL);
+    pthread_create(&hilo_new_ready, NULL, pasar_new_a_ready, NULL);
+
+    //creo hilo para la planificacion a corto plazo
+    pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
 
     //creo hilo que espera mensaje de CPU de finalizar proceso
     pthread_create(&hilo_cpu_exit, NULL, finalizar_proceso_cpu, NULL);
@@ -133,6 +135,7 @@ void iniciar_hilos(){
 
     pthread_detach(hilo_consola);
     pthread_detach(hilo_new_ready);
+    pthread_detach(hilo_plan_corto);
     pthread_detach(hilo_cpu_exit);
 
 }
@@ -142,9 +145,9 @@ void iniciar_listas(){
 //ver si no hay que usar colas
 	cola_new = queue_create();
 	lista_ready = list_create();
-	lista_exec = list_create();
-	lista_block = list_create();
-	lista_exit = list_create();
+	lista_exec = list_create(); //preguntar
+	lista_block = list_create(); //preguntar
+	lista_exit = list_create(); //preguntar
 }
 
 void iniciar_proceso(char * path, char* size, char* prioridad)
@@ -227,7 +230,7 @@ void agregar_a_ready(pcb* proceso){
     log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
 	list_add(lista_ready, proceso);
     // debe loguear los pids que hay en la cola
-	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
+	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,"NO ANDA LA LISTA");
 
 	pthread_mutex_unlock(&mutex_ready);
 	sem_post(&cantidad_ready);
@@ -246,12 +249,45 @@ void* pasar_new_a_ready(void* args){
         agregar_a_ready(proceso);
         //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
         send_pcb(conexion_memoria, proceso);
-
     }
 }
 
-void * finalizar_proceso_cpu(void * args){
+void* planif_corto_plazo(void* args){
+    while(1){
+        pthread_mutex_lock(&mutex_exec);
+        pcb* procesoAEjecutar = obtenerSiguienteFIFO();
     
+        if(procesoAEjecutar != NULL) {
+        printf("el pcb es %d", procesoAEjecutar->pid);
+        int estado_anterior = procesoAEjecutar->estado;
+        //procesoAEjecutar le cambiamos el estado a 3
+        log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",procesoAEjecutar->pid,estado_anterior,procesoAEjecutar->estado);
+        //mandar proceso a CPU
+        //esperamos a bloqueo o a exit
+        //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
+        //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
+
+        pthread_mutex_unlock(&mutex_exec);
+        }
+    }
+}
+
+pcb* obtenerSiguienteFIFO(){
+
+	pcb* procesoPlanificado = NULL;
+
+	pthread_mutex_lock(&mutex_ready);
+    if (list_size(lista_ready) > 0){
+	procesoPlanificado = list_remove(lista_ready, 0);
+    }
+    pthread_mutex_unlock(&mutex_ready);
+
+	return procesoPlanificado;
+}
+
+//---------------------------------------------------------------
+void * finalizar_proceso_cpu(void * args){
+
 }
 
 
@@ -273,7 +309,7 @@ void iniciar_semaforos(){
 //------------------------------
 //NO ANDA
 //imprimir pid de pćb lista de ready
-char* pid_lista_ready (t_list* lista){
+/*char* pid_lista_ready (t_list* lista){
     char pids [200] = "";
 	int size =  list_size(lista);
     strcpy(pids, "[ ");
@@ -285,3 +321,4 @@ char* pid_lista_ready (t_list* lista){
     return pids;
     
 }
+*/

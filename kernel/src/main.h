@@ -58,6 +58,7 @@ pthread_mutex_t mutex_exit;
 pthread_t hilo_consola;
 pthread_t hilo_new_ready;
 pthread_t hilo_cpu_exit;
+pthread_t hilo_plan_corto;
 
 // contador para id de procesos unico
 int contador_proceso = 0;
@@ -81,6 +82,8 @@ pcb* sacar_de_new();
 void agregar_a_ready(pcb* proceso);
 void * pasar_new_a_ready(void * args);
 void * finalizar_proceso_cpu(void * args);
+void * planif_corto_plazo(void* args);
+pcb* obtenerSiguienteFIFO();
 
 
 char* pid_lista_ready (t_list* lista);
