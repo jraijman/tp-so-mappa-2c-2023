@@ -88,6 +88,6 @@ pcb* obtenerSiguienteFIFO();
 
 
 char* pid_lista_ready (t_list* lista);
-
+const char *estado_proceso_a_char(int numero);
 
 #endif 

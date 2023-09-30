@@ -198,7 +198,7 @@ void proceso_estado()
 
 //-----------------------------------OPERACIONES DE LISTAS/COLAS-------------------------------------------
 void agregar_a_new(pcb* proceso) {
-    int estado_anterior = proceso->estado;
+    const char* estado_anterior = estado_proceso_a_char(proceso->estado);
 
     //uso un mutex por seccion critica
     pthread_mutex_lock(&mutex_new);
@@ -206,7 +206,7 @@ void agregar_a_new(pcb* proceso) {
     pthread_mutex_unlock(&mutex_new);
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
     proceso->estado = NEW;
-    log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
+    log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
     sem_post(&cantidad_new);
 
 }
@@ -222,10 +222,10 @@ pcb* sacar_de_new(){
 
 
 void agregar_a_ready(pcb* proceso){
-    int estado_anterior = proceso->estado;
+    const char* estado_anterior = estado_proceso_a_char(proceso->estado);
 	pthread_mutex_lock(&mutex_ready);
     proceso->estado = 2;
-    log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
+    log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
 	list_add(lista_ready, proceso);
     // debe loguear los pids que hay en la cola
 	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
@@ -257,9 +257,9 @@ void* planif_corto_plazo(void* args){
     
         if(procesoAEjecutar != NULL) {
         printf("el pcb es %d", procesoAEjecutar->pid);
-        int estado_anterior = procesoAEjecutar->estado;
+        const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
         //procesoAEjecutar le cambiamos el estado a 3
-        log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",procesoAEjecutar->pid,estado_anterior,procesoAEjecutar->estado);
+        log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
         //mandar proceso a CPU
         //esperamos a bloqueo o a exit
         //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
@@ -319,19 +319,54 @@ t_list* config_list_to_t_list(t_config* config, char* nombre){
 }
 
 //------------------------------
-//ver de asignar bien la memoria
-char pids [200] = "";
 //imprimir pid de pćb lista de ready
 char* pid_lista_ready (t_list* lista){
 	int size =  list_size(lista);
-    strcpy(pids, "[ ");
-	for(int i = 0; i < size; i++) {
-        pcb * p= list_get(lista, i);
-        sprintf( &pids[ strlen(pids) ],  "%d, ", p->pid );
+    // Calcular el tamaño necesario para la cadena resultante
+    int tamanoCadena = 0;
+    for (int i = 0; i < size; i++) {
+        pcb * elemento = list_get(lista, i);
+        tamanoCadena += snprintf(NULL, 0, "%d,", elemento->pid);
     }
-    pids[strlen(pids) - 2] = '\0';
-    strcat(pids, " ]");
-    return pids;
-    
+    // Alocar memoria para la cadena
+    char* cadenaIds = (char*)malloc(tamanoCadena + 1); // +1 para el carácter nulo '\0'
+     if (cadenaIds == NULL) {
+        // Manejo de error en caso de que no se pueda alocar memoria
+        printf("Error al alocar memoria para la cadena de IDs");
+        exit(1);
+    }
+    // Construir la cadena con los IDs separados por comas
+    cadenaIds[0] = '[';
+    int indice = 1;
+    for (int i = 0; i < size; i++) {
+        pcb * elemento =list_get(lista, i);
+        int caracteresEscritos = snprintf(cadenaIds + indice, tamanoCadena - indice + 1, "%d,", elemento->pid);
+        if (caracteresEscritos < 0) {
+            // Manejo de error en caso de que snprintf falle
+            printf("Error al formatear la cadena de IDs");
+            exit(1);
+        }
+        indice += caracteresEscritos;
+    }
+ // Eliminar la última coma
+    cadenaIds[indice - 1] = ']';
+    cadenaIds[indice] = '\0';
+    return cadenaIds; 
 }
 
+const char *estado_proceso_a_char(int numero) {
+    switch (numero) {
+        case 1:
+            return "NEW";
+        case 2:
+            return "READY";
+        case 3:
+            return "EXEC";
+        case 4:
+            return "BLOCK";
+        case 5:
+            return "EXIT";
+        default:
+            return "-";
+    }
+}
