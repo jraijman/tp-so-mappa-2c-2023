@@ -228,7 +228,7 @@ void agregar_a_ready(pcb* proceso){
     log_info(logger_kernel, "PID: %d - Estado Anterior: %d - Estado Actual: %d",proceso->pid,estado_anterior,proceso->estado);
 	list_add(lista_ready, proceso);
     // debe loguear los pids que hay en la cola
-	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,"NO ANDA LA LISTA");
+	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
 
 	pthread_mutex_unlock(&mutex_ready);
 	sem_post(&cantidad_ready);
@@ -319,18 +319,19 @@ t_list* config_list_to_t_list(t_config* config, char* nombre){
 }
 
 //------------------------------
-//NO ANDA
+//ver de asignar bien la memoria
+char pids [200] = "";
 //imprimir pid de pćb lista de ready
-/*char* pid_lista_ready (t_list* lista){
-    char pids [200] = "";
+char* pid_lista_ready (t_list* lista){
 	int size =  list_size(lista);
     strcpy(pids, "[ ");
 	for(int i = 0; i < size; i++) {
         pcb * p= list_get(lista, i);
         sprintf( &pids[ strlen(pids) ],  "%d, ", p->pid );
     }
+    pids[strlen(pids) - 2] = '\0';
     strcat(pids, " ]");
     return pids;
     
 }
-*/
+
