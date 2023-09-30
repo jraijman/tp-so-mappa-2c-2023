@@ -30,8 +30,8 @@ char* puerto_cpu_dispatch;
 char* algoritmo_planificacion;
 char* quantum;
 int grado_multiprogramacion;
-char* recursos;
-char* instancia_recursos;
+t_list* recursos;
+t_list* instancia_recursos;
 
 t_log* logger_kernel;
 t_config* config;
@@ -66,6 +66,7 @@ int contador_proceso = 0;
 
 void* leer_consola(void * arg);
 void levantar_config(char* ruta);
+t_list* config_list_to_t_list(t_config* config, char* nombre);
 void iniciar_proceso(char*, char*, char*);
 void finalizar_proceso(char*);
 void detener_planificacion(void);

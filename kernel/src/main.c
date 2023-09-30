@@ -48,11 +48,9 @@ void levantar_config(char* ruta){
     puerto_cpu_interrupt = config_get_string_value(config,"PUERTO_CPU_INTERRUPT");
     algoritmo_planificacion = config_get_string_value(config,"ALGORITMO_PLANIFICACION");
     quantum = config_get_string_value(config,"QUANTUM");
-    //es una lista VER
-    recursos = config_get_string_value(config,"RECURSOS");
-    //es una lista VER
-    instancia_recursos = config_get_string_value(config,"INSTANCIAS_RECURSOS");
-    grado_multiprogramacion = config_get_int_value(config,"GRADO_MULTIPROGRAMACION_INI");
+    recursos = config_list_to_t_list(config, "RECURSOS"); //es una t_list
+    instancia_recursos = config_list_to_t_list(config, "INSTANCIAS_RECURSOS"); //es una t_list
+    grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
     
     log_info(logger_kernel,"Config cargada");
 }
@@ -304,6 +302,20 @@ void iniciar_semaforos(){
 	pthread_mutex_init(&mutex_exit, NULL);
     
 
+}
+
+t_list* config_list_to_t_list(t_config* config, char* nombre){
+    t_list* lista = list_create();
+    char** array_auxiliar;
+    char* string_auxiliar;
+    int i = 0;
+    array_auxiliar = config_get_array_value(config, nombre);
+    while (array_auxiliar[i] != NULL) {
+        string_auxiliar = array_auxiliar[i];
+        list_add(lista, string_auxiliar);
+        i++;
+    }
+    return lista;
 }
 
 //------------------------------
