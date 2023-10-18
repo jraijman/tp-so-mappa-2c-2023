@@ -1,7 +1,6 @@
 #include "comunicacion.h"
-
 static void procesar_conexion(void* void_args) {
-    t_procesar_conexion_args* args = (t_procesar_conexion_args*) void_args;
+    t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
     t_log* logger = args->log;
     int cliente_socket_dispatch = args->fd_dispatch;
     int cliente_socket_interrupt = args->fd_interrupt;
@@ -9,14 +8,14 @@ static void procesar_conexion(void* void_args) {
     free(args);
 
     while (cliente_socket_dispatch != -1 && cliente_socket_interrupt != -1) {
-        // RECIBO LA ESTRUCTURA DE CONTEXTO DE EJECUCION
         pcb contexto_proceso;
-        if (recv(cliente_socket_dispatch, &contexto_proceso, sizeof(ContextoEjecucion), 0) != sizeof(ContextoEjecucion)) {
-            log_info(logger, "DISCONNECT!");
-            return;
+        ssize_t bytes_received = recv(cliente_socket_dispatch, &contexto_proceso, sizeof(pcb), 0);
+        if (bytes_received <= 0) {
+            log_info(logger, "Cliente desconectado de %s", server_name);
+            break;
         }
-        
-        // PROCESO LA ESTRUCTURA RECIBIDA
+
+        // Procesar la estructura contexto_proceso
         log_info(logger, "Se recibió un contexto de ejecución desde %s", server_name);
         log_info(logger, "PID: %u", contexto_proceso.pid);
         log_info(logger, "Program Counter: %u", contexto_proceso.pc);
@@ -24,7 +23,6 @@ static void procesar_conexion(void* void_args) {
     }
 
     log_warning(logger, "El cliente se desconectó de %s server", server_name);
-    return;
 }
 
 
@@ -32,26 +30,30 @@ void deserializar_instruccion(const void *buffer, Instruccion *instruccion) {
     memcpy(instruccion, buffer, sizeof(Instruccion));
 }
 
-bool recv_instruccion(int socket_fd, Instruccion *instruccion) {
+bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibidos, t_log *logger) {
     char buffer[sizeof(Instruccion)];
 
     ssize_t bytes_received = recv(socket_fd, buffer, sizeof(buffer), 0);
 
     if (bytes_received == -1) {
-        perror("Error al recibir la instrucción");
+        log_error(logger, "Error al recibir la instrucción");
+        *bytes_recibidos = -1;
         return false;
     } else if (bytes_received == 0) {
+        log_info(logger, "Cliente desconectado");
+        *bytes_recibidos = 0;
         return false;
     }
 
     deserializar_instruccion(buffer, instruccion);
+    *bytes_recibidos = (int)bytes_received;
 
     return true;
 }
 
-bool send_peticion(int fd, int pid) {
-    size_t size = sizeof(int);
-    if (send(fd, &pid, size, 0) != size) {
+bool send_pcb(int fd, pcb contexto) {
+    size_t size = sizeof(pcb);
+    if (send(fd, &contexto, size, 0) != size) {
         return false;
     }
     return true;
