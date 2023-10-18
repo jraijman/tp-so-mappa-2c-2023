@@ -15,7 +15,6 @@ void levantar_config(char* ruta) {
 
 void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
     log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto_ejecucion->pid, instruccion.opcode, instruccion.operando1, instruccion.operando2);
-
     if (strcmp(instruccion.opcode, "SET") == 0) {
         if (strcmp(instruccion.operando1, "AX") == 0) {
             contexto_ejecucion->registros.ax = atoi(instruccion.operando2);
@@ -28,21 +27,50 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
         if (strcmp(instruccion.operando1, "AX") == 0 && strcmp(instruccion.operando2, "BX") == 0) {
             contexto_ejecucion->registros.ax = contexto_ejecucion->registros.ax - contexto_ejecucion->registros.bx;
         }
+    } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
+        // Instrucción SLEEP: Bloquear el proceso y devolver el tiempo de bloqueo
+        strcpy(tiempo_bloqueo,instruccion.operando1);
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SLEEP", tiempo_bloqueo);
+    } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
+        strcpy(recurso, instruccion.operando1);
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "WAIT",recurso)
+    } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
+        // Instrucción SIGNAL: Solicitar liberación de un recurso al Kernel
+        strcpy(recurso, instruccion.operando1);
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SIGNAL",recurso)
     }
+    else if (strcmp(instruccion.opcode, "EXIT") == 0) {
+        contexto_ejecucion->estado=5;
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "EXIT", //algo);
 }
 
-void decodeInstruccion(Instruccion instruccion, bool &pageFault) {
-    if (strcmp(instruccion.opcode, "MOV_IN") == 0 || strcmp(instruccion.opcode, "MOV_OUT") == 0 ||
-        strcmp(instruccion.opcode, "F_READ") == 0 || strcmp(instruccion.opcode, "F_WRITE") == 0 ||
-        strcmp(instruccion.opcode, "F_TRUNCATE") == 0) {
-        pageFault=traducir(&instruccion);
+char* traducir(char* direccion_logica)
+{
+    // Calcula el número de página y el desplazamiento
+    int numero_pagina = atoi(direccion_logica) / TAMANO_PAGINA;
+    int desplazamiento = direccion_logica - numero_pagina * TAMANO_PAGINA;
+
+    int numero_marco = pedir_marco(conexion_cpu_memoria, numero_pagina);
+    
+    int direccion_fisica = numero_marco * TAMANO_PAGINA + desplazamiento;
+
+    return direccion_fisica;
+}
+
+void decodeInstruccion(Instruccion &instruccion) {
+    if (strcmp(instruccion.opcode, "MOV_IN") == 0 ||
+        strcmp(instruccion.opcode, "F_READ") == 0 || strcmp(instruccion.opcode, "F_WRITE") == 0){
+        strcpy(instruccion.operando2,traducir(instruccion.operando2))
+    }else if (strcmp(instruccion.opcode, "MOV_OUT") == 0)
+    {
+        strcpy(instruccion.operando1,traducir(instruccion.operando1));
     }
+    return;
 }
 
 bool fetchInstruccion(int fd, pcb contexto, Instruccion* instruccion, t_log* logger) {
     if (recv_instruccion(fd, instruccion, logger)) {
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto.pid, contexto.pc);
-        contexto.pc++;
         return true;
     } else {
         log_error(logger, "Error al recibir la instrucción");
@@ -81,23 +109,19 @@ int main(int argc, char* argv[]) {
         bytes_recibidos += bytes;
     }
     bool instrucciones=true;
-    bool pageFault=false;
     if (bytes_recibidos == sizeof(pcb)) {
         // Ya tengo el PCB, entonces voy a pedir instrucciones hasta que llegue una interrupción que desaloje al proceso.
         while (interrupciones <= 0 && instrucciones) {
             if (fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger_cpu)) {
                 decodeInstruccion(instruccion, &pageFault)
-                if(pageFault==false)
+                if(strcmp(instruccion.operando1,"PAGE FAULT")==0 || strcmp(instruccion.operando2,"PAGE FAULT")==0)
                 {
-                    executeInstruccion(&contexto, instruccion);
+                    //Manejo de page fault
                 }
                 else{
-                    //manejo de page fault
+                    contexto.pc++;
+                    executeInstruccion(&contexto, instruccion);
                 }
-            } else {
-                instrucciones=false;
-                break;
-            }
         //Veo si llegó alguna interrupcion mientras ejecutaba
             if (cliente_socket_interrupt != -1) {
                 interrupciones++;}  

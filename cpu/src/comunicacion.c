@@ -30,6 +30,23 @@ void deserializar_instruccion(const void *buffer, Instruccion *instruccion) {
     memcpy(instruccion, buffer, sizeof(Instruccion));
 }
 
+int pedir_marco(int conexion_cpu_memoria, int numero_pagina)
+{
+    if (send(conexion_cpu_memoria, numero_pagina, sizeof(int), 0) < 0) {
+        perror("Error al enviar la solicitud");
+        return -1;
+    }
+
+    // Recibir la respuesta del servidor de memoria (el número de marco)
+    int numero_de_marco;
+    if (recv(conexion_cpu_memoria, &numero_de_marco, sizeof(int), 0) <= 0) {
+        perror("Error al recibir el número de marco");
+        return -1;
+    }
+
+    return numero_de_marco;
+}
+
 bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibidos, t_log *logger) {
     char buffer[sizeof(Instruccion)];
 

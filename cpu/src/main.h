@@ -25,7 +25,6 @@ typedef struct {
 t_log* logger_cpu;
 t_config* config;
 
-void ejecutarInstruccion(ContextoEjecucion*,char* instr, char* arg1, char* arg2);
-
+void executeInstruccion(pcb*,Instruccion instruccion);
 
 #endif 
