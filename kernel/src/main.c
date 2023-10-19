@@ -153,7 +153,7 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
         
     //generar estructura PCB
     pcb* proceso = malloc(sizeof(pcb));
-
+    
     proceso->pid = contador_proceso;
     proceso->size = atoi(size);
     proceso->pc = 0;//arranca desde la instruccion 0
@@ -163,7 +163,7 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->registros.bx =0;
     proceso->registros.cx =0;
     proceso->registros.dx =0;
-    //proceso->archivos =
+    memcpy(proceso->path, path, 256);
 
     agregar_a_new(proceso);
 
@@ -235,16 +235,15 @@ void agregar_a_ready(pcb* proceso){
 }
 
 
-
-
 //-----------------------------------------------------------------------
 
 void* pasar_new_a_ready(void* args){
     while(1){
-        //verifica que el grado de multiprogramacion permite varios procesos en ready
+        //verifica que el grado de multiprogramacion persmite varios procesos en ready
         sem_wait(&cantidad_multiprogramacion);
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
+        //printf("path = %s ",proceso->path);
         //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
         send_pcb(conexion_memoria, proceso);
     }
@@ -252,23 +251,30 @@ void* pasar_new_a_ready(void* args){
 
 void* planif_corto_plazo(void* args){
     while(1){
-        pthread_mutex_lock(&mutex_exec);
-        pcb* procesoAEjecutar = obtenerSiguienteFIFO();
-    
-        if(procesoAEjecutar != NULL) {
-        printf("el pcb es %d", procesoAEjecutar->pid);
-        const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
-        //procesoAEjecutar le cambiamos el estado a 3
-        log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
-        //mandar proceso a CPU
-        //esperamos a bloqueo o a exit
-        //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
-        //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
+        if(strcmp(algoritmo_planificacion,"FIFO")){
+            pthread_mutex_lock(&mutex_exec);
+            pcb* procesoAEjecutar = obtenerSiguienteFIFO();
+            if(procesoAEjecutar != NULL) {
+            printf("el pcb es %d", procesoAEjecutar->pid);
+            const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
+            //procesoAEjecutar le cambiamos el estado a 3
+            log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
+            //mandar proceso a CPU
+            //esperamos a bloqueo o a exit
+            //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
+            //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
 
-        pthread_mutex_unlock(&mutex_exec);
+            pthread_mutex_unlock(&mutex_exec);
+            }
+        if(strcmp(algoritmo_planificacion,"PRIORIDADES")){}
+            //procesoPlanificado = obtenerSiguientePRIORIDADES();
+            }
+        if(strcmp(algoritmo_planificacion,"RR")){
+            //procesoPlanificado = obtenerSiguienteRR();
         }
     }
 }
+
 
 pcb* obtenerSiguienteFIFO(){
 
@@ -285,7 +291,9 @@ pcb* obtenerSiguienteFIFO(){
 
 //---------------------------------------------------------------
 void * finalizar_proceso_cpu(void * args){
-
+    while(1){
+        //recv pcb para mandar a exit
+    }
 }
 
 

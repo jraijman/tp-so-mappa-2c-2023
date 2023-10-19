@@ -61,6 +61,7 @@ bool send_pcb(int fd,pcb* proceso){
         return false;
     }
     free(stream);
+    printf(" envio pcb a memoria ");
     return true;
 }
 
@@ -78,7 +79,6 @@ bool recv_pcb(int fd,pcb* proceso) {
     free(stream);
     return true;
 }
-
 
 
 // -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------

@@ -36,6 +36,8 @@ typedef struct {
     int prioridad;      // Prioridad del proceso
     t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= EXEC, 4 =BLOCK, 5 = EXIT.)
+    char path[256];
+
 } pcb;
 
 
