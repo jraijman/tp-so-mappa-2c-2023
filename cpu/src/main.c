@@ -29,25 +29,29 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
         }
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
         // Instrucción SLEEP: Bloquear el proceso y devolver el tiempo de bloqueo
+        int tiempo_bloqueo;
         strcpy(tiempo_bloqueo,instruccion.operando1);
         enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SLEEP", tiempo_bloqueo);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
+        char recurso;
         strcpy(recurso, instruccion.operando1);
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "WAIT",recurso)
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "WAIT",recurso);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
         // Instrucción SIGNAL: Solicitar liberación de un recurso al Kernel
+        char recurso;
         strcpy(recurso, instruccion.operando1);
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SIGNAL",recurso)
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SIGNAL",recurso);
     }
     else if (strcmp(instruccion.opcode, "EXIT") == 0) {
+        //sacar despues de definir algo porque esta puesto para que no tire error
+        int algo;
         contexto_ejecucion->estado=5;
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "EXIT", //algo);
+        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "EXIT", algo);
+    }
 }
-
-char* traducir(char* direccion_logica)
-{
+char* traducir(char* direccion_logica){
     // Calcula el número de página y el desplazamiento
-    int numero_pagina = atoi(direccion_logica) / TAMANO_PAGINA;
+    int numero_pagina = atoi(direccion_logica) / TAMANO_PAGINA;//no esta definido tamanio de pagina
     int desplazamiento = direccion_logica - numero_pagina * TAMANO_PAGINA;
 
     int numero_marco = pedir_marco(conexion_cpu_memoria, numero_pagina);
@@ -57,10 +61,10 @@ char* traducir(char* direccion_logica)
     return direccion_fisica;
 }
 
-void decodeInstruccion(Instruccion &instruccion) {
+void decodeInstruccion(Instruccion instruccion) {
     if (strcmp(instruccion.opcode, "MOV_IN") == 0 ||
         strcmp(instruccion.opcode, "F_READ") == 0 || strcmp(instruccion.opcode, "F_WRITE") == 0){
-        strcpy(instruccion.operando2,traducir(instruccion.operando2))
+        strcpy(instruccion.operando2,traducir(instruccion.operando2));
     }else if (strcmp(instruccion.opcode, "MOV_OUT") == 0)
     {
         strcpy(instruccion.operando1,traducir(instruccion.operando1));
@@ -97,10 +101,10 @@ int main(int argc, char* argv[]) {
     pcb contexto;
     int bytes_recibidos = 0;
     Instruccion instruccion;
-
+    int interrupciones = 0;
+    bool instrucciones=true;
     // Espero al kernel
     while (server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt)) {
-        int interrupciones = 0;
         int bytes = recv(cliente_dispatch, (char*)&contexto + bytes_recibidos, sizeof(pcb) - bytes_recibidos, 0);
         if (bytes <= 0) {
             // Manejo de error o desconexión del cliente
@@ -108,12 +112,11 @@ int main(int argc, char* argv[]) {
         }
         bytes_recibidos += bytes;
     }
-    bool instrucciones=true;
     if (bytes_recibidos == sizeof(pcb)) {
         // Ya tengo el PCB, entonces voy a pedir instrucciones hasta que llegue una interrupción que desaloje al proceso.
         while (interrupciones <= 0 && instrucciones) {
             if (fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger_cpu)) {
-                decodeInstruccion(instruccion, &pageFault)
+                decodeInstruccion(instruccion, &pageFault);
                 if(strcmp(instruccion.operando1,"PAGE FAULT")==0 || strcmp(instruccion.operando2,"PAGE FAULT")==0)
                 {
                     //Manejo de page fault
@@ -123,8 +126,8 @@ int main(int argc, char* argv[]) {
                     executeInstruccion(&contexto, instruccion);
                 }
         //Veo si llegó alguna interrupcion mientras ejecutaba
-            if (cliente_socket_interrupt != -1) {
-                interrupciones++;}  
+            if (cliente_interrupt != -1) 
+                interrupciones++;  
         }
         if (interrupciones != 0)
         {
@@ -137,5 +140,6 @@ int main(int argc, char* argv[]) {
         // CIERRO LOG Y CONFIG y libero conexión
         terminar_programa(logger_cpu, config);
         liberar_conexion(conexion_cpu_memoria);
+        }
     }
-}
+}   

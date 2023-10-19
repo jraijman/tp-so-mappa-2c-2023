@@ -32,7 +32,7 @@ void deserializar_instruccion(const void *buffer, Instruccion *instruccion) {
 
 int pedir_marco(int conexion_cpu_memoria, int numero_pagina)
 {
-    if (send(conexion_cpu_memoria, numero_pagina, sizeof(int), 0) < 0) {
+    if (send(conexion_cpu_memoria, &numero_pagina, sizeof(int), 0) < 0) {
         perror("Error al enviar la solicitud");
         return -1;
     }

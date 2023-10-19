@@ -95,3 +95,47 @@ int main(int argc, char *argv[])
     terminar_programa(logger_memoria, config);
     liberar_conexion(conexion_memoria_filesystem);
 }
+
+void liberar_marco(t_marco* marco){
+    
+    log_info(logger_memoria,"se libera el marco:%d, con el proceso:%d",marco->num_marco,marco->pid);
+    marco->ocupado = false;
+    marco->pid = -1;
+}
+
+t_marco* marco_create(uint32_t numero_marco, uint32_t pid,bool estado_marco){
+    t_marco* marco = malloc(sizeof(t_marco));
+    marco->pid = pid;
+    marco->ocupado = estado_marco;
+    marco->num_marco = numero_marco;
+}
+int reservar_primer_marco_libre(int pid){
+    for(int i = 0; i < list_size(l_marco);i++){
+        t_marco* marco = list_get(l_marco,i);
+        if(!marco->ocupado){
+            marco->ocupado = true;
+            marco->pid = pid;
+            return marco->num_marco;
+        }
+    }
+    return -1;
+}
+int enviar_marco_a_cpu(int conexion_cpu_memoria,int numero_pagina,t_marco* l_marco, int numero_marcos){
+
+    int numero_de_marco = -1;
+    //Tenemos que hacer un for para buscar el numero marco en el numero de pagina
+    for(int i = 0; i < numero_marcos ; i++){
+        if(l_marco[i].ocupado && l_marco[i].pid == numero_pagina){
+            numero_de_marco = l_marco[i].num_marco;
+        }
+    }
+    if(numero_de_marco = -1){
+        perror("No se encontro numero de marco");
+        return -1;
+    }
+    if(send(conexion_cpu_memoria,&numero_de_marco,sizeof(int),0)< 0){
+        perror("Error al enviar el numero de marco a la CPU");
+        return -1;
+    }
+    return numero_de_marco;
+}
