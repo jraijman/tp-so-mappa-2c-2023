@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
     Instruccion instruccion;
     int interrupciones = 0;
 
-    // Espero al kernel
+    // Espero msjs
     while (server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt)) {
         int bytes = recv(cliente_dispatch, (char*)&contexto + bytes_recibidos, sizeof(pcb) - bytes_recibidos, 0);
         if (bytes <= 0) {
