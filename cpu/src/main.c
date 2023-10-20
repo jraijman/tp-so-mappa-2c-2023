@@ -31,22 +31,22 @@ void executeInstruccion(pcb contexto_ejecucion, Instruccion instruccion) {
         pcbDes.contexto=contexto_ejecucion;
         pcbDes.instruccion="SLEEP";
         pcbDes.extra=instruccion.operando1;
-        enviarPCB(pcbDes, fd_cpu_dispatch);
+        send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
         pcbDes.contexto=contexto_ejecucion;
         pcbDes.instruccion="WAIT";
         pcbDes.extra=instruccion.operando1;
-        enviarPCB(pcbDes, fd_cpu_dispatch);
+        send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
         pcbDes.contexto=contexto_ejecucion;
         pcbDes.instruccion="SIGNAL";
         pcbDes.extra=instruccion.operando1;
-        enviarPCB(pcbDes, fd_cpu_dispatch);
+        send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
         pcbDes.contexto=contexto_ejecucion;
         pcbDes.instruccion="EXIT";
         pcbDes.extra="";
-        enviarPCB(pcbDes, fd_cpu_dispatch);    
+        send_pcbDesalojado(pcbDes, fd_cpu_dispatch);    
     }
 }
 int traducir(char* direccion_logica){
@@ -77,8 +77,9 @@ void decodeInstruccion(Instruccion instruccion) {
     return;
 }
 
-bool fetchInstruccion(int fd, pcb contexto, Instruccion* instruccion,t_log* logger) {
+bool fetchInstruccion(int fd, pcb contexto, Instruccion *instruccion,t_log* logger) {
     int bytesRecibidos;
+    send_pcb(fd, &contexto); //Mando el pcb (por el PID y PC para que me manden la instruccion correspondiente)
     if (recv_instruccion(fd, instruccion, &bytesRecibidos ,logger)) {
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto.pid, contexto.pc);
         return true;
@@ -121,6 +122,7 @@ int main(int argc, char* argv[]) {
     if (bytes_recibidos == sizeof(pcb)) {
         // Ya tengo el PCB, entonces voy a pedir instrucciones hasta que llegue una interrupción que desaloje al proceso.
         while (interrupciones <= 0 && instrucciones) {
+            sleep(1);
             if (fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger_cpu)) {
                 decodeInstruccion(instruccion);
                 if(strcmp(instruccion.operando1,"PAGE FAULT")==0 || strcmp(instruccion.operando2,"PAGE FAULT")==0)
@@ -137,12 +139,12 @@ int main(int argc, char* argv[]) {
         }
         if (interrupciones != 0)
         {
-            //lógica para devolver el contexto e iniciar la rutina de interrupcion
+            pcbDesalojado pcbDes;
+            pcbDes.contexto=contexto;
+            pcbDes.instruccion="INTERRUPCION";
+            pcbDes.extra="";
+            send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
         }
-        else
-        {
-            //Se acabaron las instrucciones a ejecutar por lo que finaliza el programa
-        }    
         // CIERRO LOG Y CONFIG y libero conexión
         terminar_programa(logger_cpu, config);
         liberar_conexion(conexion_cpu_memoria);

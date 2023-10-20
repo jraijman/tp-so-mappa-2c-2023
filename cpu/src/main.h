@@ -9,7 +9,9 @@
 #include<readline/readline.h>
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
+#include "../../utils/src/protocolo/protocolo.h"
 #include "comunicacion.h"
+
 
 int  conexion_cpu_memoria;
 char* ip_memoria;
@@ -19,6 +21,6 @@ char* puerto_interrupt;
 t_log* logger_cpu;
 t_config* config;
 
-void executeInstruccion(pcb,Instruccion instruccion);
+void executeInstruccion(pcb,Instruccion);
 
 #endif 

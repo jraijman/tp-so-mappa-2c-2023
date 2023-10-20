@@ -79,7 +79,74 @@ bool recv_pcb(int fd,pcb* proceso) {
     free(stream);
     return true;
 }
+//--------------------------------------ENVIO PCB DESALOJADO POR CPU-------------------------
 
+static void* serializar_pcbDesalojado(pcbDesalojado proceso) {
+    size_t instruccion_len = strlen(proceso.instruccion) + 1;
+    size_t extra_len = strlen(proceso.extra) + 1;
+    size_t stream_size = sizeof(op_code) + sizeof(int) + sizeof(pcb) + instruccion_len + extra_len;
+    
+    void* stream = malloc(stream_size);
+
+    op_code cop = ENVIO_PCB;
+    int instruccion_len_int = (int)instruccion_len;
+    int extra_len_int = (int)extra_len;
+
+    memcpy(stream, &cop, sizeof(op_code));
+    memcpy(stream + sizeof(op_code), &instruccion_len_int, sizeof(int));
+    memcpy(stream + sizeof(op_code) + sizeof(int), &extra_len_int, sizeof(int));
+    memcpy(stream + sizeof(op_code) + 2 * sizeof(int), &proceso.contexto, sizeof(pcb));
+    memcpy(stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb), proceso.instruccion, instruccion_len);
+    memcpy(stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb) + instruccion_len, proceso.extra, extra_len);
+
+    return stream;
+}
+
+static void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso) {
+    int instruccion_len_int, extra_len_int;
+    
+    memcpy(&instruccion_len_int, stream + sizeof(op_code), sizeof(int));
+    memcpy(&extra_len_int, stream + sizeof(op_code) + sizeof(int), sizeof(int));
+    
+    size_t instruccion_len = (size_t)instruccion_len_int;
+    size_t extra_len = (size_t)extra_len_int;
+
+    memcpy(&proceso->contexto, stream + sizeof(op_code) + 2 * sizeof(int), sizeof(pcb));
+
+    proceso->instruccion = (char*)malloc(instruccion_len);
+    proceso->extra = (char*)malloc(extra_len);
+
+    memcpy(proceso->instruccion, stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb), instruccion_len);
+    memcpy(proceso->extra, stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb) + instruccion_len, extra_len);
+}
+
+bool send_pcbDesalojado(pcbDesalojado proceso, int fd) {
+    void* stream = serializar_pcbDesalojado(proceso);
+    size_t size = sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb) + strlen(proceso.instruccion) + 1 + strlen(proceso.extra) + 1;
+
+    if (send(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    free(stream);
+    return true;
+}
+
+bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso) {
+    size_t size = sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb);
+    void* stream = malloc(size);
+
+    if (recv(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    deserializar_pcbDesalojado(stream, proceso);
+
+    free(stream);
+    return true;
+}
 
 // -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------
 

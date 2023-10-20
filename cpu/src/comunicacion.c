@@ -29,27 +29,6 @@ static void procesar_conexion(void* void_args) {
 void deserializar_instruccion(const void *buffer, Instruccion *instruccion) {
     memcpy(instruccion, buffer, sizeof(Instruccion));
 }
-
-int pedir_marco(int conexion_cpu_memoria, int numero_pagina)
-{
-    if (send(conexion_cpu_memoria, &numero_pagina, sizeof(int), 0) < 0) {
-        perror("Error al enviar la solicitud");
-        return -1;
-    }
-
-    // Recibir la respuesta del servidor de memoria (el número de marco)
-    int numero_de_marco;
-    if (recv(conexion_cpu_memoria, &numero_de_marco, sizeof(int), 0) <= 0) {
-        perror("Error al recibir el número de marco");
-        return -1;
-    }
-
-    return numero_de_marco;
-}
-int pedir_marco(int conexion_cpu_memoria,int numero_pagina){
-return marco;
-}
-
 bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibidos, t_log *logger) {
     char buffer[sizeof(Instruccion)];
 
@@ -70,17 +49,24 @@ bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibi
 
     return true;
 }
-bool enviarPCB(pcbDesalojado contexto_ejecucion,int fd_cpu_dispatch)
+
+int pedir_marco(int conexion_cpu_memoria, int numero_pagina)
 {
-    return true;
-}
-bool send_pcb(int fd, pcb contexto) {
-    size_t size = sizeof(pcb);
-    if (send(fd, &contexto, size, 0) != size) {
-        return false;
+    if (send(conexion_cpu_memoria, &numero_pagina, sizeof(int), 0) < 0) {
+        perror("Error al enviar la solicitud");
+        return -1;
     }
-    return true;
+
+    // Recibir la respuesta del servidor de memoria (el número de marco)
+    int numero_de_marco;
+    if (recv(conexion_cpu_memoria, &numero_de_marco, sizeof(int), 0) <= 0) {
+        perror("Error al recibir el número de marco");
+        return -1;
+    }
+
+    return numero_de_marco;
 }
+
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch,int server_socket_interupt){
      int cliente_socket_dispatch = esperar_cliente(logger, server_name, server_socket_dispatch);
      int cliente_socket_interrupt = esperar_cliente(logger, server_name, server_socket_interupt);

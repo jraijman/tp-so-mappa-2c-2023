@@ -57,11 +57,9 @@ typedef enum {
 } op_code;
 
 ///
-
 bool send_int(int fd,int pid);
 bool recv_int(int fd, int* pid);
-
 bool send_pcb(int fd,pcb* proceso);
 bool recv_pcb(int fd,pcb* proceso);
-
+bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
 #endif 

@@ -1,4 +1,4 @@
-#include "./utils.h"
+#include "utils.h"
 
  t_config* iniciar_config(char * ruta)
     {
