@@ -39,6 +39,17 @@ typedef struct {
     char path[256];
 
 } pcb;
+typedef struct {
+    char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
+    char operando1[25];
+    char operando2[25];
+} Instruccion;
+typedef struct 
+{
+    pcb contexto;
+    char* instruccion;
+    char* extra;
+}pcbDesalojado;
 
 
 typedef enum {

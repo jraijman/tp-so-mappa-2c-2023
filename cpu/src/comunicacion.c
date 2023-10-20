@@ -46,6 +46,9 @@ int pedir_marco(int conexion_cpu_memoria, int numero_pagina)
 
     return numero_de_marco;
 }
+int pedir_marco(int conexion_cpu_memoria,int numero_pagina){
+return marco;
+}
 
 bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibidos, t_log *logger) {
     char buffer[sizeof(Instruccion)];
@@ -67,7 +70,10 @@ bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibi
 
     return true;
 }
-
+bool enviarPCB(pcbDesalojado contexto_ejecucion,int fd_cpu_dispatch)
+{
+    return true;
+}
 bool send_pcb(int fd, pcb contexto) {
     size_t size = sizeof(pcb);
     if (send(fd, &contexto, size, 0) != size) {

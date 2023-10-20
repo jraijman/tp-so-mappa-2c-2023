@@ -1,5 +1,4 @@
 #include "main.h"
-
 void levantar_config(char* ruta) {
     logger_cpu = iniciar_logger("cpu.log", "CPU:");
 
@@ -13,67 +12,74 @@ void levantar_config(char* ruta) {
     log_info(logger_cpu, "puerto_dispatch: %s y puerto_interrupt: %s", puerto_dispatch, puerto_interrupt);
 }
 
-void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
-    log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto_ejecucion->pid, instruccion.opcode, instruccion.operando1, instruccion.operando2);
+void executeInstruccion(pcb contexto_ejecucion, Instruccion instruccion) {
+    log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s", contexto_ejecucion.pid, instruccion.opcode, instruccion.operando1, instruccion.operando2);
+    pcbDesalojado pcbDes;
     if (strcmp(instruccion.opcode, "SET") == 0) {
         if (strcmp(instruccion.operando1, "AX") == 0) {
-            contexto_ejecucion->registros.ax = atoi(instruccion.operando2);
+            contexto_ejecucion.registros.ax = atoi(instruccion.operando2);
         }
     } else if (strcmp(instruccion.opcode, "SUM") == 0) {
         if (strcmp(instruccion.operando1, "AX") == 0 && strcmp(instruccion.operando2, "BX") == 0) {
-            contexto_ejecucion->registros.ax = contexto_ejecucion->registros.ax + contexto_ejecucion->registros.bx;
+            contexto_ejecucion.registros.ax = contexto_ejecucion.registros.ax + contexto_ejecucion.registros.bx;
         }
     } else if (strcmp(instruccion.opcode, "SUB") == 0) {
         if (strcmp(instruccion.operando1, "AX") == 0 && strcmp(instruccion.operando2, "BX") == 0) {
-            contexto_ejecucion->registros.ax = contexto_ejecucion->registros.ax - contexto_ejecucion->registros.bx;
+            contexto_ejecucion.registros.ax = contexto_ejecucion.registros.ax - contexto_ejecucion.registros.bx;
         }
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
-        // Instrucción SLEEP: Bloquear el proceso y devolver el tiempo de bloqueo
-        int tiempo_bloqueo;
-        strcpy(tiempo_bloqueo,instruccion.operando1);
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SLEEP", tiempo_bloqueo);
+        pcbDes.contexto=contexto_ejecucion;
+        pcbDes.instruccion="SLEEP";
+        pcbDes.extra=instruccion.operando1;
+        enviarPCB(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
-        char recurso;
-        strcpy(recurso, instruccion.operando1);
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "WAIT",recurso);
+        pcbDes.contexto=contexto_ejecucion;
+        pcbDes.instruccion="WAIT";
+        pcbDes.extra=instruccion.operando1;
+        enviarPCB(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
-        // Instrucción SIGNAL: Solicitar liberación de un recurso al Kernel
-        char recurso;
-        strcpy(recurso, instruccion.operando1);
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "SIGNAL",recurso);
-    }
-    else if (strcmp(instruccion.opcode, "EXIT") == 0) {
-        //sacar despues de definir algo porque esta puesto para que no tire error
-        int algo;
-        contexto_ejecucion->estado=5;
-        enviarPCBa(contexto_ejecucion, fd_cpu_dispatch, "EXIT", algo);
+        pcbDes.contexto=contexto_ejecucion;
+        pcbDes.instruccion="SIGNAL";
+        pcbDes.extra=instruccion.operando1;
+        enviarPCB(pcbDes, fd_cpu_dispatch);
+    } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
+        pcbDes.contexto=contexto_ejecucion;
+        pcbDes.instruccion="EXIT";
+        pcbDes.extra="";
+        enviarPCB(pcbDes, fd_cpu_dispatch);    
     }
 }
-char* traducir(char* direccion_logica){
+int traducir(char* direccion_logica){
     // Calcula el número de página y el desplazamiento
-    int numero_pagina = atoi(direccion_logica) / TAMANO_PAGINA;//no esta definido tamanio de pagina
-    int desplazamiento = direccion_logica - numero_pagina * TAMANO_PAGINA;
+    int tamanoPagina=10;
+    int numero_pagina = atoi(direccion_logica) / tamanoPagina; //no esta definido tamanio de pagina
+    int desplazamiento = atoi(direccion_logica) - numero_pagina * tamanoPagina;
 
     int numero_marco = pedir_marco(conexion_cpu_memoria, numero_pagina);
     
-    int direccion_fisica = numero_marco * TAMANO_PAGINA + desplazamiento;
+    int direccion_fisica = numero_marco * tamanoPagina + desplazamiento;
 
     return direccion_fisica;
 }
 
 void decodeInstruccion(Instruccion instruccion) {
+    char* traduccion;
+    char* traduccion2;
+    sprintf(traduccion,"%d",traducir(instruccion.operando2));
+    sprintf(traduccion2,"%d",traducir(instruccion.operando1));
     if (strcmp(instruccion.opcode, "MOV_IN") == 0 ||
         strcmp(instruccion.opcode, "F_READ") == 0 || strcmp(instruccion.opcode, "F_WRITE") == 0){
-        strcpy(instruccion.operando2,traducir(instruccion.operando2));
+        strcpy(instruccion.operando2,traduccion);
     }else if (strcmp(instruccion.opcode, "MOV_OUT") == 0)
     {
-        strcpy(instruccion.operando1,traducir(instruccion.operando1));
+        strcpy(instruccion.operando2,traduccion2);
     }
     return;
 }
 
-bool fetchInstruccion(int fd, pcb contexto, Instruccion* instruccion, t_log* logger) {
-    if (recv_instruccion(fd, instruccion, logger)) {
+bool fetchInstruccion(int fd, pcb contexto, Instruccion* instruccion,t_log* logger) {
+    int bytesRecibidos;
+    if (recv_instruccion(fd, instruccion, &bytesRecibidos ,logger)) {
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto.pid, contexto.pc);
         return true;
     } else {
@@ -116,14 +122,14 @@ int main(int argc, char* argv[]) {
         // Ya tengo el PCB, entonces voy a pedir instrucciones hasta que llegue una interrupción que desaloje al proceso.
         while (interrupciones <= 0 && instrucciones) {
             if (fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger_cpu)) {
-                decodeInstruccion(instruccion, &pageFault);
+                decodeInstruccion(instruccion);
                 if(strcmp(instruccion.operando1,"PAGE FAULT")==0 || strcmp(instruccion.operando2,"PAGE FAULT")==0)
                 {
                     //Manejo de page fault
                 }
                 else{
                     contexto.pc++;
-                    executeInstruccion(&contexto, instruccion);
+                    executeInstruccion(contexto, instruccion);
                 }
         //Veo si llegó alguna interrupcion mientras ejecutaba
             if (cliente_interrupt != -1) 
