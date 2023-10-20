@@ -37,7 +37,7 @@ typedef struct {
     t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= EXEC, 4 =BLOCK, 5 = EXIT.)
     char path[256];
-
+    int tam_pagina;
 } pcb;
 typedef struct {
     char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
@@ -53,7 +53,8 @@ typedef struct
 
 
 typedef enum {
-   ENVIO_PCB
+   ENVIO_PCB,
+   ESTRUCTURAS_EN_MEMORIA_CONFIRMADO
 } op_code;
 
 ///
@@ -62,4 +63,5 @@ bool recv_int(int fd, int* pid);
 bool send_pcb(int fd,pcb* proceso);
 bool recv_pcb(int fd,pcb* proceso);
 bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
+bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso);
 #endif 

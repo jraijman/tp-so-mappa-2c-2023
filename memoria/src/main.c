@@ -16,7 +16,7 @@ void levantar_config(char *ruta)
 
     log_info(logger_memoria, "Config cargada");
 }
-void leerYEnviarInstrucciones(FILE *archivo, int pid, int conexion_memoria)
+bool leerYEnviarInstrucciones(FILE *archivo, int pid, int conexion_memoria)
 {
     char linea[256];
     Instruccion structinstruccion;
@@ -44,53 +44,63 @@ int main(int argc, char *argv[])
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
     int cliente_memoria = esperar_cliente(logger_memoria, "MEMORIA ESCUCHA", fd_memoria);
     // espero clientes kernel,cpu y filesystem
-    pcb contexto;
+    pcbDesalojado contexto;
+    pcb proceso;
     int bytes_recibidos = 0;
     int pid;
     Proceso *tabla_proceso;
-    while (server_escuchar_memoria(logger_memoria, "MEMORIA", fd_memoria))
-    {
-        int bytes_recibidos = 0;
-        int bytes_esperados = sizeof(int); // Tamaño esperado de los datos
-
-        if (bytes_esperados > 0)
-        {
-            while (bytes_recibidos < bytes_esperados)
-            {
-                int bytes = recv(cliente_memoria, (char *)&contexto + bytes_recibidos, bytes_esperados - bytes_recibidos, 0);
-
-                if (bytes <= 0)
-                {
-                    // Manejo de error o desconexión del cliente
-                    break;
+    t_marco* marcos;
+    while (server_escuchar_memoria(logger_memoria, "MEMORIA", fd_memoria)) {
+        int bytes = recv(cliente_memoria, (char *)&contexto + bytes_recibidos, sizeof(pcbDesalojado) - bytes_recibidos, 0);
+        if (bytes > 0) {
+            bytes_recibidos += bytes;        
+            if (bytes_recibidos == sizeof(int)) {
+                int num_pag;
+                if (recv_int(cliente_memoria, &num_pag) < 0) {
+                    log_error(logger_memoria, "Error al recibir el número de página.");
+                } else {
+                    int num_marco = calcularMarco(proceso.pid, marcos, num_pag);
+                    if (send_int(fd_cpu_dispatch, num_marco) < 0) {
+                        log_error(logger_memoria, "Error al enviar el número de marco a la CPU.");
+                    }
                 }
-
-                bytes_recibidos += bytes;
+            } else if (bytes_recibidos == sizeof(pcbDesalojado)) {
+                if (recv_pcbDesalojado(cliente_memoria, &contexto) < 0) {
+                    log_error(logger_memoria, "Error al recibir el PCB Desalojado.");
+                } else {
+                    manejarConexion(contexto);
+                    // Si es necesario devolver el PCB después de manejarlo
+                }
+            } else if (bytes_recibidos == sizeof(pcb)) {
+                if (recv_pcb(cliente_memoria, &proceso) < 0) {
+                    log_error(logger_memoria, "Error al recibir el PCB.");
+                } else {
+                    int pid_solicitado = proceso.pid;
+                    pcb *procesoactual = buscarProcesoPorPID(tabla_proceso, pid_solicitado);
+                    if (procesoactual != NULL) {
+                        FILE *archivo = fopen(procesoactual->path, "r");
+                        if (archivo != NULL) {
+                            if (leerYEnviarInstrucciones(archivo, pid_solicitado, cliente_memoria)) {
+                                fclose(archivo);
+                            } else {
+                                fclose(archivo);
+                                log_error(logger_memoria, "Error al leer y enviar instrucciones para el PID: %d", pid_solicitado);
+                            }
+                        } else {
+                            log_error(logger_memoria, "Error al abrir el archivo de instrucciones para el PID: %d", pid_solicitado);
+                        }
+                    } else {
+                        log_error(logger_memoria, "PID: %d no encontrado en la tabla de procesos", pid_solicitado);
+                    }
+                }
             }
-        }
-        if (bytes_recibidos == sizeof(pcb))
-        {
-        // Si recibimos un PCB, cargamos el proceso en la tabla
-        insertarProcesoOrdenado(tabla_proceso, contexto.pid, contexto.estado, "PATH_INSTRUCCIONES");
-        }
-        else if (bytes_recibidos == sizeof(int)) {
-        // Si recibimos un PID, lo buscamos en la tabla y leemos las instrucciones
-        int pid_solicitado = *(int*)&contexto;
-        Proceso *procesoactual = buscarProcesoPorPID(tabla_proceso, pid_solicitado);
-        if (procesoactual != NULL) {
-            FILE *archivo = fopen(procesoactual->rutaArchivo, "r");
-            if (archivo != NULL) {
-                leerYEnviarInstrucciones(archivo, pid_solicitado, cliente_memoria);
-                fclose(archivo);
-            } else {
-            // Manejar error de apertura de archivo
-        }
         } else {
-        // Manejar error: PID no encontrado en la tabla de procesos
+            log_error(logger_memoria, "Error al recibir datos desde el cliente de memoria");
+            // Manejo de error: No se pudieron recibir datos del cliente de memoria
+            // Puedes agregar código adicional para manejar este error
         }
-}
     }
-
+   
     // CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_memoria, config);
     liberar_conexion(conexion_memoria_filesystem);
@@ -120,22 +130,35 @@ int reservar_primer_marco_libre(int pid){
     }
     return -1;
 }
-int enviar_marco_a_cpu(int conexion_cpu_memoria,int numero_pagina,t_marco* l_marco, int numero_marcos){
-
-    int numero_de_marco = -1;
-    //Tenemos que hacer un for para buscar el numero marco en el numero de pagina
-    for(int i = 0; i < numero_marcos ; i++){
-        if(l_marco[i].ocupado && l_marco[i].pid == numero_pagina){
-            numero_de_marco = l_marco[i].num_marco;
+int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
+    for (int i = 0; i < num_marcos; i++) {
+        if (marcos[i].ocupado && marcos[i].pid == pid) {
+            return marcos[i].num_marco;
         }
     }
-    if(numero_de_marco = -1){
-        perror("No se encontro numero de marco");
-        return -1;
-    }
-    if(send(conexion_cpu_memoria,&numero_de_marco,sizeof(int),0)< 0){
-        perror("Error al enviar el numero de marco a la CPU");
-        return -1;
-    }
-    return numero_de_marco;
+    
+    return -1;
 }
+void eliminar_proceso_memoria(int pid) {
+    
+    t_list* marcos_asignados = obtenerMarcosAsignados(pid);
+
+    
+    for (int i = 0; i < list_size(marcos_asignados); i++) {
+        t_marco* marco = list_get(marcos_asignados, i);
+        liberar_marco(marco);
+    }
+    list_destroy(marcos_asignados);
+}
+t_list* obtenerMarcosAsignados(pid){
+    t_list* marcos_asignados = list_filter(l_marco, (void*)marco_asignado_a_este_proceso);
+    return marcos_asignados;
+}
+
+bool marco_asignado_a_este_proceso(int pid,t_marco * marco) {
+    return marco->pid == pid;
+  }
+/*
+TODO:
+INSTRUCCIONES SE ENVIA 1 SOLA, LA PETICION ES ITERATIVA DEL LADO CPU POR LO CUAL VAN A IR LLEGANDO PETICIONES DE INSTRUCCION (INDEXAS CON EL PROGRAM COUNTER PARA BAJAR LA LINEA QUE NECESITO)
+*/

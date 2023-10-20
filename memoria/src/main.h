@@ -39,6 +39,6 @@ t_list* l_marco;
 void liberar_marco(t_marco*);
 t_marco* marco_create(uint32_t, uint32_t,bool);
 int reservar_primer_marco_libre(int);
-
+void eliminar_proceso_memoria(int);
 
 #endif 

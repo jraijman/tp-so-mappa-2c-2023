@@ -31,7 +31,7 @@ static void procesar_conexion(void* void_args) {
 
                 break;
             }
-
+            
             // Errores
             case -1:
                 log_error(logger, "Cliente desconectado de %s...", server_name);
@@ -117,4 +117,23 @@ Proceso* buscarProcesoPorPID(Proceso* lista, int pid) {
         aux = aux->siguiente;
     }
     return NULL; 
+}
+
+void manejarConexion(pcbDesalojado contexto){
+    char* instruccion = contexto.instruccion;
+    Proceso* lista;
+    if(strcmp(instruccion, "INICIALIZACION")==0)
+    {
+        printf("Inizializando estructura en memoria para un proceso de pid:%d y tamanio:%d", contexto.contexto.pid,contexto.contexto.size);      
+        insertarProcesoOrdenado(lista,contexto.contexto.pid,contexto.contexto.estado,contexto.contexto.archivos);
+    }
+    else if (strcmp(instruccion, "FINALIZACION")==0)
+    {
+        printf("Memoria recibio una peticion de kernel de finalizar un proceso");
+        eliminar_proceso_memoria(contexto.contexto.pid);
+        
+    }
+    else{
+        printf("No reconocido");
+    }
 }

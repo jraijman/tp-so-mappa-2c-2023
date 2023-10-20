@@ -20,6 +20,7 @@ typedef struct {
     Proceso* siguiente; // Puntero al siguiente proceso en la lista
 }Proceso;
 
+
 typedef struct {
     t_log* log;
     int fd;

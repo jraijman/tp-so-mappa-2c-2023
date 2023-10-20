@@ -121,7 +121,6 @@ int main(int argc, char* argv[]) {
     int bytes_recibidos = 0;
     Instruccion instruccion;
     int interrupciones = 0;
-    bool instrucciones = true;
 
     // Espero al kernel
     while (server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt)) {
@@ -132,12 +131,11 @@ int main(int argc, char* argv[]) {
         }
         bytes_recibidos += bytes;
     }
-
     if (bytes_recibidos == sizeof(pcb)) {
+        recv_pcb(cliente_dispatch, &contexto);
         // Ya tengo el PCB, entonces voy a pedir instrucciones hasta que llegue una interrupción que desaloje al proceso.
-        while (interrupciones <= 0 && instrucciones) {
+        while (interrupciones == 0) {
             sleep(1);
-
             if (fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger_cpu)) {
                 decodeInstruccion(instruccion);
 
