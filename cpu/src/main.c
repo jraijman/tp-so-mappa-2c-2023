@@ -91,7 +91,7 @@ void decodeInstruccion(Instruccion instruccion) {
 bool fetchInstruccion(int fd, pcb contexto, Instruccion *instruccion, t_log* logger) {
     int bytesRecibidos;
     send_pcb(fd, &contexto); // Envía el PCB (por el PID y PC para que te envíen la instrucción correspondiente)
-    if (recv_instruccion(fd, instruccion, &bytesRecibidos, logger)) {
+    if (recv_instruccion(fd, instruccion)) {
         log_info(logger, "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto.pid, contexto.pc);
         return true;

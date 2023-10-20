@@ -31,7 +31,7 @@ static void procesar_conexion(void* void_args) {
 
                 break;
             }
-            
+                        
             // Errores
             case -1:
                 log_error(logger, "Cliente desconectado de %s...", server_name);

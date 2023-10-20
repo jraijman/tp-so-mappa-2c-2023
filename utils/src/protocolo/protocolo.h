@@ -54,6 +54,8 @@ typedef struct
 
 typedef enum {
    ENVIO_PCB,
+   ENVIO_INSTRUCCION,
+   ENVIO_MARCO,
    ESTRUCTURAS_EN_MEMORIA_CONFIRMADO
 } op_code;
 
@@ -64,4 +66,6 @@ bool send_pcb(int fd,pcb* proceso);
 bool recv_pcb(int fd,pcb* proceso);
 bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
 bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso);
+bool send_instruccion(int fd, Instruccion instruccion);
+bool recv_instruccion(int fd, Instruccion* instruccion);
 #endif 

@@ -16,19 +16,33 @@ void levantar_config(char *ruta)
 
     log_info(logger_memoria, "Config cargada");
 }
-bool leerYEnviarInstrucciones(FILE *archivo, int pid, int conexion_memoria)
-{
+bool leerYEnviarInstruccion(FILE *archivo, pcb proceso, int conexion_memoria) {
     char linea[256];
-    Instruccion structinstruccion;
-    while (fgets(linea, sizeof(linea), archivo) != NULL)
-    {
-        char *instruccion[] = string_split(linea, " ");
-        strcpy(structinstruccion.opcode,instruccion[0]);
-        strcpy(structinstruccion.operando1,instruccion[1]);
-        strcpy(structinstruccion.operando2,instruccion[2]);
-        if (!send_instruccion(conexion_memoria, pid, linea))
-        {
-            // Manejar error de envío a memoria
+    Instruccion instruccion;
+    if (fgets(linea, sizeof(linea), archivo) != NULL) {
+        char **palabras = string_split(linea, " ");
+
+        if (palabras[0] != NULL) {
+            strcpy(instruccion.opcode, palabras[0]);
+
+            if (palabras[1] != NULL) {
+                strcpy(instruccion.operando1, palabras[1]);
+
+                if (palabras[2] != NULL) {
+                    strcpy(instruccion.operando2, palabras[2]);
+                } else {
+                    instruccion.operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
+                }
+            } else {
+                instruccion.operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
+                instruccion.operando2[0] = '\0'; // Vaciar el operando2
+            }
+        } else {
+            log_error(logger_memoria, "Error al cargar la instrucción");
+        }
+
+        if (!send_instruccion(conexion_memoria, instruccion)) {
+            log_error(logger_memoria, "Error al enviar la instrucción");
         }
     }
 }
@@ -80,7 +94,7 @@ int main(int argc, char *argv[])
                     if (procesoactual != NULL) {
                         FILE *archivo = fopen(procesoactual->path, "r");
                         if (archivo != NULL) {
-                            if (leerYEnviarInstrucciones(archivo, pid_solicitado, cliente_memoria)) {
+                            if (leerYEnviarInstruccion(archivo,procesoactual, fd_cpu_dispatch)) {
                                 fclose(archivo);
                             } else {
                                 fclose(archivo);

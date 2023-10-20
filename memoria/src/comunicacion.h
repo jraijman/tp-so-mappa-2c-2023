@@ -13,11 +13,11 @@
 #include "../../utils/src/protocolo/protocolo.h"
 
 
-typedef struct {
+typedef struct Proceso{
     int pid; // Identificador del proceso
     int estado; // Estado del proceso (NEW, READY, EXEC, BLOCK, EXIT,ETC)
     char* rutaArchivo; // Ruta del archivo del proceso
-    Proceso* siguiente; // Puntero al siguiente proceso en la lista
+    struct Proceso* siguiente; // Puntero al siguiente proceso en la lista
 }Proceso;
 
 

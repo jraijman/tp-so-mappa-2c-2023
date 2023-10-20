@@ -147,7 +147,45 @@ bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso) {
     free(stream);
     return true;
 }
+//--------------------------------------Envio de instrucciones-------------------------------
+static void* serializar_instruccion(Instruccion instruccion) {
+    void* stream = malloc(sizeof(op_code) + sizeof(Instruccion));
 
+    op_code cop = ENVIO_INSTRUCCION;
+    memcpy(stream, &cop, sizeof(op_code));
+    memcpy(stream + sizeof(op_code), &instruccion, sizeof(Instruccion));
+    return stream;
+}
+
+static void deserializar_instruccion(void* stream, Instruccion* instruccion) {
+    memcpy(instruccion, stream + sizeof(op_code), sizeof(Instruccion));
+}
+
+bool send_instruccion(int fd, Instruccion instruccion) {
+    size_t size = sizeof(op_code) + sizeof(Instruccion);
+    void* stream = serializar_instruccion(instruccion);
+    if (send(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+    free(stream);
+    return true;
+}
+
+bool recv_instruccion(int fd, Instruccion* instruccion) {
+    size_t size = sizeof(Instruccion);
+    void* stream = malloc(size);
+
+    if (recv(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    deserializar_instruccion(stream, instruccion);
+
+    free(stream);
+    return true;
+}
 // -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------
 
 /*static void* serializar_aprobar_operativos(uint8_t nota1, uint8_t nota2) {

@@ -10,11 +10,6 @@
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
-typedef struct {
-    char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
-    char operando1[25];
-    char operando2[25];
-} Instruccion;
 
 typedef struct main
 {
@@ -40,5 +35,5 @@ void liberar_marco(t_marco*);
 t_marco* marco_create(uint32_t, uint32_t,bool);
 int reservar_primer_marco_libre(int);
 void eliminar_proceso_memoria(int);
-
+int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 #endif 

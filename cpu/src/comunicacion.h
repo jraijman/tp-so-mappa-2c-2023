@@ -17,9 +17,9 @@ typedef struct {
     int fd_dispatch;
     int fd_interrupt;
     char* server_name;
-} t_procesar_conexion_args;
+}t_procesar_conexion_args;
 
-bool recv_instruccion(int socket_fd, Instruccion *instruccion, int *bytes_recibidos, t_log *logger);
+static void procesar_conexion(void* void_args);
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch,int server_socket_interupt);
 bool enviarPCB(pcbDesalojado contexto_ejecucion,int fd_cpu_dispatch);
 int pedir_marco(int conexion_cpu_memoria,int numero_pagina);
