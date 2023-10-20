@@ -10,6 +10,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}.out",
       "args": [
+        "./kernelPlanificacion.config"
         // TODO: Agregar los argumentos que se necesiten
       ],
       "stopAtEntry": false,

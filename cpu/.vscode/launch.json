@@ -10,6 +10,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}.out",
       "args": [
+        "./cpuPlanificacion.config"
         // TODO: Agregar los argumentos que se necesiten
       ],
       "stopAtEntry": false,
