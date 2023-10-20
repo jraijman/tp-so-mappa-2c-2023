@@ -174,10 +174,21 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     contador_proceso++;
 
 }
+bool remover(pcb* element) {
+    return element->pid == pid_a_eliminar;
+}
+
 void finalizar_proceso(char * pid)
 {
-    printf("entre a finalizar proceso\n");
+    pid_a_eliminar = pid;
     // hacer log de fin de proceso
+    if(queue_size(cola_new) > 0){
+        pcb* procesoAEliminar = list_remove_by_condition(cola_new, remover);
+    }
+    if(list_size(lista_ready) > 0){
+        pcb* procesoAEliminar = list_remove_by_condition(lista_ready, remover);
+    }
+    
 }
 void detener_planificacion()
 {
@@ -245,54 +256,137 @@ void* pasar_new_a_ready(void* args){
         agregar_a_ready(proceso);
         //printf("path = %s ",proceso->path);
         //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
+        //mandar con pcbDesalojado con el string de inicializado
         send_pcb(conexion_memoria, proceso);
     }
 }
 
 void* planif_corto_plazo(void* args){
     while(1){
-        if(strcmp(algoritmo_planificacion,"FIFO")){
-            pthread_mutex_lock(&mutex_exec);
+        //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
+        sem_wait(&puedo_ejecutar_proceso);
+
+        sem_wait(&cantidad_ready);
+        
+        if(strcmp(algoritmo_planificacion,"FIFO")==0){
             pcb* procesoAEjecutar = obtenerSiguienteFIFO();
             if(procesoAEjecutar != NULL) {
-            printf("el pcb es %d", procesoAEjecutar->pid);
-            const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
-            //procesoAEjecutar le cambiamos el estado a 3
-            log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
-            //mandar proceso a CPU
-            //esperamos a bloqueo o a exit
-            //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
-            //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
+                printf("FIFO el pcb es %d", procesoAEjecutar->pid);
+                const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
+                //procesoAEjecutar le cambiamos el estado a 3
+                cambiar_estado_pcb(procesoAEjecutar,3);
+                log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
+                pthread_mutex_lock(&mutex_exec);
+                list_add(lista_exec, procesoAEjecutar);
+                pthread_mutex_unlock(&mutex_exec);
+                //mandar proceso a CPU
+                send_pcb(conexion_dispatch, procesoAEjecutar);
+                //esperamos a bloqueo o a exit
+                //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
+                //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
 
-            pthread_mutex_unlock(&mutex_exec);
+                
+                }
             }
-        if(strcmp(algoritmo_planificacion,"PRIORIDADES")){}
-            //procesoPlanificado = obtenerSiguientePRIORIDADES();
+        else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
+            pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
+            if(procesoAEjecutar != NULL) {
+                printf("PRIORIDADES el pcb es %d", procesoAEjecutar->pid);
+                const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
+                //procesoAEjecutar le cambiamos el estado a 3
+                cambiar_estado_pcb(procesoAEjecutar,3);
+                log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
+                pthread_mutex_lock(&mutex_exec);
+                list_add(lista_exec, procesoAEjecutar);
+                pthread_mutex_unlock(&mutex_exec);
+                //mandar proceso a CPU
+                send_pcb(conexion_dispatch, procesoAEjecutar);
+                //esperamos a bloqueo o a exit
+                //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
+                //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
+
+                }
+
             }
-        if(strcmp(algoritmo_planificacion,"RR")){
+        else if(strcmp(algoritmo_planificacion,"RR")==0){
             //procesoPlanificado = obtenerSiguienteRR();
-        }
+            }
     }
 }
 
 
 pcb* obtenerSiguienteFIFO(){
-
 	pcb* procesoPlanificado = NULL;
-
 	pthread_mutex_lock(&mutex_ready);
     if (list_size(lista_ready) > 0){
 	procesoPlanificado = list_remove(lista_ready, 0);
     }
     pthread_mutex_unlock(&mutex_ready);
+	return procesoPlanificado;
+}
 
+pcb* obtenerSiguienteRR(){
+	
+}
+
+bool cmp(void *a, void *b) { 
+    pcb* pa = a;
+    pcb* pb = b;
+    int intA = pa->prioridad; int intB = pb->prioridad; 
+    return intA < intB; 
+}
+
+pcb* obtenerSiguientePRIORIDADES(){
+	pcb* procesoPlanificado = NULL;
+    if (list_size(lista_ready) > 0){
+    pthread_mutex_lock(&mutex_ready);
+    t_list* lista_ordenada = list_sorted(lista_ready,cmp);
+	procesoPlanificado = list_remove(lista_ordenada, 0);
+    list_remove_element(lista_ready,procesoPlanificado);
+    pthread_mutex_unlock(&mutex_ready);
+    }
 	return procesoPlanificado;
 }
 
 //---------------------------------------------------------------
+
+void cambiar_estado_pcb(pcb *pcb, int nuevoEstado) {
+  pcb->estado = nuevoEstado;
+}
+void agregar_a_exit(pcb* proceso){
+    const char* estado_anterior = estado_proceso_a_char(proceso->estado);
+	pthread_mutex_lock(&mutex_exit);
+    proceso->estado = 5;
+    log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
+	list_add(lista_exit, proceso);
+	pthread_mutex_unlock(&mutex_exit);
+	sem_post(&cantidad_exit);
+}
+
 void * finalizar_proceso_cpu(void * args){
     while(1){
-        //recv pcb para mandar a exit
+        pcbDesalojado* pcbDes;
+        if (recv_pcbDesalojado(conexion_dispatch, pcbDes)){
+            if (strcmp(pcbDes->instruccion, "EXIT") == 0){
+                /*log_info(logger_kernel, "Instrucción EXIT - Proceso ha finalizado su ejecución");
+                cambiar_estado_pcb(pcbDes->contexto, 5);
+                agregar_a_exit(pcbDes->contexto); 
+                //no entiendo de donde sale el proceso
+                pthread_mutex_lock(&mutex_exec);
+                list_remove(lista_exec,0);
+                pthread_mutex_unlock(&mutex_exec);
+                sem_wait(&cantidad_exec)
+                //aviso a memoria que liubere
+
+                //libero recursos del pcb
+                */
+
+            }
+            return true;
+        } else {
+            log_error(logger_kernel, "Error al recibir la instrucción de finalizar proceso de CPU");
+            return false;
+        }
     }
 }
 
@@ -301,6 +395,11 @@ void iniciar_semaforos(){
     sem_init(&cantidad_multiprogramacion,0,grado_multiprogramacion);
     sem_init(&cantidad_new,0,0);
     sem_init(&cantidad_ready,0,0);
+    sem_init(&cantidad_exit,0,0);
+    sem_init(&cantidad_exec,0,0);
+    sem_init(&puedo_ejecutar_proceso,0,1);
+
+
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);

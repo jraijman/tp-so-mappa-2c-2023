@@ -36,6 +36,8 @@ t_list* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
+int pid_a_eliminar = NULL;
+
 //listas de estados
 t_queue* cola_new;
 t_list* lista_ready;
@@ -47,6 +49,9 @@ t_list* lista_exit;
 sem_t cantidad_multiprogramacion;
 sem_t cantidad_new;
 sem_t cantidad_ready;
+sem_t cantidad_exit;
+sem_t cantidad_exec;
+sem_t puedo_ejecutar_proceso;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
@@ -85,6 +90,8 @@ void * pasar_new_a_ready(void * args);
 void * finalizar_proceso_cpu(void * args);
 void * planif_corto_plazo(void* args);
 pcb* obtenerSiguienteFIFO();
+pcb* obtenerSiguientePRIORIDADES();
+pcb* obtenerSiguienteRR();
 
 
 char* pid_lista_ready (t_list* lista);
