@@ -93,7 +93,7 @@ void * planif_corto_plazo(void* args);
 pcb* obtenerSiguienteFIFO();
 pcb* obtenerSiguientePRIORIDADES();
 pcb* obtenerSiguienteRR();
-
+void cambiar_estado_pcb(pcb *pcb, int nuevoEstado);
 
 char* pid_lista_ready (t_list* lista);
 const char *estado_proceso_a_char(int numero);

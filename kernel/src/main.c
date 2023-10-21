@@ -194,10 +194,15 @@ void finalizar_proceso(char * pid)
     if(list_size(lista_ready) > 0  && !encontre_pid){
         procesoAEliminar = list_remove_by_condition(lista_ready, (void *) remover);
         corto_plazo = true;
+        
     }
     if(list_size(lista_exec) > 0  &&!encontre_pid){
         procesoAEliminar = list_remove_by_condition(lista_exec, (void *)remover);
         corto_plazo = true;
+        if (procesoAEliminar != NULL)
+        {
+            sem_post(&puedo_ejecutar_proceso);
+        }
     }
     if(list_size(lista_block) > 0  && !encontre_pid){
         procesoAEliminar = list_remove_by_condition(lista_block, (void *)remover);
@@ -376,11 +381,12 @@ pcb* obtenerSiguientePRIORIDADES(){
 void cambiar_estado_pcb(pcb *pcb, int nuevoEstado) {
   pcb->estado = nuevoEstado;
 }
+
 void agregar_a_exit(pcb* proceso){
     const char* estado_anterior = estado_proceso_a_char(proceso->estado);
-	pthread_mutex_lock(&mutex_exit);
     proceso->estado = 5;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
+	pthread_mutex_lock(&mutex_exit);
 	list_add(lista_exit, proceso);
 	pthread_mutex_unlock(&mutex_exit);
 	sem_post(&cantidad_exit);
