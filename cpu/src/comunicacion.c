@@ -31,7 +31,7 @@ static void procesar_conexion(void* void_args){
                     log_error(logger, "Fallo recibiendo instruccion");
                     break;
                 }
-                log_info(logger, "recibi instruccion codOp: %s, operando1: %s, operando2: %s", instruccion. ,.pid, proceso.prioridad);
+                log_info(logger, "Recibi la instruccion codOp: %s, operando1: %s, operando2: %s", instruccion.opcode , instruccion.operando1, instruccion.operando1);
                 break;
             }
             // Errores
