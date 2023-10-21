@@ -175,19 +175,42 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
 
 }
 bool remover(pcb* element) {
-    return element->pid == pid_a_eliminar;
+    encontre_pid = (element->pid == pid_a_eliminar);
+    return encontre_pid;
 }
 
 void finalizar_proceso(char * pid)
 {
-    pid_a_eliminar = pid;
+    pid_a_eliminar = atoi(pid);
+    bool corto_plazo = false;
+    encontre_pid = false;
+    pcb* procesoAEliminar = NULL;
     // hacer log de fin de proceso
-    if(queue_size(cola_new) > 0){
-        pcb* procesoAEliminar = list_remove_by_condition(cola_new, remover);
+    if(queue_size(cola_new) > 0 && !encontre_pid){
+        /// no funciona porqu es una cola
+        //procesoAEliminar = list_remove_by_condition(cola_new, (void *) remover);
+        //corto_plazo = false;
     }
-    if(list_size(lista_ready) > 0){
-        pcb* procesoAEliminar = list_remove_by_condition(lista_ready, remover);
+    if(list_size(lista_ready) > 0  && !encontre_pid){
+        procesoAEliminar = list_remove_by_condition(lista_ready, (void *) remover);
+        corto_plazo = true;
     }
+    if(list_size(lista_exec) > 0  &&!encontre_pid){
+        procesoAEliminar = list_remove_by_condition(lista_exec, (void *)remover);
+        corto_plazo = true;
+    }
+    if(list_size(lista_block) > 0  && !encontre_pid){
+        procesoAEliminar = list_remove_by_condition(lista_block, (void *)remover);
+        corto_plazo = true;
+    }
+
+    if(encontre_pid){
+        log_info(logger_kernel, "Finaliza el proceso %d - Motivo: <SUCCESS - CONSOLA>", procesoAEliminar->pid);
+    }
+    if (corto_plazo){
+        sem_post(&cantidad_multiprogramacion);
+    }
+    
     
 }
 void detener_planificacion()
@@ -234,14 +257,14 @@ pcb* sacar_de_new(){
 
 void agregar_a_ready(pcb* proceso){
     const char* estado_anterior = estado_proceso_a_char(proceso->estado);
-	pthread_mutex_lock(&mutex_ready);
     proceso->estado = 2;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
-	list_add(lista_ready, proceso);
+	pthread_mutex_lock(&mutex_ready);
+    list_add(lista_ready, proceso);
+	pthread_mutex_unlock(&mutex_ready);
     // debe loguear los pids que hay en la cola
 	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
 
-	pthread_mutex_unlock(&mutex_ready);
 	sem_post(&cantidad_ready);
 }
 
@@ -446,7 +469,9 @@ char* pid_lista_ready (t_list* lista){
     cadenaIds[0] = '[';
     int indice = 1;
     for (int i = 0; i < size; i++) {
+        pthread_mutex_lock(&mutex_ready);
         pcb * elemento =list_get(lista, i);
+        pthread_mutex_unlock(&mutex_ready);
         int caracteresEscritos = snprintf(cadenaIds + indice, tamanoCadena - indice + 1, "%d,", elemento->pid);
         if (caracteresEscritos < 0) {
             // Manejo de error en caso de que snprintf falle

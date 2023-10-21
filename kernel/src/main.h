@@ -37,6 +37,7 @@ t_log* logger_kernel;
 t_config* config;
 
 int pid_a_eliminar = NULL;
+bool encontre_pid = false;
 
 //listas de estados
 t_queue* cola_new;
