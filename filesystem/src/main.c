@@ -19,20 +19,14 @@ void levantar_config(char* ruta){
     log_info(logger_filesystem,"Config cargada");
 }
 
+/*Responde de manera genérica a los mensajes de Kernel y Memoria
+Levanta los archivos de Bloques, FAT y FCBs
+*/
 
 int main(int argc, char* argv[]) {
-
-
-    // CONFIG y logger
     levantar_config("filesystem.config");
-    
-    // inicio servidor de escucha
     fd_filesystem = iniciar_servidor(logger_filesystem,"FILESYSTEM",NULL,puerto_escucha);
- 
-    //NO SE SI VA ESTO
-    //genero conexion a memoria
-    //conexion_filesystem_memoria = crear_conexion(logger_filesystem,"MEMORIA",ip_memoria,puerto_memoria);
-
+    conexion_filesystem_memoria = crear_conexion(logger_filesystem,"MEMORIA",ip_memoria,puerto_memoria);
     //espero clientes kernel y memoria
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem));
 

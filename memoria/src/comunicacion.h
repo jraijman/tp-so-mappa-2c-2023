@@ -28,5 +28,6 @@ typedef struct {
 } t_procesar_conexion_args;
 
 int server_escuchar_memoria(t_log* logger,char* server_name,int server_socket);
-
+void inicializar_estructura_proceso(int);
+bool send_instruccion(int socket_fd, const Instruccion *instruccion);
 #endif 

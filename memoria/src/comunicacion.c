@@ -125,7 +125,8 @@ void manejarConexion(pcbDesalojado contexto){
     if(strcmp(instruccion, "INICIALIZACION")==0)
     {
         printf("Inizializando estructura en memoria para un proceso de pid:%d y tamanio:%d", contexto.contexto.pid,contexto.contexto.size);      
-        insertarProcesoOrdenado(lista,contexto.contexto.pid,contexto.contexto.estado,contexto.contexto.archivos);
+        inicializar_estructura_proceso(contexto.contexto.pid);
+        notificar_reserva_swap(socket, contexto.contexto.pid, contexto.contexto.size); 
     }
     else if (strcmp(instruccion, "FINALIZACION")==0)
     {

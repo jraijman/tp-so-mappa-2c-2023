@@ -28,4 +28,12 @@ char* retardo_acceso_fat;
 t_log* logger_filesystem;
 t_config* config;
 
+typedef struct {
+    char* nombre_archivo;
+    int tamanio_archivo;
+    int bloque_inicial;
+} FCB;
+typedef struct {
+    uint32_t* entrada_FAT;
+} FAT;
 #endif 

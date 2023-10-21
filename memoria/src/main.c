@@ -16,7 +16,7 @@ void levantar_config(char *ruta)
 
     log_info(logger_memoria, "Config cargada");
 }
-bool leerYEnviarInstruccion(FILE *archivo, pcb proceso, int conexion_memoria) {
+bool leerYEnviarInstruccion(FILE *archivo, int conexion_memoria) {
     char linea[256];
     Instruccion instruccion;
     if (fgets(linea, sizeof(linea), archivo) != NULL) {
@@ -90,11 +90,11 @@ int main(int argc, char *argv[])
                     log_error(logger_memoria, "Error al recibir el PCB.");
                 } else {
                     int pid_solicitado = proceso.pid;
-                    pcb *procesoactual = buscarProcesoPorPID(tabla_proceso, pid_solicitado);
+                    Proceso *procesoactual = buscarProcesoPorPID(tabla_proceso, pid_solicitado);
                     if (procesoactual != NULL) {
-                        FILE *archivo = fopen(procesoactual->path, "r");
+                        FILE *archivo = fopen(procesoactual->rutaArchivo, "r");
                         if (archivo != NULL) {
-                            if (leerYEnviarInstruccion(archivo,procesoactual, fd_cpu_dispatch)) {
+                            if (leerYEnviarInstruccion(archivo, fd_cpu_dispatch)) {
                                 fclose(archivo);
                             } else {
                                 fclose(archivo);
@@ -172,6 +172,60 @@ t_list* obtenerMarcosAsignados(pid){
 bool marco_asignado_a_este_proceso(int pid,t_marco * marco) {
     return marco->pid == pid;
   }
+
+void inicializar_estructura_proceso(int pid) {
+    
+    Proceso* proceso = malloc(sizeof(Proceso));
+    
+    if (proceso == NULL) {
+        perror("Error en la asignación de memoria para la estructura de proceso");
+        return;
+    }
+
+    proceso->pid = pid;
+    proceso->estado = NEW; 
+    proceso->rutaArchivo = NULL; 
+    proceso->siguiente = NULL; 
+
+    insertarProcesoOrdenado(l_proceso, proceso->pid, proceso->estado, proceso->rutaArchivo);
+
+
+}
+bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
+    
+    SolicitudReservaSwap solicitud;
+    solicitud.pid = pid;
+    solicitud.cantidad_bloques = cantidad_bloques;
+
+    
+    if (send(fd, &solicitud, sizeof(SolicitudReservaSwap), 0) != sizeof(SolicitudReservaSwap)) {
+        perror("Error al enviar la solicitud de reserva de bloques de SWAP");
+        return false;
+    }
+
+    return true;
+}
+bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int* bloques) {
+
+    SolicitudLiberacionSwap solicitud;
+    solicitud.pid = pid;
+    solicitud.cantidad_bloques = cantidad_bloques;
+
+    solicitud.bloques = (int*)malloc(cantidad_bloques * sizeof(int));
+    for (int i = 0; i < cantidad_bloques; i++) {
+        solicitud.bloques[i] = bloques[i];
+    }
+
+    if (send(socket_fd, &solicitud, sizeof(SolicitudLiberacionSwap), 0) != sizeof(SolicitudLiberacionSwap)) {
+        perror("Error al enviar la solicitud de liberación de bloques de SWAP");
+        free(solicitud.bloques);
+        return false;
+    }
+
+    free(solicitud.bloques);
+
+    return true;
+}
 /*
 TODO:
 INSTRUCCIONES SE ENVIA 1 SOLA, LA PETICION ES ITERATIVA DEL LADO CPU POR LO CUAL VAN A IR LLEGANDO PETICIONES DE INSTRUCCION (INDEXAS CON EL PROGRAM COUNTER PARA BAJAR LA LINEA QUE NECESITO)

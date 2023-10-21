@@ -55,15 +55,26 @@ typedef struct
 typedef enum {
    ENVIO_PCB,
    ENVIO_INSTRUCCION,
-   ENVIO_MARCO,
-   ESTRUCTURAS_EN_MEMORIA_CONFIRMADO
+   ENVIO_MARCO
 } op_code;
 
+typedef struct main
+{
+    uint32_t num_marco;
+    uint32_t pid;
+    bool ocupado;
+}t_marco;
+typedef struct {
+    int pid;              // PID del proceso que solicita la reserva
+    int cantidad_bloques;  // Cantidad de bloques de SWAP solicitados
+} SolicitudReservaSwap;
 ///
 bool send_int(int fd,int pid);
 bool recv_int(int fd, int* pid);
 bool send_pcb(int fd,pcb* proceso);
 bool recv_pcb(int fd,pcb* proceso);
+void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso);
+void* serializar_pcbDesalojado(pcbDesalojado proceso);
 bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
 bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso);
 bool send_instruccion(int fd, Instruccion instruccion);

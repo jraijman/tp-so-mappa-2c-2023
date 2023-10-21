@@ -11,13 +11,6 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
 
-typedef struct main
-{
-    uint32_t num_marco;
-    uint32_t pid;
-    bool ocupado;
-}t_marco;
-
 int conexion_memoria_filesystem;
 char* puerto_escucha;
 char* ip_filesystem;
@@ -31,9 +24,12 @@ char* algoritmo_reemplazo;
 t_log* logger_memoria;
 t_config* config;
 t_list* l_marco;
+t_list* l_proceso;
 void liberar_marco(t_marco*);
 t_marco* marco_create(uint32_t, uint32_t,bool);
 int reservar_primer_marco_libre(int);
 void eliminar_proceso_memoria(int);
 int calcularMarco(int pid, t_marco* marcos, int num_marcos);
+bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques);
+bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int* bloques);
 #endif 
