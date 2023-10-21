@@ -37,7 +37,6 @@ typedef struct {
     t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= EXEC, 4 =BLOCK, 5 = EXIT.)
     char path[256];
-    int tam_pagina;
 } pcb;
 typedef struct {
     char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
@@ -51,13 +50,6 @@ typedef struct
     char* extra;
 }pcbDesalojado;
 
-
-typedef enum {
-   ENVIO_PCB,
-   ENVIO_INSTRUCCION,
-   ENVIO_MARCO
-} op_code;
-
 typedef struct main
 {
     uint32_t num_marco;
@@ -68,7 +60,34 @@ typedef struct {
     int pid;              // PID del proceso que solicita la reserva
     int cantidad_bloques;  // Cantidad de bloques de SWAP solicitados
 } SolicitudReservaSwap;
+typedef struct {
+    int pid;              
+    int cantidad_paginas; 
+    int* paginas;         
+} SolicitudLiberacionSwap;
+
+typedef enum{
+    ENVIO_PCB,
+    ENVIO_INSTRUCCION,
+    ENVIO_PCB_DESALOJADO,
+    ENVIO_DIRECCION,
+}op_code;
+
+typedef struct
+{
+    uint32_t direccionLogica;
+    uint32_t tamano_pagina;
+    uint32_t desplazamiento;
+    uint32_t numeroMarco;
+    uint32_t direccionFisica;
+} Direccion;
+
 ///
+typedef struct {
+    int tamano;
+    int tipo;
+} Recibido;
+
 bool send_int(int fd,int pid);
 bool recv_int(int fd, int* pid);
 bool send_pcb(int fd,pcb* proceso);
@@ -79,4 +98,7 @@ bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
 bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso);
 bool send_instruccion(int fd, Instruccion instruccion);
 bool recv_instruccion(int fd, Instruccion* instruccion);
+bool send_direccion(int fd, Direccion direccion);
+bool recv_direccion(int fd, Direccion* direccion);
+
 #endif 

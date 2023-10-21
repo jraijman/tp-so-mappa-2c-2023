@@ -13,6 +13,7 @@
 #include "comunicacion.h"
 
 
+void levantar_config(char*);
 int  conexion_cpu_memoria;
 char* ip_memoria;
 char* puerto_memoria;
@@ -21,6 +22,4 @@ char* puerto_interrupt;
 t_log* logger_cpu;
 t_config* config;
 
-void executeInstruccion(pcb,Instruccion);
-
-#endif 
+#endif

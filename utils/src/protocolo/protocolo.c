@@ -88,7 +88,7 @@ static void* serializar_pcbDesalojado(pcbDesalojado proceso) {
     
     void* stream = malloc(stream_size);
 
-    op_code cop = ENVIO_PCB;
+    op_code cop = ENVIO_PCB_DESALOJADO;
     int instruccion_len_int = (int)instruccion_len;
     int extra_len_int = (int)extra_len;
 
@@ -184,6 +184,47 @@ bool recv_instruccion(int fd, Instruccion* instruccion) {
     deserializar_instruccion(stream, instruccion);
 
     free(stream);
+    return true;
+}
+//--------------------------------------Envio de direcciones---------------------------------
+static void* serializar_direccion(Direccion direccion) {
+    void* stream = malloc(sizeof(op_code_direccion) + sizeof(Direccion));
+
+    op_code_direccion cop = ENVIO_DIRECCION;
+    memcpy(stream, &cop, sizeof(op_code_direccion));
+    memcpy(stream + sizeof(op_code_direccion), &direccion, sizeof(Direccion));
+    return stream;
+}
+
+static void deserializar_direccion(void* stream, Direccion* direccion) {
+    memcpy(direccion, stream + sizeof(op_code_direccion), sizeof(Direccion));
+}
+
+bool send_direccion(int fd, Direccion* direccion) {
+    size_t size = sizeof(op_code_direccion) + sizeof(Direccion);
+    void* stream = serializar_direccion(*direccion);
+    if (send(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+    free(stream);
+    printf("Envío de dirección exitoso\n");
+    return true;
+}
+
+bool recv_direccion(int fd, Direccion* direccion) {
+    size_t size = sizeof(Direccion);
+    void* stream = malloc(size);
+
+    if (recv(fd, stream, size, 0) != size) {
+        free(stream);
+        return false;
+    }
+
+    deserializar_direccion(stream, direccion);
+
+    free(stream);
+    printf("Recepción de dirección exitosa\n");
     return true;
 }
 // -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------

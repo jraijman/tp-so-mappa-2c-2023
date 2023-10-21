@@ -205,27 +205,36 @@ bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
 
     return true;
 }
-bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int* bloques) {
 
+// Función para notificar al módulo FS y liberar páginas en la partición de SWAP
+bool notificarLiberacionSwap(int socket_fd, int pid, int cantidadPaginas, int* paginas) {
     SolicitudLiberacionSwap solicitud;
     solicitud.pid = pid;
-    solicitud.cantidad_bloques = cantidad_bloques;
+    solicitud.cantidadPaginas = cantidadPaginas;
 
-    solicitud.bloques = (int*)malloc(cantidad_bloques * sizeof(int));
-    for (int i = 0; i < cantidad_bloques; i++) {
-        solicitud.bloques[i] = bloques[i];
+    solicitud.paginas = (int*)malloc(cantidadPaginas * sizeof(int));
+    for (int i = 0; i < cantidadPaginas; i++) {
+        solicitud.paginas[i] = paginas[i];
     }
 
     if (send(socket_fd, &solicitud, sizeof(SolicitudLiberacionSwap), 0) != sizeof(SolicitudLiberacionSwap)) {
-        perror("Error al enviar la solicitud de liberación de bloques de SWAP");
-        free(solicitud.bloques);
+        perror("Error al enviar la solicitud de liberación de páginas en SWAP al módulo FS");
+        free(solicitud.paginas);
         return false;
     }
 
-    free(solicitud.bloques);
+   
+    free(solicitud.paginas);
 
     return true;
 }
+int obtenerCantidadPaginasAsignadas(int pid) {
+    t_list* marcos_asignados = obtenerMarcosAsignados(pid);
+    int cantidadDePaginasAsignadas = list_size(marcos_asignados);
+    list_destroy(marcos_asignados);
+    return cantidadDePaginasAsignadas;
+}
+
 /*
 TODO:
 INSTRUCCIONES SE ENVIA 1 SOLA, LA PETICION ES ITERATIVA DEL LADO CPU POR LO CUAL VAN A IR LLEGANDO PETICIONES DE INSTRUCCION (INDEXAS CON EL PROGRAM COUNTER PARA BAJAR LA LINEA QUE NECESITO)

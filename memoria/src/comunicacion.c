@@ -121,18 +121,20 @@ Proceso* buscarProcesoPorPID(Proceso* lista, int pid) {
 
 void manejarConexion(pcbDesalojado contexto){
     char* instruccion = contexto.instruccion;
-    Proceso* lista;
     if(strcmp(instruccion, "INICIALIZACION")==0)
     {
         printf("Inizializando estructura en memoria para un proceso de pid:%d y tamanio:%d", contexto.contexto.pid,contexto.contexto.size);      
         inicializar_estructura_proceso(contexto.contexto.pid);
-        notificar_reserva_swap(socket, contexto.contexto.pid, contexto.contexto.size); 
+        notificar_reserva_swap(fd_filesystem, contexto.contexto.pid, contexto.contexto.size); 
     }
     else if (strcmp(instruccion, "FINALIZACION")==0)
     {
         printf("Memoria recibio una peticion de kernel de finalizar un proceso");
         eliminar_proceso_memoria(contexto.contexto.pid);
-        
+        int* paginas = [1,2,3,4];
+        int cantidad_paginas = obtenerCantidadPaginasAsignadas(contexto.contexto.pid);
+                                                                                        //numero de paginas a liberar
+        notificar_liberacion_swap(fd_filesystem, contexto.contexto.pid, cantidad_paginas, paginas);
     }
     else{
         printf("No reconocido");

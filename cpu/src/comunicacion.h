@@ -1,6 +1,7 @@
 #ifndef COMUNICACION_H_
 #define COMUNICACION_H_
 
+
 #include "main.h"
 #include<stdio.h>
 #include<stdlib.h>
@@ -16,11 +17,14 @@ typedef struct {
     t_log* log;
     int fd_dispatch;
     int fd_interrupt;
+    int conexion_cpu_memoria;
     char* server_name;
-}t_procesar_conexion_args;
+} t_procesar_conexion_args;
 
-static void procesar_conexion(void* void_args);
-int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch,int server_socket_interupt);
-bool enviarPCB(pcbDesalojado contexto_ejecucion,int fd_cpu_dispatch);
-int pedir_marco(int conexion_cpu_memoria,int numero_pagina);
+int server_escuchar_memoria(t_log* logger, char* server_name, int server_socket);
+void inicializar_estructura_proceso(int);
+void manejarConexion(pcbDesalojado contexto);
+void decodeInstruccion(Instruccion* instruccion);
+int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch, int server_socket_interupt, int conexion_cpu_memoria);
+int pedir_marco(int conexion_cpu_memoria, int numero_pagina);
 #endif 
