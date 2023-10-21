@@ -244,7 +244,7 @@ void agregar_a_new(pcb* proceso) {
 	queue_push(cola_new, proceso);
     pthread_mutex_unlock(&mutex_new);
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
-    proceso->estado = NEW;
+    proceso->estado = 1;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
     sem_post(&cantidad_new);
 
