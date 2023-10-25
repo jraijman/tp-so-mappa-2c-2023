@@ -208,7 +208,7 @@ void finalizar_proceso(char * pid)
         procesoAEliminar = list_remove_by_condition(lista_block, (void *)remover);
         corto_plazo = true;
     }
-
+    
     if(encontre_pid){
         log_info(logger_kernel, "Finaliza el proceso %d - Motivo: <SUCCESS - CONSOLA>", procesoAEliminar->pid);
     }

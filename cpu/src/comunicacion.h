@@ -24,7 +24,6 @@ typedef struct {
 int server_escuchar_memoria(t_log* logger, char* server_name, int server_socket);
 void inicializar_estructura_proceso(int);
 void manejarConexion(pcbDesalojado contexto);
-void decodeInstruccion(Instruccion* instruccion);
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch, int server_socket_interupt, int conexion_cpu_memoria);
 int pedir_marco(int conexion_cpu_memoria, int numero_pagina);
 #endif 

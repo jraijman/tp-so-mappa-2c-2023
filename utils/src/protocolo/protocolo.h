@@ -98,7 +98,7 @@ bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
 bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso);
 bool send_instruccion(int fd, Instruccion instruccion);
 bool recv_instruccion(int fd, Instruccion* instruccion);
-bool send_direccion(int fd, Direccion direccion);
+bool send_direccion(int fd, Direccion* direccion);
 bool recv_direccion(int fd, Direccion* direccion);
 
 #endif 

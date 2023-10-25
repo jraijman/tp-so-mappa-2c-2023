@@ -60,7 +60,6 @@ int esperar_cliente(t_log* logger, const char* name, int socket_servidor)
 
 }
 
-
 int crear_conexion(t_log* logger,const char* server_name, char* ip, char* puerto)
 {
 	struct addrinfo hints;
