@@ -61,7 +61,6 @@ bool send_pcb(int fd,pcb* proceso){
         return false;
     }
     free(stream);
-    printf(" envio pcb a memoria ");
     return true;
 }
 
@@ -188,20 +187,20 @@ bool recv_instruccion(int fd, Instruccion* instruccion) {
 }
 //--------------------------------------Envio de direcciones---------------------------------
 static void* serializar_direccion(Direccion direccion) {
-    void* stream = malloc(sizeof(op_code_direccion) + sizeof(Direccion));
+    void* stream = malloc(sizeof(op_code) + sizeof(Direccion));
 
-    op_code_direccion cop = ENVIO_DIRECCION;
-    memcpy(stream, &cop, sizeof(op_code_direccion));
-    memcpy(stream + sizeof(op_code_direccion), &direccion, sizeof(Direccion));
+    op_code cop = ENVIO_DIRECCION;
+    memcpy(stream, &cop, sizeof(op_code));
+    memcpy(stream + sizeof(op_code), &direccion, sizeof(Direccion));
     return stream;
 }
 
 static void deserializar_direccion(void* stream, Direccion* direccion) {
-    memcpy(direccion, stream + sizeof(op_code_direccion), sizeof(Direccion));
+    memcpy(direccion, stream + sizeof(op_code), sizeof(Direccion));
 }
 
 bool send_direccion(int fd, Direccion* direccion) {
-    size_t size = sizeof(op_code_direccion) + sizeof(Direccion);
+    size_t size = sizeof(op_code) + sizeof(Direccion);
     void* stream = serializar_direccion(*direccion);
     if (send(fd, stream, size, 0) != size) {
         free(stream);

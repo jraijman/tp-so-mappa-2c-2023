@@ -41,10 +41,10 @@ bool encontre_pid = false;
 
 //listas de estados
 t_queue* cola_new;
-t_list* lista_ready;
-t_list* lista_exec;
-t_list* lista_block;
-t_list* lista_exit;
+t_queue* cola_ready;
+t_queue* cola_exec;
+t_queue* cola_block;
+t_queue* cola_exit;
 
 //semaforos
 sem_t cantidad_multiprogramacion;
@@ -63,6 +63,7 @@ pthread_mutex_t mutex_exit;
 // hilos
 pthread_t hilo_consola;
 pthread_t hilo_new_ready;
+pthread_t hilo_plan_largo;
 pthread_t hilo_cpu_exit;
 pthread_t hilo_plan_corto;
 
@@ -90,6 +91,7 @@ void agregar_a_ready(pcb* proceso);
 void * pasar_new_a_ready(void * args);
 void * finalizar_proceso_cpu(void * args);
 void * planif_corto_plazo(void* args);
+void * planif_largo_plazo(void* args);
 pcb* obtenerSiguienteFIFO();
 pcb* obtenerSiguientePRIORIDADES();
 pcb* obtenerSiguienteRR();

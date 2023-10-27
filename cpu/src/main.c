@@ -12,11 +12,8 @@ int main(int argc, char* argv[]){
     fd_cpu_interrupt = iniciar_servidor(logger_cpu, "CPU INTERRUPT", NULL, puerto_interrupt);
     // Genero conexión a memoria
     conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);    
-    // Espero clientes de dispatch e interrupt
-    cliente_dispatch = esperar_cliente(logger_cpu, "CPU DISPATCH", fd_cpu_dispatch);
-    cliente_interrupt = esperar_cliente(logger_cpu, "CPU INTERRUPT", fd_cpu_interrupt);
     // Espero msjs
-    server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt, conexion_cpu_memoria);
+    while(server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt, conexion_cpu_memoria));
     // Cerrar LOG y CONFIG y liberar conexión
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);
@@ -34,40 +31,6 @@ void levantar_config(char* ruta){
     log_info(logger_cpu, "puerto_dispatch: %s y puerto_interrupt: %s", puerto_dispatch, puerto_interrupt);
 }
 
-static void procesar_conexion(void* void_args){
-    t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
-    t_log* logger = args->log;
-    int cliente_socket_dispatch = args->fd_dispatch;
-    int cliente_socket_interrupt = args->fd_interrupt;
-    int conexion_cpu_memoria=args->conexion_cpu_memoria;
-    char* server_name = args->server_name;
-    free(args);
-    op_code cop;
-    pcb contexto;
-    Direccion direccion;
-    Instruccion instruccion;
-    while(cliente_socket_dispatch != -1){
-        switch (cop) {
-        case ENVIO_PCB:{
-        pcb contexto;
-        recv_pcb(cliente_socket_dispatch, &contexto);
-        ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger_cpu);
-        break;
-      }
-      case ENVIO_INSTRUCCION: { //Caso de finalizar una ejecucion
-        break;
-      }
-      case -1: {
-        log_info(logger_cpu,"El cliente se desconecto");
-        break;
-      }
-      default: {
-        log_error(logger_cpu, "No reconocido");
-        break;
-      }
-}}
-}
-
 void ciclo_instruccion(pcb contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger){
 log_info(logger, "Inicio del ciclo de instruccion");
 while(cliente_socket_dispatch!=-1){
@@ -76,7 +39,8 @@ while(cliente_socket_dispatch!=-1){
         fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger);
         contexto.pc++;
         decodeInstruccion(&instruccion);
-        executeInstruccion(contexto, instruccion);}
+        executeInstruccion(contexto, instruccion);
+    }
     pcbDesalojado interrumpido;
     interrumpido.contexto=contexto;
     strcpy(interrumpido.extra, "INTERRUPCION");

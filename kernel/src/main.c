@@ -119,8 +119,8 @@ void iniciar_hilos(){
     //creo hilo para la consola
     pthread_create(&hilo_consola, NULL, leer_consola, NULL);
 
-    //creo hilo para pasar a cola de ready
-    pthread_create(&hilo_new_ready, NULL, pasar_new_a_ready, NULL);
+     //creo hilo para pasar a cola de ready
+    pthread_create(&hilo_plan_largo, NULL, planif_largo_plazo, NULL);
 
     //creo hilo para la planificacion a corto plazo
     pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
@@ -132,7 +132,7 @@ void iniciar_hilos(){
 
 
     pthread_detach(hilo_consola);
-    pthread_detach(hilo_new_ready);
+    pthread_detach(hilo_plan_largo);
     pthread_detach(hilo_plan_corto);
     pthread_detach(hilo_cpu_exit);
 
@@ -142,18 +142,16 @@ void iniciar_listas(){
 
 //ver si no hay que usar colas
 	cola_new = queue_create();
-	lista_ready = list_create();
-	lista_exec = list_create(); //preguntar
-	lista_block = list_create(); //preguntar
-	lista_exit = list_create(); //preguntar
+	cola_ready = queue_create();
+	cola_exec = queue_create(); //preguntar
+	cola_block = queue_create(); //preguntar
+	cola_exit = queue_create(); //preguntar
 }
 
 void iniciar_proceso(char * path, char* size, char* prioridad)
 {
-        
     //generar estructura PCB
     pcb* proceso = malloc(sizeof(pcb));
-    
     proceso->pid = contador_proceso;
     proceso->size = atoi(size);
     proceso->pc = 0;//arranca desde la instruccion 0
@@ -163,7 +161,7 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->registros.bx =0;
     proceso->registros.cx =0;
     proceso->registros.dx =0;
-    memcpy(proceso->path, path, 256);
+    memcpy(proceso->path, path, sizeof(path));
 
     agregar_a_new(proceso);
 
@@ -186,7 +184,7 @@ void finalizar_proceso(char * pid)
     encontre_pid = false;
     pcb* procesoAEliminar = NULL;
     // hacer log de fin de proceso
-    if(queue_size(cola_new) > 0 && !encontre_pid){
+    /*if(queue_size(cola_new) > 0 && !encontre_pid){
         /// no funciona porqu es una cola
         //procesoAEliminar = list_remove_by_condition(cola_new, (void *) remover);
         //corto_plazo = false;
@@ -194,27 +192,24 @@ void finalizar_proceso(char * pid)
     if(list_size(lista_ready) > 0  && !encontre_pid){
         procesoAEliminar = list_remove_by_condition(lista_ready, (void *) remover);
         corto_plazo = true;
-        
     }
-    if(list_size(lista_exec) > 0  &&!encontre_pid){
+    if(list_size(lista_exec) > 0  && !encontre_pid){
+        ///hay que pasar otro proceso a ejecutar
         procesoAEliminar = list_remove_by_condition(lista_exec, (void *)remover);
+        // sem_post(&puedo_ejecutar_proceso);
         corto_plazo = true;
-        if (procesoAEliminar != NULL)
-        {
-            sem_post(&puedo_ejecutar_proceso);
-        }
     }
     if(list_size(lista_block) > 0  && !encontre_pid){
         procesoAEliminar = list_remove_by_condition(lista_block, (void *)remover);
         corto_plazo = true;
     }
-    
+
     if(encontre_pid){
         log_info(logger_kernel, "Finaliza el proceso %d - Motivo: <SUCCESS - CONSOLA>", procesoAEliminar->pid);
     }
     if (corto_plazo){
         sem_post(&cantidad_multiprogramacion);
-    }
+    }*/
     
     
 }
@@ -238,13 +233,12 @@ void proceso_estado()
 //-----------------------------------OPERACIONES DE LISTAS/COLAS-------------------------------------------
 void agregar_a_new(pcb* proceso) {
     const char* estado_anterior = estado_proceso_a_char(proceso->estado);
-
     //uso un mutex por seccion critica
     pthread_mutex_lock(&mutex_new);
 	queue_push(cola_new, proceso);
     pthread_mutex_unlock(&mutex_new);
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
-    proceso->estado = 1;
+    proceso->estado = NEW;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
     sem_post(&cantidad_new);
 
@@ -265,30 +259,26 @@ void agregar_a_ready(pcb* proceso){
     proceso->estado = 2;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
 	pthread_mutex_lock(&mutex_ready);
-    list_add(lista_ready, proceso);
+    queue_push(cola_ready, proceso);
 	pthread_mutex_unlock(&mutex_ready);
     // debe loguear los pids que hay en la cola
-	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(lista_ready));
-
+	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(cola_ready->elements));
 	sem_post(&cantidad_ready);
 }
 
 
 //-----------------------------------------------------------------------
-
-void* pasar_new_a_ready(void* args){
+void* planif_largo_plazo(void* args){
     while(1){
         //verifica que el grado de multiprogramacion persmite varios procesos en ready
         sem_wait(&cantidad_multiprogramacion);
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
-        //printf("path = %s ",proceso->path);
         //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
         //mandar con pcbDesalojado con el string de inicializado
-        send_pcb(conexion_memoria, proceso);
+        send_pcb(conexion_dispatch, proceso);
     }
 }
-
 void* planif_corto_plazo(void* args){
     while(1){
         //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
@@ -305,7 +295,7 @@ void* planif_corto_plazo(void* args){
                 cambiar_estado_pcb(procesoAEjecutar,3);
                 log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
                 pthread_mutex_lock(&mutex_exec);
-                list_add(lista_exec, procesoAEjecutar);
+                list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
                 //mandar proceso a CPU
                 send_pcb(conexion_dispatch, procesoAEjecutar);
@@ -325,7 +315,7 @@ void* planif_corto_plazo(void* args){
                 cambiar_estado_pcb(procesoAEjecutar,3);
                 log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
                 pthread_mutex_lock(&mutex_exec);
-                list_add(lista_exec, procesoAEjecutar);
+                list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
                 //mandar proceso a CPU
                 send_pcb(conexion_dispatch, procesoAEjecutar);
@@ -346,8 +336,8 @@ void* planif_corto_plazo(void* args){
 pcb* obtenerSiguienteFIFO(){
 	pcb* procesoPlanificado = NULL;
 	pthread_mutex_lock(&mutex_ready);
-    if (list_size(lista_ready) > 0){
-	procesoPlanificado = list_remove(lista_ready, 0);
+    if (list_size(cola_ready->elements) > 0){
+	procesoPlanificado = list_remove(cola_ready->elements, 0);
     }
     pthread_mutex_unlock(&mutex_ready);
 	return procesoPlanificado;
@@ -366,11 +356,11 @@ bool cmp(void *a, void *b) {
 
 pcb* obtenerSiguientePRIORIDADES(){
 	pcb* procesoPlanificado = NULL;
-    if (list_size(lista_ready) > 0){
+    if (list_size(cola_ready->elements) > 0){
     pthread_mutex_lock(&mutex_ready);
-    t_list* lista_ordenada = list_sorted(lista_ready,cmp);
+    t_list* lista_ordenada = list_sorted(cola_ready->elements,cmp);
 	procesoPlanificado = list_remove(lista_ordenada, 0);
-    list_remove_element(lista_ready,procesoPlanificado);
+    list_remove_element(cola_ready->elements,procesoPlanificado);
     pthread_mutex_unlock(&mutex_ready);
     }
 	return procesoPlanificado;
@@ -381,13 +371,12 @@ pcb* obtenerSiguientePRIORIDADES(){
 void cambiar_estado_pcb(pcb *pcb, int nuevoEstado) {
   pcb->estado = nuevoEstado;
 }
-
 void agregar_a_exit(pcb* proceso){
     const char* estado_anterior = estado_proceso_a_char(proceso->estado);
+	pthread_mutex_lock(&mutex_exit);
     proceso->estado = 5;
     log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
-	pthread_mutex_lock(&mutex_exit);
-	list_add(lista_exit, proceso);
+	list_add(cola_exit->elements, proceso);
 	pthread_mutex_unlock(&mutex_exit);
 	sem_post(&cantidad_exit);
 }
@@ -508,3 +497,6 @@ const char *estado_proceso_a_char(int numero) {
             return "-";
     }
 }
+
+
+//----------------------------------------------------------------------------------------------++
