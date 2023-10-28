@@ -42,17 +42,50 @@ bool recv_int(int fd, int* pid) {
 //envio de pcb
 
 static void* serializar_pcb(pcb proceso) {
-    void* stream = malloc(sizeof(op_code) + sizeof(pcb));
-
+    void* stream = malloc(sizeof(op_code) + sizeof(int) + sizeof(int) + sizeof(int) +
+                         sizeof(uint32_t) * 4 + sizeof(int) + strlen(proceso.path) + 1);
+    
     op_code cop = ENVIO_PCB;
     memcpy(stream, &cop, sizeof(op_code));
-    memcpy(stream+sizeof(op_code), &proceso, sizeof(pcb));
+    void* offset = stream + sizeof(op_code);
+    
+    memcpy(offset, &proceso.pid, sizeof(int));
+    offset += sizeof(int);
+    memcpy(offset, &proceso.pc, sizeof(int));
+    offset += sizeof(int);
+    memcpy(offset, &proceso.size, sizeof(int));
+    offset += sizeof(int);
+    memcpy(offset, &proceso.registros, sizeof(struct Reg));
+    offset += sizeof(struct Reg);
+    memcpy(offset, &proceso.prioridad, sizeof(int));
+    offset += sizeof(int);
+    size_t path_len = strlen(proceso.path) + 1;
+    memcpy(offset, &path_len, sizeof(size_t));
+    offset += sizeof(size_t);
+    memcpy(offset, proceso.path, path_len);
+    
     return stream;
 }
 
 static void deserializar_pcb(void* stream, pcb* proceso) {
-    memcpy(proceso, stream, sizeof(pcb));
+    void* offset = stream + sizeof(op_code);
+    
+    memcpy(&proceso->pid, offset, sizeof(int));
+    offset += sizeof(int);
+    memcpy(&proceso->pc, offset, sizeof(int));
+    offset += sizeof(int);
+    memcpy(&proceso->size, offset, sizeof(int));
+    offset += sizeof(int);
+    memcpy(&proceso->registros, offset, sizeof(struct Reg));
+    offset += sizeof(struct Reg);
+    memcpy(&proceso->prioridad, offset, sizeof(int));
+    offset += sizeof(int);
+    size_t path_len;
+    memcpy(&path_len, offset, sizeof(size_t));
+    offset += sizeof(size_t);
+    memcpy(proceso->path, offset, path_len);
 }
+
 bool send_pcb(int fd,pcb* proceso){
     size_t size = sizeof(op_code) + sizeof(pcb);
     void* stream = serializar_pcb(*proceso);
@@ -79,45 +112,55 @@ bool recv_pcb(int fd,pcb* proceso) {
     return true;
 }
 //--------------------------------------ENVIO PCB DESALOJADO POR CPU-------------------------
-
 static void* serializar_pcbDesalojado(pcbDesalojado proceso) {
     size_t instruccion_len = strlen(proceso.instruccion) + 1;
     size_t extra_len = strlen(proceso.extra) + 1;
-    size_t stream_size = sizeof(op_code) + sizeof(int) + sizeof(pcb) + instruccion_len + extra_len;
+    size_t stream_size = sizeof(op_code) + sizeof(int) + instruccion_len + extra_len + sizeof(pcb);
     
     void* stream = malloc(stream_size);
 
     op_code cop = ENVIO_PCB_DESALOJADO;
     int instruccion_len_int = (int)instruccion_len;
-    int extra_len_int = (int)extra_len;
-
+    
     memcpy(stream, &cop, sizeof(op_code));
-    memcpy(stream + sizeof(op_code), &instruccion_len_int, sizeof(int));
-    memcpy(stream + sizeof(op_code) + sizeof(int), &extra_len_int, sizeof(int));
-    memcpy(stream + sizeof(op_code) + 2 * sizeof(int), &proceso.contexto, sizeof(pcb));
-    memcpy(stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb), proceso.instruccion, instruccion_len);
-    memcpy(stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb) + instruccion_len, proceso.extra, extra_len);
+    void* offset = stream + sizeof(op_code);
+    memcpy(offset, &instruccion_len_int, sizeof(int));
+    offset += sizeof(int);
+    memcpy(offset, proceso.instruccion, instruccion_len);
+    offset += instruccion_len;
+    memcpy(offset, proceso.extra, extra_len);
+    offset += extra_len;
+    
+    // Serializa la estructura pcb
+    void* pcb_stream = serializar_pcb(proceso.contexto);
+    memcpy(offset, pcb_stream, sizeof(pcb));
+    free(pcb_stream);
 
     return stream;
 }
 
 static void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso) {
-    int instruccion_len_int, extra_len_int;
+    int instruccion_len_int;
     
     memcpy(&instruccion_len_int, stream + sizeof(op_code), sizeof(int));
-    memcpy(&extra_len_int, stream + sizeof(op_code) + sizeof(int), sizeof(int));
+    void* offset = stream + sizeof(op_code) + sizeof(int);
     
     size_t instruccion_len = (size_t)instruccion_len_int;
-    size_t extra_len = (size_t)extra_len_int;
-
-    memcpy(&proceso->contexto, stream + sizeof(op_code) + 2 * sizeof(int), sizeof(pcb));
-
-    proceso->instruccion = (char*)malloc(instruccion_len);
-    proceso->extra = (char*)malloc(extra_len);
-
-    memcpy(proceso->instruccion, stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb), instruccion_len);
-    memcpy(proceso->extra, stream + sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb) + instruccion_len, extra_len);
+    
+    proceso->instruccion = malloc(instruccion_len);
+    memcpy(proceso->instruccion, offset, instruccion_len);
+    offset += instruccion_len;
+    
+    size_t extra_len = strlen(offset) + 1;
+    proceso->extra = malloc(extra_len);
+    memcpy(proceso->extra, offset, extra_len);
+    offset += extra_len;
+    pcb base;
+    // Deserializa la estructura pcb
+    deserializar_pcb(offset, &proceso->contexto);
+    proceso->contexto=base;
 }
+
 
 bool send_pcbDesalojado(pcbDesalojado proceso, int fd) {
     void* stream = serializar_pcbDesalojado(proceso);
@@ -148,16 +191,29 @@ bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso) {
 }
 //--------------------------------------Envio de instrucciones-------------------------------
 static void* serializar_instruccion(Instruccion instruccion) {
-    void* stream = malloc(sizeof(op_code) + sizeof(Instruccion));
-
+    void* stream = malloc(sizeof(op_code) + sizeof(instruccion));
+    
     op_code cop = ENVIO_INSTRUCCION;
     memcpy(stream, &cop, sizeof(op_code));
-    memcpy(stream + sizeof(op_code), &instruccion, sizeof(Instruccion));
+    void* offset = stream + sizeof(op_code);
+    
+    memcpy(offset, instruccion.opcode, sizeof(instruccion.opcode));
+    offset += sizeof(instruccion.opcode);
+    memcpy(offset, instruccion.operando1, sizeof(instruccion.operando1));
+    offset += sizeof(instruccion.operando1);
+    memcpy(offset, instruccion.operando2, sizeof(instruccion.operando2));
+    
     return stream;
 }
 
 static void deserializar_instruccion(void* stream, Instruccion* instruccion) {
-    memcpy(instruccion, stream + sizeof(op_code), sizeof(Instruccion));
+    void* offset = stream + sizeof(op_code);
+    
+    memcpy(instruccion->opcode, offset, sizeof(instruccion->opcode));
+    offset += sizeof(instruccion->opcode);
+    memcpy(instruccion->operando1, offset, sizeof(instruccion->operando1));
+    offset += sizeof(instruccion->operando1);
+    memcpy(instruccion->operando2, offset, sizeof(instruccion->operando2));
 }
 
 bool send_instruccion(int fd, Instruccion instruccion) {
