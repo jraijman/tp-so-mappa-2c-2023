@@ -10,6 +10,7 @@
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
+#include "../../utils/src/protocolo/protocolo.h"
 
 int conexion_memoria_filesystem;
 char* puerto_escucha;
@@ -31,6 +32,5 @@ int reservar_primer_marco_libre(int);
 void eliminar_proceso_memoria(int);
 int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques);
-bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int* bloques);
 int obtenerCantidadPaginasAsignadas(int pid);
 #endif 

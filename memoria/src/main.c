@@ -153,6 +153,16 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
     
     return -1;
 }
+
+bool marco_asignado_a_este_proceso(int pid,t_marco * marco) {
+    return marco->pid == pid;
+}
+
+t_list* obtenerMarcosAsignados(pid){
+    t_list* marcos_asignados = list_filter(l_marco, (void*)marco_asignado_a_este_proceso);
+    return marcos_asignados;
+}
+
 void eliminar_proceso_memoria(int pid) {
     
     t_list* marcos_asignados = obtenerMarcosAsignados(pid);
@@ -164,14 +174,6 @@ void eliminar_proceso_memoria(int pid) {
     }
     list_destroy(marcos_asignados);
 }
-t_list* obtenerMarcosAsignados(pid){
-    t_list* marcos_asignados = list_filter(l_marco, (void*)marco_asignado_a_este_proceso);
-    return marcos_asignados;
-}
-
-bool marco_asignado_a_este_proceso(int pid,t_marco * marco) {
-    return marco->pid == pid;
-  }
 
 void inicializar_estructura_proceso(int pid) {
     
@@ -210,7 +212,7 @@ bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
 bool notificarLiberacionSwap(int socket_fd, int pid, int cantidadPaginas, int* paginas) {
     SolicitudLiberacionSwap solicitud;
     solicitud.pid = pid;
-    solicitud.cantidadPaginas = cantidadPaginas;
+    solicitud.cantidad_paginas = cantidadPaginas;
 
     solicitud.paginas = (int*)malloc(cantidadPaginas * sizeof(int));
     for (int i = 0; i < cantidadPaginas; i++) {

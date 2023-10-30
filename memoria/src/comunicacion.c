@@ -52,19 +52,6 @@ void serializar_instruccion(const Instruccion *instruccion, void *buffer, size_t
         memcpy(buffer, instruccion, sizeof(Instruccion));
     }
 }
-bool send_instruccion(int socket_fd, const Instruccion *instruccion) {
-    char buffer[sizeof(Instruccion)];
-    serializar_instruccion(instruccion, buffer, sizeof(buffer));
-
-    ssize_t bytes_sent = send(socket_fd, buffer, sizeof(buffer), 0);
-    
-    if (bytes_sent == -1) {
-        perror("Error al enviar la instrucción");
-        return false;
-    }
-
-    return true;
-}
 int server_escuchar_memoria(t_log* logger,char* server_name,int server_socket){
      int cliente_socket = esperar_cliente(logger, server_name, server_socket);
 
@@ -119,6 +106,12 @@ Proceso* buscarProcesoPorPID(Proceso* lista, int pid) {
     return NULL; 
 }
 
+
+bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int* bloques){
+    //retorno provisorio para que funcione
+    return true;
+}
+
 void manejarConexion(pcbDesalojado contexto){
     char* instruccion = contexto.instruccion;
     if(strcmp(instruccion, "INICIALIZACION")==0)
@@ -131,7 +124,8 @@ void manejarConexion(pcbDesalojado contexto){
     {
         printf("Memoria recibio una peticion de kernel de finalizar un proceso");
         eliminar_proceso_memoria(contexto.contexto.pid);
-        int* paginas = [1,2,3,4];
+        int arreglo[] = {1, 2, 3, 4};
+        int *paginas = arreglo;
         int cantidad_paginas = obtenerCantidadPaginasAsignadas(contexto.contexto.pid);
                                                                                         //numero de paginas a liberar
         notificar_liberacion_swap(fd_filesystem, contexto.contexto.pid, cantidad_paginas, paginas);
