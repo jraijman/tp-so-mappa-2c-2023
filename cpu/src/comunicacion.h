@@ -9,9 +9,12 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
+#include <sys/socket.h>
+#include <unistd.h>
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "../../utils/src/protocolo/protocolo.h"
+
 
 typedef struct {
     t_log* log;
@@ -26,4 +29,5 @@ void inicializar_estructura_proceso(int);
 void manejarConexion(pcbDesalojado contexto);
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch, int server_socket_interupt, int conexion_cpu_memoria);
 int pedir_marco(int conexion_cpu_memoria, int numero_pagina);
+int recibir_operacion(int socket_cliente);
 #endif 

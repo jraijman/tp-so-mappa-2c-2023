@@ -85,32 +85,56 @@ static void deserializar_pcb(void* stream, pcb* proceso) {
     offset += sizeof(size_t);
     memcpy(proceso->path, offset, path_len);
 }
-
-bool send_pcb(int fd,pcb* proceso){
-    size_t size = sizeof(op_code) + sizeof(pcb);
+bool send_pcb(int fd, pcb* proceso) {
+    printf("Enviando PCB...\n");
     void* stream = serializar_pcb(*proceso);
-    if (send(fd, stream, size, 0) != size) {
+    size_t size = sizeof(op_code) + sizeof(pcb);
+
+    ssize_t bytes_enviados = send(fd, stream, size, 0);
+
+    if (bytes_enviados == size) {
+        printf("PCB enviado correctamente.\n");
+        free(stream);
+        return true;
+    } else if (bytes_enviados == -1) {
+        printf("Error al enviar el PCB");
+        printf("Cerrando la conexión debido a un error.\n");
+        free(stream);
+        return false;
+    } else {
+        printf("Error inesperado al enviar el PCB.\n");
+        printf("Cerrando la conexión debido a un error inesperado.\n");
         free(stream);
         return false;
     }
-    free(stream);
-    return true;
 }
 
-bool recv_pcb(int fd,pcb* proceso) {
+bool recv_pcb(int fd, pcb* proceso) {
+    printf("Esperando recibir un PCB...");
     size_t size = sizeof(pcb);
     void* stream = malloc(size);
 
-    if (recv(fd, stream, size, 0) != size) {
+    ssize_t bytes_recibidos = recv(fd, stream, size, MSG_WAITALL);
+
+    if (bytes_recibidos == size) {
+        printf("PCB recibido correctamente.");
+        deserializar_pcb(stream, proceso);
+        free(stream);
+        return true;
+    } else if (bytes_recibidos == 0) {
+        printf("La conexión fue cerrada por el otro extremo durante la recepción del PCB.");
+        free(stream);
+        return false;
+    } else if (bytes_recibidos == -1) {
+        printf("Cerrando la conexión debido a un error.");
+        free(stream);
+        return false;
+    } else {
         free(stream);
         return false;
     }
-
-    deserializar_pcb(stream, proceso);
-
-    free(stream);
-    return true;
 }
+
 //--------------------------------------ENVIO PCB DESALOJADO POR CPU-------------------------
 static void* serializar_pcbDesalojado(pcbDesalojado proceso) {
     size_t instruccion_len = strlen(proceso.instruccion) + 1;

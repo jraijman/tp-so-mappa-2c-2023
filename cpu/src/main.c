@@ -2,8 +2,6 @@
 
 int main(int argc, char* argv[]){
     // Flags para estado del cpu
-    int procesoEnEjec=0;
-    int interrupcionPendiente=0;
     // CONFIG y logger
     levantar_config("cpu.config");
     logger_cpu = iniciar_logger("cpu.log", "CPU:");
