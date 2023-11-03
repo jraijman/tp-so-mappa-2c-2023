@@ -11,7 +11,7 @@ int main(int argc, char* argv[]) {
     // Conecto kernel con cpu, memoria y filesystem
 	fd_cpu_dispatch = -1,fd_cpu_interrupt = -1, fd_memoria = -1, fd_filesystem = -1;
 	if (!generar_conexiones()) {
-		log_error(logger_kernel, "Alguna conexion falló :(");
+		log_error(logger_kernel, "Alguna conexion falló");
 		// libero conexiones, log y config
         terminar_programa(logger_kernel, config);
         //liberar_conexion(fd_cpu_dispatch);
@@ -22,7 +22,7 @@ int main(int argc, char* argv[]) {
 	}
     
     //mensajes de prueba
-    enviar_mensaje("Hola, Soy Kernel!", fd_filesystem);
+    //enviar_mensaje("Hola, Soy Kernel!", fd_filesystem);
 	enviar_mensaje("Hola, Soy Kernel!", fd_memoria);
 	//enviar_mensaje("Hola, Soy Kernel!", fd_cpu);
     
@@ -113,7 +113,9 @@ void * leer_consola(void * arg)
                     parametros[i++] = p;
                     p = strtok (NULL, " ");
                 }
-            iniciar_proceso(parametros[0], parametros[1], parametros[2]);
+            if (parametros[0] != NULL || parametros[1] != NULL || parametros[2] != NULL){
+                 iniciar_proceso(parametros[0], parametros[1], parametros[2]);
+            }else printf("error en algun parametro \n");
             free(leido);  
             free (p);
             break;
@@ -146,6 +148,8 @@ void * leer_consola(void * arg)
     }
 }
 
+
+
 void iniciar_hilos(){
     //creo hilo para la consola
     pthread_create(&hilo_consola, NULL, leer_consola, NULL);
@@ -159,9 +163,6 @@ void iniciar_hilos(){
     //creo hilo que espera mensaje de CPU de finalizar proceso
     pthread_create(&hilo_cpu_exit, NULL, finalizar_proceso_cpu, NULL);
 
-
-
-
     pthread_detach(hilo_consola);
     pthread_detach(hilo_plan_largo);
     pthread_detach(hilo_plan_corto);
@@ -170,13 +171,11 @@ void iniciar_hilos(){
 }
 
 void iniciar_listas(){
-
-//ver si no hay que usar colas
 	cola_new = queue_create();
 	cola_ready = queue_create();
-	cola_exec = queue_create(); //preguntar
-	cola_block = queue_create(); //preguntar
-	cola_exit = queue_create(); //preguntar
+	cola_exec = queue_create(); 
+	cola_block = queue_create(); 
+	cola_exit = queue_create();
 }
 
 void iniciar_proceso(char * path, char* size, char* prioridad)
@@ -188,21 +187,28 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->pc = 0;//arranca desde la instruccion 0
     proceso->prioridad = atoi(prioridad);
     proceso->estado = NEW;
+    proceso->registros = malloc(sizeof(t_registros));
+    proceso->registros->ax = malloc(sizeof(int));
+	proceso->registros->bx = malloc(sizeof(int));
+	proceso->registros->cx = malloc(sizeof(int));
+	proceso->registros->dx = malloc(sizeof(int));
     proceso->registros->ax =0;
     proceso->registros->bx =0;
     proceso->registros->cx =0;
     proceso->registros->dx =0;
+    proceso->archivos = list_create();
     //memcpy(proceso->path, path, sizeof(path));
-
+    //ver si falta el tiempo para manejar el quantum
     agregar_a_new(proceso);
-
-    //MANDAR MENSAJE A MEMORIA- CREACION DE PROCESO--------------------------------
-    //send_creo_proceso(conexion_memoria, proceso);
-
+    //MANDAR MENSAJE A MEMORIA- CREACION DE PROCESO-
+    send_inicializar_proceso(proceso, fd_memoria);
     //le sumo uno al contador que funciona como id de proceso
     contador_proceso++;
 
+   
+
 }
+
 bool remover(pcb* element) {
     encontre_pid = (element->pid == pid_a_eliminar);
     return encontre_pid;
@@ -263,37 +269,29 @@ void proceso_estado()
 
 //-----------------------------------OPERACIONES DE LISTAS/COLAS-------------------------------------------
 void agregar_a_new(pcb* proceso) {
-    const char* estado_anterior = estado_proceso_a_char(proceso->estado);
-    //uso un mutex por seccion critica
+    cambiar_estado(proceso, NEW);
     pthread_mutex_lock(&mutex_new);
 	queue_push(cola_new, proceso);
     pthread_mutex_unlock(&mutex_new);
     log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
-    proceso->estado = NEW;
-    log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
     sem_post(&cantidad_new);
-
 }
-pcb* sacar_de_new(){
 
-    //me fijo que hay en new para sacar y uso un mutex por seccion critica
+pcb* sacar_de_new(){
 	sem_wait(&cantidad_new);
 	pthread_mutex_lock(&mutex_new);
-	pcb* proceso = queue_pop(cola_new);
+	pcb *proceso = queue_pop(cola_new);
 	pthread_mutex_unlock(&mutex_new);
 	return proceso;
 }
 
 
 void agregar_a_ready(pcb* proceso){
-    const char* estado_anterior = estado_proceso_a_char(proceso->estado);
-    proceso->estado = 2;
-    log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
-	pthread_mutex_lock(&mutex_ready);
+    cambiar_estado(proceso, READY);
+    pthread_mutex_lock(&mutex_ready);
     queue_push(cola_ready, proceso);
 	pthread_mutex_unlock(&mutex_ready);
-    // debe loguear los pids que hay en la cola
-	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion,pid_lista_ready(cola_ready->elements));
+	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion, list_to_string(pid_lista_ready(cola_ready->elements)));
 	sem_post(&cantidad_ready);
 }
 
@@ -301,13 +299,11 @@ void agregar_a_ready(pcb* proceso){
 //-----------------------------------------------------------------------
 void* planif_largo_plazo(void* args){
     while(1){
+         
         //verifica que el grado de multiprogramacion persmite varios procesos en ready
         sem_wait(&cantidad_multiprogramacion);
         pcb* proceso = sacar_de_new();
-        agregar_a_ready(proceso);
-        //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
-        //mandar con pcbDesalojado con el string de inicializado
-        //send_pcb(conexion_dispatch, proceso);
+        agregar_a_ready(proceso);;
     }
 }
 void* planif_corto_plazo(void* args){
@@ -320,11 +316,7 @@ void* planif_corto_plazo(void* args){
         if(strcmp(algoritmo_planificacion,"FIFO")==0){
             pcb* procesoAEjecutar = obtenerSiguienteFIFO();
             if(procesoAEjecutar != NULL) {
-                printf("FIFO el pcb es %d", procesoAEjecutar->pid);
-                const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
-                //procesoAEjecutar le cambiamos el estado a 3
-                cambiar_estado_pcb(procesoAEjecutar,3);
-                log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
+                cambiar_estado(procesoAEjecutar, EXEC);
                 pthread_mutex_lock(&mutex_exec);
                 list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
@@ -340,11 +332,7 @@ void* planif_corto_plazo(void* args){
         else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
             pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
             if(procesoAEjecutar != NULL) {
-                printf("PRIORIDADES el pcb es %d", procesoAEjecutar->pid);
-                const char* estado_anterior = estado_proceso_a_char(procesoAEjecutar->estado);
-                //procesoAEjecutar le cambiamos el estado a 3
-                cambiar_estado_pcb(procesoAEjecutar,3);
-                log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",procesoAEjecutar->pid,estado_anterior,estado_proceso_a_char(procesoAEjecutar->estado));
+                cambiar_estado(procesoAEjecutar, EXEC);
                 pthread_mutex_lock(&mutex_exec);
                 list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
@@ -399,9 +387,6 @@ pcb* obtenerSiguientePRIORIDADES(){
 
 //---------------------------------------------------------------
 
-void cambiar_estado_pcb(pcb *pcb, int nuevoEstado) {
-  pcb->estado = nuevoEstado;
-}
 void agregar_a_exit(pcb* proceso){
     const char* estado_anterior = estado_proceso_a_char(proceso->estado);
 	pthread_mutex_lock(&mutex_exit);
@@ -474,60 +459,43 @@ t_list* config_list_to_t_list(t_config* config, char* nombre){
     return lista;
 }
 
-//------------------------------
-//imprimir pid de pćb lista de ready
-char* pid_lista_ready (t_list* lista){
-	int size =  list_size(lista);
-    // Calcular el tamaño necesario para la cadena resultante
-    int tamanoCadena = 0;
-    for (int i = 0; i < size; i++) {
-        pcb * elemento = list_get(lista, i);
-        tamanoCadena += snprintf(NULL, 0, "%d,", elemento->pid);
+//------------------AUXILIARES----------------------------------------------------------------------------
+
+t_list *pid_lista_ready(t_list *list){
+	t_list* lista_de_pids = list_create();
+    for (int i = 0; i < list_size(list); i++){
+        pcb* pcb = list_get(list, i);
+        list_add(lista_de_pids, &(pcb->pid));
     }
-    // Alocar memoria para la cadena
-    char* cadenaIds = (char*)malloc(tamanoCadena + 1); // +1 para el carácter nulo '\0'
-     if (cadenaIds == NULL) {
-        // Manejo de error en caso de que no se pueda alocar memoria
-        printf("Error al alocar memoria para la cadena de IDs");
-        exit(1);
-    }
-    // Construir la cadena con los IDs separados por comas
-    cadenaIds[0] = '[';
-    int indice = 1;
-    for (int i = 0; i < size; i++) {
-        pthread_mutex_lock(&mutex_ready);
-        pcb * elemento =list_get(lista, i);
-        pthread_mutex_unlock(&mutex_ready);
-        int caracteresEscritos = snprintf(cadenaIds + indice, tamanoCadena - indice + 1, "%d,", elemento->pid);
-        if (caracteresEscritos < 0) {
-            // Manejo de error en caso de que snprintf falle
-            printf("Error al formatear la cadena de IDs");
-            exit(1);
-        }
-        indice += caracteresEscritos;
-    }
- // Eliminar la última coma
-    cadenaIds[indice - 1] = ']';
-    cadenaIds[indice] = '\0';
-    return cadenaIds; 
+    return lista_de_pids;
 }
 
-const char *estado_proceso_a_char(int numero) {
-    switch (numero) {
-        case 1:
+char *estado_proceso_a_char(estado_proceso estado) {
+    switch (estado) {
+        case NEW:
             return "NEW";
-        case 2:
+        case READY:
             return "READY";
-        case 3:
+        case EXEC:
             return "EXEC";
-        case 4:
+        case BLOCK:
             return "BLOCK";
-        case 5:
+        case EXIT_ESTADO:
             return "EXIT";
         default:
-            return "-";
+            return "NO HAY ESTADO";
     }
 }
 
+void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado) {
+	if(pcb->estado != nuevo_estado){
+		char *nuevo_estado_string =  strdup(estado_proceso_a_char(nuevo_estado));
+		char *estado_anterior_string =  strdup(estado_proceso_a_char(pcb->estado));
+		pcb->estado = nuevo_estado;
+		log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s", pcb->pid, estado_anterior_string, nuevo_estado_string);
+		free(estado_anterior_string);
+		free(nuevo_estado_string);
+	}
+}
 
-//----------------------------------------------------------------------------------------------++
+

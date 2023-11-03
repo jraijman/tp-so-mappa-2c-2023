@@ -30,3 +30,24 @@ void terminar_programa(t_log* logger, t_config* config)
 	}
 
 }
+
+char *list_to_string(t_list *list)
+{
+    char *string = string_new();
+    string_append(&string, "[");
+    for (int i = 0; i < list_size(list); i++)
+    {
+        int *num = (int *)list_get(list, i);
+        if (i < list_size(list) - 1)
+        {
+            string_append_with_format(&string, "%d, ", *num);
+        }
+        else
+        {
+            string_append_with_format(&string, "%d", *num);
+        }
+    }
+    string_append(&string, "]",);
+    return string;
+}
+

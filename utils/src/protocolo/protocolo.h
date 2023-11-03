@@ -55,15 +55,15 @@ typedef enum
 
 typedef struct
 {
-    int ax;
-    int bx;
-    int cx;
-    int dx;
+    int* ax;
+    int* bx;
+    int* cx;
+    int* dx;
 } t_registros;
 
 typedef struct {
     char *path;
-    int puntero;
+    int* puntero;
 } t_archivos;
 
 // Definición de estructura para representar un proceso (PCB)
@@ -77,7 +77,7 @@ typedef struct
     int tiempo_ejecucion;
     estado_proceso estado;
     t_registros *registros;
-    t_archivos *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     // char path[256]; TODO: Verificar si el path tienen que estar en el pcb, si esta hay que agregarlo al empaquetar_pcb
 } pcb;
 
@@ -169,6 +169,8 @@ typedef struct
     int tamano;
     int tipo;
 } Recibido;
+
+void pcb_destroyer(pcb* contexto);
 
 
 //Mensajes

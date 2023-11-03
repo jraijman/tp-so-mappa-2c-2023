@@ -36,7 +36,7 @@ t_list* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
-int pid_a_eliminar = NULL;
+int pid_a_eliminar = -1;
 bool encontre_pid = false;
 
 //listas de estados
@@ -96,9 +96,9 @@ void * planif_largo_plazo(void* args);
 pcb* obtenerSiguienteFIFO();
 pcb* obtenerSiguientePRIORIDADES();
 pcb* obtenerSiguienteRR();
-void cambiar_estado_pcb(pcb *pcb, int nuevoEstado);
+void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado);
 
-char* pid_lista_ready (t_list* lista);
-const char *estado_proceso_a_char(int numero);
+t_list* pid_lista_ready (t_list* lista);
+char *estado_proceso_a_char(estado_proceso numero);
 
 #endif 

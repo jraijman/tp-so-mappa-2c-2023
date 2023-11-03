@@ -23,7 +23,6 @@ void eliminar_paquete(t_paquete* paquete){
 
 void enviar_mensaje(char* mensaje, int socket_cliente){
 	t_paquete* paquete = malloc(sizeof(t_paquete));
-    printf("envio mensaje");
 	paquete->codigo_operacion = MENSAJE;
 	paquete->buffer = malloc(sizeof(t_buffer));
 	paquete->buffer->size = strlen(mensaje) + 1;
@@ -143,7 +142,7 @@ t_list* desempaquetar_archivos(t_list* paquete, int comienzo){
 		i++;
 
         int* puntero = list_get(paquete, i);
-		archivo->puntero =  *puntero;
+		archivo->puntero =  puntero;
 		free(puntero);
 		i++;
 
@@ -186,29 +185,29 @@ void lista_archivos_destroy(t_list* lista){
 }
 
 void empaquetar_registros(t_paquete* paquete, t_registros* registro){
-	agregar_a_paquete(paquete,&(registro->ax), strlen(registro->ax)+1);
-	agregar_a_paquete(paquete,&(registro->bx), strlen(registro->bx)+1);
-	agregar_a_paquete(paquete,&(registro->cx), strlen(registro->cx)+1);
-	agregar_a_paquete(paquete,&(registro->dx), strlen(registro->dx)+1);
+	agregar_a_paquete(paquete,&(registro->ax), sizeof(int));
+	agregar_a_paquete(paquete,&(registro->bx), sizeof(int));
+	agregar_a_paquete(paquete,&(registro->cx), sizeof(int));
+	agregar_a_paquete(paquete,&(registro->dx), sizeof(int));
 }
 
 t_registros* desempaquetar_registros(t_list * paquete,int posicion){
 	t_registros *registro = malloc(sizeof(t_registros));
 
-	char* ax = list_get(paquete,posicion);
-	strcpy(registro->ax, ax);
+	int* ax = list_get(paquete,posicion);
+	registro->ax = ax;
 	free(ax);
 
-	char* bx = list_get(paquete,posicion+1);
-	strcpy(registro->bx, bx);
+	int* bx = list_get(paquete,posicion+1);
+	registro->bx = bx;
 	free(bx);
 
-	char* cx = list_get(paquete,posicion+2);
-	strcpy(registro->cx, cx);
+	int* cx = list_get(paquete,posicion+2);
+    registro->cx = cx;
 	free(cx);
 
-	char* dx = list_get(paquete,posicion+3);
-	strcpy(registro->dx, dx);
+	int* dx = list_get(paquete,posicion+3);
+	registro->dx = dx;
 	free(dx);
 
 	return registro;
@@ -259,7 +258,7 @@ pcb* desempaquetar_pcb(t_list* paquete){
 	contexto->registros = registro_contexto;
 
 	int comienzo_archivos = comienzo_registros + 4;
-	t_archivos* archivos = desempaquetar_archivos(paquete, comienzo_archivos);
+	t_list* archivos = desempaquetar_archivos(paquete, comienzo_archivos);
 	contexto->archivos = archivos;
 	
     
@@ -284,20 +283,20 @@ pcb* recv_pcb(int fd_modulo){
 	return contexto_recibido;
 }
 
-void pcb_destroyer(pcb* contexto){
-	lista_archivos_destroy(contexto->archivos);
-	//list_destroy_and_destroy_elements(contexto->tabla_de_segmentos, (void*) segmento_destroy);
-	registros_destroy(contexto->registros);
-	free(contexto);
-	contexto = NULL;
-}
-
 void registros_destroy(t_registros* registros){
 	free(registros->ax);
 	free(registros->bx);
 	free(registros->cx);
 	free(registros->dx);
 	free(registros);
+}
+
+void pcb_destroyer(pcb* contexto){
+	lista_archivos_destroy(contexto->archivos);
+	//list_destroy_and_destroy_elements(contexto->tabla_de_segmentos, (void*) segmento_destroy);
+	registros_destroy(contexto->registros);
+	free(contexto);
+	contexto = NULL;
 }
 
 void send_cambiar_estado(estado_proceso estado, int fd_modulo){
@@ -355,6 +354,7 @@ char* recv_recurso(int fd_modulo){
 }
 
 void send_inicializar_proceso(pcb *contexto, int fd_modulo){
+    printf("pid recibido %d", contexto->pid);
     t_paquete* paquete = crear_paquete(INICIALIZAR_PROCESO);
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
