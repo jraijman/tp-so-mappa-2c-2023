@@ -1,77 +1,155 @@
 #ifndef PROTOCOLO_H_
 #define PROTOCOLO_H_
 
-#include<stdio.h>
-#include<stdlib.h>
-#include<commons/log.h>
-#include<commons/string.h>
-#include<commons/config.h>
-#include<readline/readline.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <commons/log.h>
+#include <commons/string.h>
+#include <commons/config.h>
+#include <readline/readline.h>
 #include "../utils/utils.h"
-#include<sys/socket.h>
-#include<unistd.h>
-#include<netdb.h>
-#include<commons/collections/list.h>
-#include<string.h>
-#include<assert.h>
-#include<pthread.h>
+#include <sys/socket.h>
+#include <unistd.h>
+#include <netdb.h>
+#include <commons/collections/list.h>
+#include <string.h>
+#include <assert.h>
+#include <pthread.h>
 
-#define NEW 1
-#define READY 2
-#define EXEC 3
-#define BLOCK 4
-#define EXIT 5
-// Definición de estructura para representar un proceso (PCB)
-typedef struct {
-    int pid; // Identificador del proceso
-    int pc; // Número de la próxima instrucción a ejecutar.
+typedef struct
+{
     int size;
-    struct Reg 
-    {
-        uint32_t ax;
-        uint32_t bx;
-        uint32_t cx;
-        uint32_t dx;
-    } registros;  // valores de los registros de uso general de la CPU.
-    int prioridad;      // Prioridad del proceso
-    t_list*  archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
-    int estado;    // Estado del proceso (  1= NEW, 2 = READY, 3= EXEC, 4 =BLOCK, 5 = EXIT.)
-    char path[256];
-} pcb;
+    void *stream;
+} t_buffer;
+
+typedef struct
+{
+    op_code codigo_operacion;
+    t_buffer *buffer;
+} t_paquete;
+
+typedef enum
+{
+    NEW,
+    READY,
+    EXEC,
+    BLOCK,
+    EXIT,
+} estado_proceso;
+
+struct Reg
+{
+    uint32_t ax;
+    uint32_t bx;
+    uint32_t cx;
+    uint32_t dx;
+} t_registros;
+
 typedef struct {
-    char opcode[11];   // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
-    char operando1[25];
-    char operando2[25];
+    char *path;
+    int puntero;
+} t_archivos;
+
+// Definición de estructura para representar un proceso (PCB)
+typedef struct
+{
+    int pid; // Identificador del proceso
+    int pc;  // Número de la próxima instrucción a ejecutar.
+    int size;
+    // valores de los registros de uso general de la CPU.
+    int prioridad;    // Prioridad del proceso
+    int tiempo_ejecucion:
+    estado_proceso estado;
+    t_registros *registros;
+    t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    // char path[256]; TODO: Verificar si el path tienen que estar en el pcb, si esta hay que agregarlo al empaquetar_pcb
+} pcb;
+
+typedef enum
+{
+    SET,
+    ADD,
+    MOV_IN,
+    MOV_OUT,
+    IO,
+    SIGNAL,
+    EXIT,
+    UNKNOWN_OP,
+    ERROR_MEMORIA,
+    WAIT,
+    F_OPEN,
+    YIELD,
+    F_TRUNCATE,
+    F_SEEK,
+    CREATE_SEGMENT,
+    F_WRITE,
+    F_READ,
+    DELETE_SEGMENT,
+    F_CLOSE
+} cod_instruccion;
+
+typedef struct
+{
+    char *opcode; // Código de operación (por ejemplo, "SUM", "SUB", "SET", "EXIT")
+    char *operando1;
+    char *operando2;
 } Instruccion;
-typedef struct 
+
+// MOTIVOS DE BLOQUEO POSIBLES
+typedef enum
+{
+    IO_BLOCK,
+} motivo_block;
+
+// MOTIVOS DE EXIT
+typedef enum
+{
+    SUCCESS,
+    SEG_FAULT,
+    OUT_OF_MEMORY,
+    RECURSO_INEXISTENTE,
+} motivo_exit;
+
+typedef struct
 {
     pcb contexto;
-    char* instruccion;
-    char* extra;
-}pcbDesalojado;
+    char *instruccion;
+    char *extra;
+} pcbDesalojado;
 
 typedef struct main
 {
     uint32_t num_marco;
     uint32_t pid;
     bool ocupado;
-}t_marco;
-typedef struct {
+} t_marco;
+typedef struct
+{
     int pid;              // PID del proceso que solicita la reserva
-    int cantidad_bloques;  // Cantidad de bloques de SWAP solicitados
+    int cantidad_bloques; // Cantidad de bloques de SWAP solicitados
 } SolicitudReservaSwap;
-typedef struct {
-    int pid;              
-    int cantidad_paginas; 
-    int* paginas;         
+
+typedef struct
+{
+    int pid;
+    int cantidad_paginas;
+    int *paginas;
 } SolicitudLiberacionSwap;
 
-typedef enum{
+typedef enum
+{
     ENVIO_PCB,
     ENVIO_INSTRUCCION,
     ENVIO_PCB_DESALOJADO,
     ENVIO_DIRECCION,
-}op_code;
+    ENVIO_LISTA_ARCHIVOS,
+    CAMBIAR_ESTADO,
+    MANEJAR_IO,
+    MANEJAR_WAIT,
+    MANEJAR_SIGNAL,
+    INICIALIZAR_PROCESO,
+    FINALIZAR_PROCESO
+} op_code;
 
 typedef struct
 {
@@ -83,22 +161,67 @@ typedef struct
 } Direccion;
 
 ///
-typedef struct {
+typedef struct
+{
     int tamano;
     int tipo;
 } Recibido;
 
-bool send_int(int fd,int pid);
-bool recv_int(int fd, int* pid);
-bool send_pcb(int fd,pcb* proceso);
-bool recv_pcb(int fd,pcb* proceso);
-//void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso);
-//void* serializar_pcbDesalojado(pcbDesalojado proceso);
-bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
-bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso);
-bool send_instruccion(int fd, Instruccion instruccion);
-bool recv_instruccion(int fd, Instruccion* instruccion);
-bool send_direccion(int fd, Direccion* direccion);
-bool recv_direccion(int fd, Direccion* direccion);
 
-#endif 
+//Mensajes
+void enviar_mensaje(char* mensaje, int socket_cliente);
+int recibir_operacion(int socket_cliente);
+void* recibir_buffer(int* size, int socket_cliente);
+void recibir_mensaje(t_log* logger, int socket_cliente);
+void crear_buffer(t_paquete* paquete);
+
+//Paquetes
+t_list* recibir_paquete(int);
+t_paquete* crear_paquete(op_code);
+void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
+void enviar_paquete(t_paquete* paquete, int socket_cliente);
+void eliminar_paquete(t_paquete* paquete);
+void* serializar_paquete(t_paquete* paquete, int bytes);
+
+//Empaquetados
+void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos);
+t_list* desempaquetar_archivos(t_list* paquete, int comienzo);
+void empaquetar_pcb(t_paquete* paquete, pcb* contexto);
+pcb* desempaquetar_pcb(t_list* paquete);
+void empaquetar_registros(t_paquete* paquete, t_registros* registros);
+t_registros* desempaquetar_registros(t_list* paquete, int comienzo);
+
+
+//send
+void send_archivos(int fd_modulo,t_list* lista_archivos);
+void send_pcb(pcb* contexto, int fd_modulo);
+void send_cambiar_estado(estado_proceso estado, int fd_modulo);
+void send_tiempo_io(int tiempo_io, int fd_modulo);
+void send_recurso_wait(char* recurso, int fd_modulo);
+void send_recurso_signal(char* recurso, int fd_modulo);
+void send_inicializar_proceso(int pid, int fd_modulo);
+void send_terminar_proceso(int pid, int fd_modulo);
+
+
+//recv
+t_list* recv_archivos(t_log* logger, int fd_modulo);
+pcb* recv_pcb(int fd_modulo);
+estado_proceso recv_cambiar_estado(int fd_modulo);
+int recv_tiempo_io(int fd_modulo);
+char* recv_recurso(int fd_modulo);
+int recv_terminar_proceso(int fd_modulo);
+
+// bool send_int(int fd, int pid);
+// bool recv_int(int fd, int *pid);
+// bool send_pcb(int fd, pcb *proceso);
+// bool recv_pcb(int fd, pcb *proceso);
+// // void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso);
+// // void* serializar_pcbDesalojado(pcbDesalojado proceso);
+// bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
+// bool recv_pcbDesalojado(int fd, pcbDesalojado *proceso);
+// bool send_instruccion(int fd, Instruccion instruccion);
+// bool recv_instruccion(int fd, Instruccion *instruccion);
+// bool send_direccion(int fd, Direccion *direccion);
+// bool recv_direccion(int fd, Direccion *direccion);
+
+#endif
