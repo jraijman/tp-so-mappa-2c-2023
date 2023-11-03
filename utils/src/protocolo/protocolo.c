@@ -354,11 +354,10 @@ char* recv_recurso(int fd_modulo){
 }
 
 void send_inicializar_proceso(pcb *contexto, int fd_modulo){
-    printf("pid recibido %d", contexto->pid);
     t_paquete* paquete = crear_paquete(INICIALIZAR_PROCESO);
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
-	pcb_destroyer(contexto);
+	//pcb_destroyer(contexto); no se   porq lo destruye
 	eliminar_paquete(paquete);
 }
 

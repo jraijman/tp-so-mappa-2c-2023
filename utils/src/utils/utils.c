@@ -47,7 +47,7 @@ char *list_to_string(t_list *list)
             string_append_with_format(&string, "%d", *num);
         }
     }
-    string_append(&string, "]",);
+    string_append(&string, "]");
     return string;
 }
 

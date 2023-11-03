@@ -51,12 +51,14 @@ int main(int argc, char *argv[])
 
     // CONFIG y logger
     levantar_config("memoria.config");
-    // inicio servidor de escucha
-    fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha);
 
     // genero conexion a filesystem
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
-    int cliente_memoria = esperar_cliente(logger_memoria, "MEMORIA ESCUCHA", fd_memoria);
+    
+
+     // inicio servidor de escucha
+    fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha);
+    
     // espero clientes kernel,cpu y filesystem
     pcbDesalojado contexto;
     pcb proceso;
@@ -145,8 +147,8 @@ static void procesar_conexion(void *void_args) {
 			//list_iterate(paquete_recibido, (void*) iterator);
 			break;
 		case INICIALIZAR_PROCESO:
-			//int pid_init = recv_inicializar_proceso(cliente_socket);
-			log_info(logger_memoria, "Creación de Proceso PID: %d", 1);
+			pcb* proceso = recv_pcb(cliente_socket);
+			log_info(logger_memoria, "Creación de Proceso PID: %d", proceso->pid);
             //tabla de paginas
 			//send_proceso_inicializado(tabla_segmentos_inicial, cliente_socket);
 			break;
