@@ -8,17 +8,24 @@ int main(int argc, char* argv[]) {
     iniciar_listas();
     iniciar_semaforos();
 
-
-
-    // conexiones a cpu LLAMAR CUANDO SE CREA O INTERRUMPE UN PROCESO, NO DESDE EL INICIO
-    conexion_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
-    conexion_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
-
-    //conexion a memoria
-    conexion_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
+    // Conecto kernel con cpu, memoria y filesystem
+	fd_cpu_dispatch = -1,fd_cpu_interrupt = -1, fd_memoria = -1, fd_filesystem = -1;
+	if (!generar_conexiones()) {
+		log_error(logger_kernel, "Alguna conexion falló :(");
+		// libero conexiones, log y config
+        terminar_programa(logger_kernel, config);
+        //liberar_conexion(fd_cpu_dispatch);
+        //liberar_conexion(fd_cpu_interrupt);
+        liberar_conexion(fd_memoria);
+        //liberar_conexion(fd_filesystem);
+		exit(1);
+	}
     
-    //conexion a FileSystem
-    conexion_fileSystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
+    //mensajes de prueba
+    enviar_mensaje("Hola, Soy Kernel!", fd_filesystem);
+	enviar_mensaje("Hola, Soy Kernel!", fd_memoria);
+	//enviar_mensaje("Hola, Soy Kernel!", fd_cpu);
+    
 
     // inicio hilos
     iniciar_hilos();
@@ -29,11 +36,35 @@ int main(int argc, char* argv[]) {
    
     // libero conexiones, log y config
     terminar_programa(logger_kernel, config);
-    liberar_conexion(conexion_dispatch);
-    liberar_conexion(conexion_interrupt);
-    liberar_conexion(conexion_memoria);
-    liberar_conexion(conexion_fileSystem);
+    //liberar_conexion(fd_cpu_dispatch);
+    //liberar_conexion(fd_cpu_interrupt);
+    liberar_conexion(fd_memoria);
+    //liberar_conexion(fd_filesystem);
 }
+
+bool generar_conexiones() {
+	pthread_t conexion_filesystem;
+	pthread_t conexion_cpu_dispatch;
+    pthread_t conexion_cpu_interrupt;
+
+	fd_filesystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
+	//pthread_create(&conexion_filesystem, NULL, (void*) procesar_conexion_fs, (void*) &fd_filesystem);
+	//pthread_detach(conexion_filesystem);
+
+
+	fd_cpu_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
+    //pthread_create(&conexion_cpu_dispatch, NULL, (void*) procesar_conexion_dispatch, (void*) &fd_cpu_dispatch);
+	//pthread_detach(conexion_cpu_dispatch);
+    fd_cpu_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
+	//pthread_create(&conexion_cpu_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) &fd_cpu_interrupt);
+	//pthread_detach(conexion_cpu_interrupt);
+    
+    
+    fd_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
+
+	return fd_filesystem != -1 && fd_cpu_dispatch != -1 && fd_cpu_interrupt != -1 && fd_memoria != -1;
+}
+
 
 void levantar_config(char* ruta){
     logger_kernel = iniciar_logger("kernel.log", "KERNEL:");
@@ -156,12 +187,12 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->size = atoi(size);
     proceso->pc = 0;//arranca desde la instruccion 0
     proceso->prioridad = atoi(prioridad);
-    proceso->estado = 0;
-    proceso->registros.ax =0;
-    proceso->registros.bx =0;
-    proceso->registros.cx =0;
-    proceso->registros.dx =0;
-    memcpy(proceso->path, path, sizeof(path));
+    proceso->estado = NEW;
+    proceso->registros->ax =0;
+    proceso->registros->bx =0;
+    proceso->registros->cx =0;
+    proceso->registros->dx =0;
+    //memcpy(proceso->path, path, sizeof(path));
 
     agregar_a_new(proceso);
 
@@ -276,7 +307,7 @@ void* planif_largo_plazo(void* args){
         agregar_a_ready(proceso);
         //ENVIAR MENSAJE A MEMORIA -----> ver si va aca
         //mandar con pcbDesalojado con el string de inicializado
-        send_pcb(conexion_dispatch, proceso);
+        //send_pcb(conexion_dispatch, proceso);
     }
 }
 void* planif_corto_plazo(void* args){
@@ -298,7 +329,7 @@ void* planif_corto_plazo(void* args){
                 list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
                 //mandar proceso a CPU
-                send_pcb(conexion_dispatch, procesoAEjecutar);
+                //send_pcb(conexion_dispatch, procesoAEjecutar);
                 //esperamos a bloqueo o a exit
                 //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
                 //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
@@ -318,7 +349,7 @@ void* planif_corto_plazo(void* args){
                 list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
                 //mandar proceso a CPU
-                send_pcb(conexion_dispatch, procesoAEjecutar);
+                //send_pcb(conexion_dispatch, procesoAEjecutar);
                 //esperamos a bloqueo o a exit
                 //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
                 //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
@@ -383,10 +414,10 @@ void agregar_a_exit(pcb* proceso){
 
 void * finalizar_proceso_cpu(void * args){
     while(1){
-        pcbDesalojado* pcbDes;
+        /*pcbDesalojado* pcbDes;
         if (recv_pcbDesalojado(conexion_dispatch, pcbDes)){
             if (strcmp(pcbDes->instruccion, "EXIT") == 0){
-                /*log_info(logger_kernel, "Instrucción EXIT - Proceso ha finalizado su ejecución");
+                log_info(logger_kernel, "Instrucción EXIT - Proceso ha finalizado su ejecución");
                 cambiar_estado_pcb(pcbDes->contexto, 5);
                 agregar_a_exit(pcbDes->contexto); 
                 //no entiendo de donde sale el proceso
@@ -397,14 +428,14 @@ void * finalizar_proceso_cpu(void * args){
                 //aviso a memoria que liubere
 
                 //libero recursos del pcb
-                */
+                
 
             }
             return true;
         } else {
             log_error(logger_kernel, "Error al recibir la instrucción de finalizar proceso de CPU");
             return false;
-        }
+        }*/
     }
 }
 

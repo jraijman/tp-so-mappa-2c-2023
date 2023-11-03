@@ -16,14 +16,9 @@
 #include<assert.h>
 #include<pthread.h>
 
-int fd_cpu_dispatch;
-int fd_cpu_interrupt;
 int cliente_dispatch;
 int cliente_interrupt;
 
-int fd_filesystem;
-
-int fd_memoria;
 
 
 int iniciar_servidor(t_log* logger, char* ip, char* puerto);

@@ -16,6 +16,22 @@
 #include <assert.h>
 #include <pthread.h>
 
+typedef enum
+{
+    ENVIO_PCB,
+    ENVIO_INSTRUCCION,
+    ENVIO_PCB_DESALOJADO,
+    ENVIO_DIRECCION,
+    ENVIO_LISTA_ARCHIVOS,
+    CAMBIAR_ESTADO,
+    MANEJAR_IO,
+    MANEJAR_WAIT,
+    MANEJAR_SIGNAL,
+    INICIALIZAR_PROCESO,
+    FINALIZAR_PROCESO,
+    PAQUETE,
+    MENSAJE
+} op_code;
 typedef struct
 {
     int size;
@@ -34,15 +50,15 @@ typedef enum
     READY,
     EXEC,
     BLOCK,
-    EXIT,
+    EXIT_ESTADO,
 } estado_proceso;
 
-struct Reg
+typedef struct
 {
-    uint32_t ax;
-    uint32_t bx;
-    uint32_t cx;
-    uint32_t dx;
+    int ax;
+    int bx;
+    int cx;
+    int dx;
 } t_registros;
 
 typedef struct {
@@ -58,10 +74,10 @@ typedef struct
     int size;
     // valores de los registros de uso general de la CPU.
     int prioridad;    // Prioridad del proceso
-    int tiempo_ejecucion:
+    int tiempo_ejecucion;
     estado_proceso estado;
     t_registros *registros;
-    t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    t_archivos *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
     // char path[256]; TODO: Verificar si el path tienen que estar en el pcb, si esta hay que agregarlo al empaquetar_pcb
 } pcb;
 
@@ -136,20 +152,7 @@ typedef struct
     int *paginas;
 } SolicitudLiberacionSwap;
 
-typedef enum
-{
-    ENVIO_PCB,
-    ENVIO_INSTRUCCION,
-    ENVIO_PCB_DESALOJADO,
-    ENVIO_DIRECCION,
-    ENVIO_LISTA_ARCHIVOS,
-    CAMBIAR_ESTADO,
-    MANEJAR_IO,
-    MANEJAR_WAIT,
-    MANEJAR_SIGNAL,
-    INICIALIZAR_PROCESO,
-    FINALIZAR_PROCESO
-} op_code;
+
 
 typedef struct
 {
@@ -199,7 +202,7 @@ void send_cambiar_estado(estado_proceso estado, int fd_modulo);
 void send_tiempo_io(int tiempo_io, int fd_modulo);
 void send_recurso_wait(char* recurso, int fd_modulo);
 void send_recurso_signal(char* recurso, int fd_modulo);
-void send_inicializar_proceso(int pid, int fd_modulo);
+void send_inicializar_proceso(pcb * contexto, int fd_modulo);
 void send_terminar_proceso(int pid, int fd_modulo);
 
 

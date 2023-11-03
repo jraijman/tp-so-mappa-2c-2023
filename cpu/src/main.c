@@ -5,13 +5,21 @@ int main(int argc, char* argv[]){
     // CONFIG y logger
     levantar_config("cpu.config");
     logger_cpu = iniciar_logger("cpu.log", "CPU:");
+
     // Inicio servidor de dispatch e interrupt para el kernel
     fd_cpu_dispatch = iniciar_servidor(logger_cpu, "CPU DISPATCH", NULL, puerto_dispatch);
     fd_cpu_interrupt = iniciar_servidor(logger_cpu, "CPU INTERRUPT", NULL, puerto_interrupt);
+
     // Genero conexión a memoria
-    conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);    
+    conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);  
+    //mensaje prueba 
+    enviar_mensaje("Hola, soy CPU!", conexion_cpu_memoria);
+
     // Espero msjs
-    while(server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt, conexion_cpu_memoria));
+    server_escuchar();
+    //while(server_escuchar_cpu(logger_cpu, "CPU", fd_cpu_dispatch, fd_cpu_interrupt, conexion_cpu_memoria));
+
+
     // Cerrar LOG y CONFIG y liberar conexión
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);

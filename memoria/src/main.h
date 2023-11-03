@@ -12,6 +12,10 @@
 #include "comunicacion.h"
 #include "../../utils/src/protocolo/protocolo.h"
 
+int fd_memoria;
+
+char* server_name;
+
 int conexion_memoria_filesystem;
 char* puerto_escucha;
 char* ip_filesystem;

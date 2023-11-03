@@ -12,6 +12,8 @@
 #include "../../utils/src/protocolo/protocolo.h"
 #include "comunicacion.h"
 
+int fd_cpu_dispatch;
+int fd_cpu_interrupt;
 
 void levantar_config(char*);
 void ciclo_instruccion(pcb contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);

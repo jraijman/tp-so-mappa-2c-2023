@@ -85,3 +85,13 @@ int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_disp
 
     return 0;
 }
+
+void server_escuchar() {
+	server_name = "CPU";
+	socket_cliente = esperar_cliente(logger, server_name, fd_cpu_interrupt);
+    socket_cliente = esperar_cliente(logger, server_name, fd_cpu_interrupt);
+	if (socket_cliente == -1) {
+		log_info(logger, "Hubo un error en la conexion del Kernel");
+	}
+	procesar_conexion();
+}

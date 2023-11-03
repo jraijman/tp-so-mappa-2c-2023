@@ -41,9 +41,9 @@ bool leerYEnviarInstruccion(FILE *archivo, int conexion_memoria) {
             log_error(logger_memoria, "Error al cargar la instrucción");
         }
 
-        if (!send_instruccion(conexion_memoria, instruccion)) {
+        /*if (!send_instruccion(conexion_memoria, instruccion)) {
             log_error(logger_memoria, "Error al enviar la instrucción");
-        }
+        }*/
     }
 }
 int main(int argc, char *argv[])
@@ -52,7 +52,7 @@ int main(int argc, char *argv[])
     // CONFIG y logger
     levantar_config("memoria.config");
     // inicio servidor de escucha
-    fd_memoria = iniciar_servidor(logger_memoria, "MEMORIA", NULL, puerto_escucha);
+    fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha);
 
     // genero conexion a filesystem
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
@@ -64,7 +64,10 @@ int main(int argc, char *argv[])
     int pid;
     Proceso *tabla_proceso;
     t_marco* marcos;
-    while (server_escuchar_memoria(logger_memoria, "MEMORIA", fd_memoria)) {
+
+    while(server_escuchar(fd_memoria));
+
+    /*while (server_escuchar_memoria(logger_memoria, "MEMORIA", fd_memoria)) {
         int bytes = recv(cliente_memoria, (char *)&contexto + bytes_recibidos, sizeof(pcbDesalojado) - bytes_recibidos, 0);
         if (bytes > 0) {
             bytes_recibidos += bytes;        
@@ -113,12 +116,67 @@ int main(int argc, char *argv[])
             // Manejo de error: No se pudieron recibir datos del cliente de memoria
             // Puedes agregar código adicional para manejar este error
         }
-    }
+    }*/
    
     // CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_memoria, config);
     liberar_conexion(conexion_memoria_filesystem);
 }
+
+// ----------------------COMUNICACION----------------------------------
+
+static void procesar_conexion(void *void_args) {
+	int *args = (int*) void_args;
+	int cliente_socket = *args;
+
+	op_code cop;
+	while (cliente_socket != -1) {
+		if (recv(cliente_socket, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
+			log_info(logger_memoria, "El cliente se desconecto de %s server", server_name);
+			return;
+		}
+		switch (cop) {
+		case MENSAJE:
+			recibir_mensaje(logger_memoria, cliente_socket);
+			break;
+		case PAQUETE:
+			t_list *paquete_recibido = recibir_paquete(cliente_socket);
+			log_info(logger_memoria, "Recibí un paquete con los siguientes valores: ");
+			//list_iterate(paquete_recibido, (void*) iterator);
+			break;
+		case INICIALIZAR_PROCESO:
+			//int pid_init = recv_inicializar_proceso(cliente_socket);
+			log_info(logger_memoria, "Creación de Proceso PID: %d", 1);
+            //tabla de paginas
+			//send_proceso_inicializado(tabla_segmentos_inicial, cliente_socket);
+			break;
+		case FINALIZAR_PROCESO:
+			int pid_fin = recv_terminar_proceso(cliente_socket);
+			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
+			//terminar_proceso(pid_fin);
+			break;
+
+	return;
+        } 
+    }
+}
+
+int server_escuchar() {
+	server_name = "Memoria";
+	int cliente_socket = esperar_cliente(logger_memoria, server_name, fd_memoria);
+
+	if (cliente_socket != -1) {
+		pthread_t hilo;
+		int *args = malloc(sizeof(int));
+		args = &cliente_socket;
+		pthread_create(&hilo, NULL, (void*) procesar_conexion, (void*) args);
+		pthread_detach(hilo);
+		return 1;
+	}
+
+	return 0;
+}
+
 
 void liberar_marco(t_marco* marco){
     

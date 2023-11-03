@@ -30,4 +30,5 @@ void manejarConexion(pcbDesalojado contexto);
 int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch, int server_socket_interupt, int conexion_cpu_memoria);
 int pedir_marco(int conexion_cpu_memoria, int numero_pagina);
 int recibir_operacion(int socket_cliente);
+void server_escuchar();
 #endif 

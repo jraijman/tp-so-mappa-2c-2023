@@ -16,10 +16,10 @@
 
 
 
-int conexion_dispatch;
-int conexion_interrupt;
-int conexion_memoria;
-int conexion_fileSystem;
+int fd_cpu_dispatch;
+int fd_cpu_interrupt;
+int fd_memoria;
+int fd_filesystem;
 char* ip_memoria;
 char* ip_cpu;
 char* puerto_memoria;
@@ -70,6 +70,7 @@ pthread_t hilo_plan_corto;
 // contador para id de procesos unico
 int contador_proceso = 0;
 
+bool generar_conexiones();
 
 void* leer_consola(void * arg);
 void levantar_config(char* ruta);
