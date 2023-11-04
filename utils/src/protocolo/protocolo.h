@@ -128,7 +128,7 @@ typedef enum
 
 typedef struct
 {
-    pcb contexto;
+    pcb* contexto;
     char *instruccion;
     char *extra;
 } pcbDesalojado;
@@ -188,6 +188,7 @@ void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void eliminar_paquete(t_paquete* paquete);
 void* serializar_paquete(t_paquete* paquete, int bytes);
 
+
 //Empaquetados
 void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos);
 t_list* desempaquetar_archivos(t_list* paquete, int comienzo);
@@ -195,6 +196,8 @@ void empaquetar_pcb(t_paquete* paquete, pcb* contexto);
 pcb* desempaquetar_pcb(t_list* paquete);
 void empaquetar_registros(t_paquete* paquete, t_registros* registros);
 t_registros* desempaquetar_registros(t_list* paquete, int comienzo);
+void empaquetar_instruccion(t_paquete* paquete, Instruccion instruccion);
+Instruccion desempaquetar_instruccion(t_list* paquete);
 
 
 //send
@@ -206,7 +209,7 @@ void send_recurso_wait(char* recurso, int fd_modulo);
 void send_recurso_signal(char* recurso, int fd_modulo);
 void send_inicializar_proceso(pcb * contexto, int fd_modulo);
 void send_terminar_proceso(int pid, int fd_modulo);
-
+void send_instruccion(int socket_cliente, Instruccion instruccion);
 
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
@@ -215,7 +218,7 @@ estado_proceso recv_cambiar_estado(int fd_modulo);
 int recv_tiempo_io(int fd_modulo);
 char* recv_recurso(int fd_modulo);
 int recv_terminar_proceso(int fd_modulo);
-
+Instruccion recv_instruccion(int socket_cliente); 
 // bool send_int(int fd, int pid);
 // bool recv_int(int fd, int *pid);
 // bool send_pcb(int fd, pcb *proceso);

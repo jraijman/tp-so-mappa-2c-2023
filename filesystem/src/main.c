@@ -25,7 +25,7 @@ Levanta los archivos de Bloques, FAT y FCBs
 
 int main(int argc, char* argv[]) {
     levantar_config("filesystem.config");
-    fd_filesystem = iniciar_servidor(logger_filesystem,"FILESYSTEM",NULL,puerto_escucha);
+    int fd_filesystem = iniciar_servidor(logger_filesystem,NULL,puerto_escucha);
     conexion_filesystem_memoria = crear_conexion(logger_filesystem,"MEMORIA",ip_memoria,puerto_memoria);
     //espero clientes kernel y memoria
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem));

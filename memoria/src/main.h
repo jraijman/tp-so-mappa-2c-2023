@@ -37,4 +37,5 @@ void eliminar_proceso_memoria(int);
 int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques);
 int obtenerCantidadPaginasAsignadas(int pid);
+int server_escuchar(int fd_memoria);
 #endif 

@@ -17,14 +17,14 @@ static void procesar_conexion(void* void_args) {
         switch (cop) {
             case ENVIO_PCB:
             {
-                pcb proceso;
+                pcb* proceso=recv_pcb(cliente_socket);
                 int bloqueInicio;
                 int bloqueFin;
-                if (!recv_pcb(cliente_socket, &proceso)) {
+                if (sizeof(proceso)!=sizeof(pcb)) {
                     log_error(logger, "Fallo recibiendo ENVIO_PCB");
                     break;
                 }
-                log_info(logger, "recibi pcb id: %d, prioridad: %d", proceso.pid, proceso.prioridad);
+                log_info(logger, "recibi pcb id: %d, prioridad: %d", proceso->pid, proceso->prioridad);
                 //reservarBloques(proceso, &bloqueInicio, &bloqueFin);
                 //send_bloquesReservados;
                 break;

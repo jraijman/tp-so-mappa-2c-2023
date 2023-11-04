@@ -163,7 +163,7 @@ static void procesar_conexion(void *void_args) {
     }
 }
 
-int server_escuchar() {
+int server_escuchar(int fd_memoria) {
 	server_name = "Memoria";
 	int cliente_socket = esperar_cliente(logger_memoria, server_name, fd_memoria);
 
@@ -218,7 +218,7 @@ bool marco_asignado_a_este_proceso(int pid,t_marco * marco) {
     return marco->pid == pid;
 }
 
-t_list* obtenerMarcosAsignados(pid){
+t_list* obtenerMarcosAsignados(int pid){
     t_list* marcos_asignados = list_filter(l_marco, (void*)marco_asignado_a_este_proceso);
     return marcos_asignados;
 }
@@ -249,7 +249,7 @@ void inicializar_estructura_proceso(int pid) {
     proceso->rutaArchivo = NULL; 
     proceso->siguiente = NULL; 
 
-    insertarProcesoOrdenado(l_proceso, proceso->pid, proceso->estado, proceso->rutaArchivo);
+    // insertarProcesoOrdenado(l_proceso, proceso->pid, proceso->estado, proceso->rutaArchivo);
 
 
 }

@@ -16,10 +16,10 @@ int fd_cpu_dispatch;
 int fd_cpu_interrupt;
 
 void levantar_config(char*);
-void ciclo_instruccion(pcb contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);
+void ciclo_instruccion(pcb* contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);
 void decodeInstruccion(Instruccion* instruccion);
-bool fetchInstruccion(int fd, pcb contexto, Instruccion *instruccion, t_log* logger);
-void executeInstruccion(pcb contexto_ejecucion, Instruccion instruccion);
+bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger);
+void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion);
 int  conexion_cpu_memoria;
 char* ip_memoria;
 char* puerto_memoria;

@@ -374,6 +374,40 @@ int recv_terminar_proceso(int fd_modulo){
 	list_destroy(paquete);
 	return *pid;
 }
+//--------------------------------------Instruccion------------------------------------------
+void empaquetar_instruccion(t_paquete* paquete, Instruccion instruccion) {
+    agregar_a_paquete(paquete, instruccion.opcode, strlen(instruccion.opcode) + 1);
+    agregar_a_paquete(paquete, instruccion.operando1, strlen(instruccion.operando1) + 1);
+    agregar_a_paquete(paquete, instruccion.operando2, strlen(instruccion.operando2) + 1);
+}
+
+Instruccion desempaquetar_instruccion(t_list* paquete) {
+    Instruccion instruccion;
+    instruccion.opcode = (char*)list_get(paquete, 0);
+    instruccion.operando1 = (char*)list_get(paquete, 1);
+    instruccion.operando2 = (char*)list_get(paquete, 2);
+    return instruccion;
+}
+
+void send_instruccion(int socket_cliente, Instruccion instruccion) {
+    t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
+    empaquetar_instruccion(paquete, instruccion);
+    enviar_paquete(paquete, socket_cliente);
+    eliminar_paquete(paquete);
+}
+
+Instruccion recv_instruccion(int socket_cliente) {
+    t_list* paquete = recibir_paquete(socket_cliente);
+    Instruccion instruccion = desempaquetar_instruccion(paquete);
+    list_destroy(paquete);
+    return instruccion;
+}
+
+void destroyInstruccion(Instruccion instruccion) {
+    free(instruccion.opcode);
+    free(instruccion.operando1);
+    free(instruccion.operando2);
+}
 // -------------------------------------NO LAS USAMOS----------------------------------------
 
 /*

@@ -1,45 +1,27 @@
 #include "comunicacion.h"
 #include <sys/socket.h>
 
-int recibir_operacion(int socket_cliente) {
-    int cod_op = -1;
-    log_info(logger_cpu, "Esperando recibir una operación...");
-    ssize_t bytes_recibidos = recv(socket_cliente, &cod_op, sizeof(int), MSG_WAITALL);
-
-    if (bytes_recibidos > 0) {
-        log_info(logger_cpu, "Operación recibida correctamente. Código de operación: %d", cod_op);
-        return cod_op;
-    } else if (bytes_recibidos == 0) {
-        log_info(logger_cpu, "La conexión fue cerrada por el otro extremo.");
-        close(socket_cliente);
-        return -1;
-    } else {
-        log_error(logger_cpu, "Error al recibir la operación:");
-        log_info(logger_cpu, "Cerrando la conexión debido a un error.");
-        close(socket_cliente);
-        return -1;
-    }
-}
-
 static void procesar_conexion(void* void_args) {
-    log_info(logger_cpu, "Hilo en función procesar_conexion");
+    printf("Esperando operacion...0");
     t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
     t_log* logger = args->log;
+    log_info(logger, "Hilo en función procesar_conexion");
     int cliente_socket_dispatch = args->fd_dispatch;
     int cliente_socket_interrupt = args->fd_interrupt;
-    int conexion_cpu_memoria=args->conexion_cpu_memoria;
-    char* server_name = args->server_name;
+    printf("Esperando operacion...0");
     free(args);
+    printf("Esperando operacion...1");
     while(1)
     {
-    uint32_t cop = recibir_operacion(cliente_socket_dispatch);
+        printf("Esperando operacion...");
+        int cop = recibir_operacion(cliente_socket_dispatch);
+        log_info(logger, "%d", cop);
         switch (cop) {
             case ENVIO_PCB: {
-                pcb contexto;
+                pcb* contexto=recv_pcb(cliente_socket_dispatch);
                 log_info(logger_cpu,"Hay un pcb para ejecutar");
-                recv_pcb(cliente_socket_dispatch, &contexto);
-                if (contexto.pid!=-1) {
-                    log_info(logger, "Recibí PCB con ID: %d, Path: %s", contexto.pid, contexto.path);
+                if (contexto->pid!=-1) {
+                    log_info(logger, "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger_cpu);
                 } else {
                     log_error(logger, "Error al recibir el PCB");
@@ -63,35 +45,25 @@ static void procesar_conexion(void* void_args) {
     log_info(logger_cpu, "Conexión cerrada, finalizando el procesamiento de la conexión.");
 }
 
-int server_escuchar_cpu(t_log* logger, char* server_name, int server_socket_dispatch, int server_socket_interupt, int conexion_cpu_memoria) {
-    int cliente_socket_dispatch = esperar_cliente(logger, server_name, server_socket_dispatch);
-    int cliente_socket_interrupt = esperar_cliente(logger, server_name, server_socket_interupt);
+int server_escuchar(t_log* logger, int fd_cpu_interrupt, int fd_cpu_dispatch) {
 
-    if (cliente_socket_dispatch != -1 && cliente_socket_interrupt != -1) {
-        pthread_t hilo;
+	char* server_name = "CPU";
+	int socket_cliente_interrupt = esperar_cliente(logger, server_name, fd_cpu_interrupt);
+    int socket_cliente_dispatch = esperar_cliente(logger, server_name, fd_cpu_dispatch);
+	
+    if (socket_cliente_interrupt != -1 && socket_cliente_dispatch !=-1) {
+        pthread_t hilo_cpu;
         t_procesar_conexion_args* args = malloc(sizeof(t_procesar_conexion_args));
         args->log = logger;
-        args->fd_dispatch = cliente_socket_dispatch;
-        args->fd_interrupt = cliente_socket_interrupt;
-        args->conexion_cpu_memoria = conexion_cpu_memoria;
-        args->server_name = server_name;
-
+        args->fd_dispatch = socket_cliente_dispatch;
+        args->fd_interrupt = socket_cliente_interrupt;
         log_info(logger_cpu, "Conexión aceptada, creando hilo para procesar la conexión.");
-        pthread_create(&hilo, NULL, (void*)procesar_conexion, (void*)args);
+        pthread_create(&hilo_cpu, NULL,(void*)procesar_conexion, args);
         return 1;
-    } else {
-        log_error(logger_cpu, "Error al esperar a los clientes");
+ 	}
+    else{
+        
+        log_info(logger, "Hubo un error en la conexion del Kernel");
     }
-
     return 0;
-}
-
-void server_escuchar() {
-	server_name = "CPU";
-	socket_cliente = esperar_cliente(logger, server_name, fd_cpu_interrupt);
-    socket_cliente = esperar_cliente(logger, server_name, fd_cpu_interrupt);
-	if (socket_cliente == -1) {
-		log_info(logger, "Hubo un error en la conexion del Kernel");
-	}
-	procesar_conexion();
 }
