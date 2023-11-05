@@ -1,25 +1,34 @@
 #include "./protocolo.h"
 
-void* serializar_paquete(t_paquete* paquete, int bytes){
-	void * magic = malloc(bytes);
-	int desplazamiento = 0;
+void* serializar_paquete(t_paquete* paquete, int bytes) {
+    void* magic = malloc(bytes);
+    int desplazamiento = 0;
 
-	memcpy(magic + desplazamiento, &(paquete->codigo_operacion), sizeof(int));
-	desplazamiento+= sizeof(int);
-	memcpy(magic + desplazamiento, &(paquete->buffer->size), sizeof(int));
-	desplazamiento+= sizeof(int);
-	memcpy(magic + desplazamiento, paquete->buffer->stream, paquete->buffer->size);
-	desplazamiento+= paquete->buffer->size;
+    // Copia el código de operación al búfer
+    memcpy(magic + desplazamiento, &(paquete->codigo_operacion), sizeof(int));
+    desplazamiento += sizeof(int);
 
-	return magic;
+    // Copia el tamaño del buffer al búfer
+    memcpy(magic + desplazamiento, &(paquete->buffer->size), sizeof(int));
+    desplazamiento += sizeof(int);
+
+    // Copia los datos del buffer al búfer
+    memcpy(magic + desplazamiento, paquete->buffer->stream, paquete->buffer->size);
+    desplazamiento += paquete->buffer->size;
+
+    return magic;
 }
 
-void eliminar_paquete(t_paquete* paquete){
-	free(paquete->buffer->stream);
-	free(paquete->buffer);
-	free(paquete);
-}
+void eliminar_paquete(t_paquete* paquete) {
+    // Liberar memoria de los datos en el paquete
+    free(paquete->buffer->stream);
 
+    // Liberar memoria del buffer
+    free(paquete->buffer);
+
+    // Liberar memoria del paquete
+    free(paquete);
+}
 
 void enviar_mensaje(char* mensaje, int socket_cliente){
 	t_paquete* paquete = malloc(sizeof(t_paquete));
@@ -60,11 +69,13 @@ void* recibir_buffer(int* size, int socket_cliente){
 	return buffer;
 }
 
-void recibir_mensaje(t_log* logger, int socket_cliente){
-	int size;
-	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "Me llego el mensaje: %s", buffer);
-	free(buffer);
+void recibir_mensaje(t_log* logger, int socket_cliente) {
+    int size;
+    char* buffer = (char*)recibir_buffer(&size, socket_cliente);
+    if (buffer != NULL) {
+        log_info(logger, "Me llegó el mensaje: %s", buffer);
+        free(buffer); // Liberar la memoria del mensaje recibido
+    }
 }
 
 t_list* recibir_paquete(int socket_cliente){
@@ -118,70 +129,77 @@ void enviar_paquete(t_paquete* paquete, int socket_cliente){
 	free(a_enviar);
 }
 
-void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos){
-	int cantidad_archivos = list_size(lista_archivos);
-	agregar_a_paquete(paquete_archivos, &(cantidad_archivos), sizeof(int));
-	for(int i=0; i<cantidad_archivos; i++){
-		t_archivos* archivo = list_get(lista_archivos, i);
-		agregar_a_paquete(paquete_archivos, archivo->path, strlen(archivo->path) + 1);
-		agregar_a_paquete(paquete_archivos, archivo->puntero, sizeof(int));
-	}
+void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos) {
+    int cantidad_archivos = list_size(lista_archivos);
+
+    // Agregar la cantidad de archivos al paquete
+    agregar_a_paquete(paquete_archivos, &cantidad_archivos, sizeof(int));
+
+    for (int i = 0; i < cantidad_archivos; i++) {
+        t_archivos* archivo = list_get(lista_archivos, i);
+
+        // Agregar la ruta del archivo al paquete
+        agregar_a_paquete(paquete_archivos, archivo->path, strlen(archivo->path) + 1);
+
+        // Agregar el puntero al paquete
+        agregar_a_paquete(paquete_archivos, &(archivo->puntero), sizeof(int));
+    }
 }
-t_list* desempaquetar_archivos(t_list* paquete, int comienzo){
-	t_list* lista_archivos = list_create();
-	int* cantidad_archivos = list_get(paquete, comienzo);
-	int i = comienzo + 1;
 
-	while(i - comienzo - 1< (*cantidad_archivos* 4)){
-		t_archivos* archivo = malloc(sizeof(t_archivos));
+t_list* desempaquetar_archivos(t_list* paquete, int comienzo) {
+    t_list* lista_archivos = list_create();
+    int* cantidad_archivos = list_get(paquete, comienzo);
+    int i = comienzo + 1;
 
-		char* path = list_get(paquete, i);
-		archivo->path = malloc(strlen(path));
-		strcpy(archivo->path, path);
-		free(path);
-		i++;
+    while (i - comienzo - 1 < (*cantidad_archivos * 2)) {
+        t_archivos* archivo = malloc(sizeof(t_archivos));
 
+        // Desempaquetar la ruta del archivo
+        char* path = (char*)list_get(paquete, i);
+        archivo->path = strdup(path);
+        free(path);
+        i++;
+
+        // Desempaquetar el puntero
         int* puntero = list_get(paquete, i);
-		archivo->puntero =  puntero;
-		free(puntero);
-		i++;
+        archivo->puntero = *puntero;
+        free(puntero);
+        i++;
 
+        list_add(lista_archivos, archivo);
+    }
+    free(cantidad_archivos);
 
-		list_add(lista_archivos, archivo);
-	}
-	free(cantidad_archivos);
-	return lista_archivos;
+    return lista_archivos;
 }
 
-void send_archivos(int fd_modulo,t_list* lista_archivos){
-	t_paquete* paquete_archivos = crear_paquete(ENVIO_LISTA_ARCHIVOS);
-	empaquetar_archivos(paquete_archivos, lista_archivos);
-	enviar_paquete(paquete_archivos, fd_modulo);
-	eliminar_paquete(paquete_archivos);
+void send_archivos(int fd_modulo, t_list* lista_archivos) {
+    t_paquete* paquete_archivos = crear_paquete(ENVIO_LISTA_ARCHIVOS);
+    empaquetar_archivos(paquete_archivos, lista_archivos);
+    enviar_paquete(paquete_archivos, fd_modulo);
+    eliminar_paquete(paquete_archivos);
 }
 
-t_list* recv_archivos(t_log* logger, int fd_modulo){
-	t_list* paquete = recibir_paquete(fd_modulo);
-	t_list* lista_archivos = desempaquetar_archivos(paquete, 0);
-	list_destroy(paquete);
-	log_info(logger, "Se recibió una lista de archivos.");
-	return lista_archivos;
+t_list* recv_archivos(t_log* logger, int fd_modulo) {
+    t_list* paquete = recibir_paquete(fd_modulo);
+    t_list* lista_archivos = desempaquetar_archivos(paquete, 0);
+    list_destroy(paquete);
+    log_info(logger, "Se recibió una lista de archivos.");
+    return lista_archivos;
 }
 
-
-void archivo_destroyer(t_archivos* archivo){
-	free(archivo->path);
-	free(archivo->puntero);
-	free(archivo);
-	archivo = NULL;
+void archivo_destroyer(t_archivos* archivo) {
+    free(archivo->path);
+    free(archivo);
+    archivo = NULL;
 }
 
-void lista_archivos_destroy(t_list* lista){
-	while(!list_is_empty(lista)){
-		t_archivos* archivo = list_remove(lista, 0);
-		archivo_destroyer(archivo);
-	}
-	list_destroy(lista);
+void lista_archivos_destroy(t_list* lista) {
+    while (!list_is_empty(lista)) {
+        t_archivos* archivo = list_remove(lista, 0);
+        archivo_destroyer(archivo);
+    }
+    list_destroy(lista);
 }
 
 void empaquetar_registros(t_paquete* paquete, t_registros* registro){
@@ -412,423 +430,33 @@ void destroyInstruccion(Instruccion instruccion) {
     free(instruccion.operando1);
     free(instruccion.operando2);
 }
-// -------------------------------------NO LAS USAMOS----------------------------------------
 
-/*
-static void* serializar_pid(int pid) {
-   void* stream = malloc(sizeof(int));
-    memcpy(stream, &pid, sizeof(int));
-    return stream;
+void send_fetch_instruccion(int pid, int pc, int fd_modulo) {
+    t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
+
+    // Agregar el PID al paquete
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+
+    // Agregar el PC al paquete
+    agregar_a_paquete(paquete, &pc, sizeof(int));
+
+    enviar_paquete(paquete, fd_modulo);
+    eliminar_paquete(paquete);
 }
 
-void deserializar_pid(void* stream, int* pid) {
-    memcpy(pid, stream ,sizeof(int));
+int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
+    t_list* paquete = recibir_paquete(fd_modulo);
+
+    // Obtener el PID del paquete
+    int* pid_recv = list_get(paquete, 0);
+    *pid = *pid_recv;
+    free(pid_recv);
+
+    // Obtener el PC del paquete
+    int* pc_recv = list_get(paquete, 1);
+    *pc = *pc_recv;
+    free(pc_recv);
+
+    list_destroy(paquete);
+    return 0; // Puedes devolver el valor necesario en tu implementación.
 }
-//enviar un entero, sirve para PID, pc, size
-bool send_int(int fd,int pid){
-	size_t size = sizeof(int);
-	void* stream = serializar_pid(pid);
-    if (send(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-
-    free(stream);
-    return true;
-}
-
-//recibir un entero, sirve para PID, pc, size
-bool recv_int(int fd, int* pid) {
-    size_t size = sizeof(int);
-    void* stream = malloc(size);
-    if (recv(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-    deserializar_pid(stream, pid);
-    free(stream);
-    return true;
-}
-
-//----------------------------------------------
-//envio de pcb
-
-static void* serializar_pcb(pcb proceso) {
-    void* stream = malloc(sizeof(op_code) + sizeof(int) + sizeof(int) + sizeof(int) +
-                         sizeof(uint32_t) * 4 + sizeof(int) + strlen(proceso.path) + 1);
-    
-    op_code cop = ENVIO_PCB;
-    memcpy(stream, &cop, sizeof(op_code));
-    void* offset = stream + sizeof(op_code);
-    
-    memcpy(offset, &proceso.pid, sizeof(int));
-    offset += sizeof(int);
-    memcpy(offset, &proceso.pc, sizeof(int));
-    offset += sizeof(int);
-    memcpy(offset, &proceso.size, sizeof(int));
-    offset += sizeof(int);
-    memcpy(offset, &proceso.registros, sizeof(struct Reg));
-    offset += sizeof(struct Reg);
-    memcpy(offset, &proceso.prioridad, sizeof(int));
-    offset += sizeof(int);
-    size_t path_len = strlen(proceso.path) + 1;
-    memcpy(offset, &path_len, sizeof(size_t));
-    offset += sizeof(size_t);
-    memcpy(offset, proceso.path, path_len);
-    
-    return stream;
-}
-
-static void deserializar_pcb(void* stream, pcb* proceso) {
-    void* offset = stream + sizeof(op_code);
-    
-    memcpy(&proceso->pid, offset, sizeof(int));
-    offset += sizeof(int);
-    memcpy(&proceso->pc, offset, sizeof(int));
-    offset += sizeof(int);
-    memcpy(&proceso->size, offset, sizeof(int));
-    offset += sizeof(int);
-    memcpy(&proceso->registros, offset, sizeof(struct Reg));
-    offset += sizeof(struct Reg);
-    memcpy(&proceso->prioridad, offset, sizeof(int));
-    offset += sizeof(int);
-    size_t path_len;
-    memcpy(&path_len, offset, sizeof(size_t));
-    offset += sizeof(size_t);
-    memcpy(proceso->path, offset, path_len);
-}
-bool send_pcb(int fd, pcb* proceso) {
-    printf("Enviando PCB...\n");
-    void* stream = serializar_pcb(*proceso);
-    size_t size = sizeof(op_code) + sizeof(pcb);
-
-    ssize_t bytes_enviados = send(fd, stream, size, 0);
-
-    if (bytes_enviados == size) {
-        printf("PCB enviado correctamente.\n");
-        free(stream);
-        return true;
-    } else if (bytes_enviados == -1) {
-        printf("Error al enviar el PCB");
-        printf("Cerrando la conexión debido a un error.\n");
-        free(stream);
-        return false;
-    } else {
-        printf("Error inesperado al enviar el PCB.\n");
-        printf("Cerrando la conexión debido a un error inesperado.\n");
-        free(stream);
-        return false;
-    }
-}
-
-bool recv_pcb(int fd, pcb* proceso) {
-    printf("Esperando recibir un PCB...");
-    size_t size = sizeof(pcb);
-    void* stream = malloc(size);
-
-    ssize_t bytes_recibidos = recv(fd, stream, size, MSG_WAITALL);
-
-    if (bytes_recibidos == size) {
-        printf("PCB recibido correctamente.");
-        deserializar_pcb(stream, proceso);
-        free(stream);
-        return true;
-    } else if (bytes_recibidos == 0) {
-        printf("La conexión fue cerrada por el otro extremo durante la recepción del PCB.");
-        free(stream);
-        return false;
-    } else if (bytes_recibidos == -1) {
-        printf("Cerrando la conexión debido a un error.");
-        free(stream);
-        return false;
-    } else {
-        free(stream);
-        return false;
-    }
-}
-
-//--------------------------------------ENVIO PCB DESALOJADO POR CPU-------------------------
-static void* serializar_pcbDesalojado(pcbDesalojado proceso) {
-    size_t instruccion_len = strlen(proceso.instruccion) + 1;
-    size_t extra_len = strlen(proceso.extra) + 1;
-    size_t stream_size = sizeof(op_code) + sizeof(int) + instruccion_len + extra_len + sizeof(pcb);
-    
-    void* stream = malloc(stream_size);
-
-    op_code cop = ENVIO_PCB_DESALOJADO;
-    int instruccion_len_int = (int)instruccion_len;
-    
-    memcpy(stream, &cop, sizeof(op_code));
-    void* offset = stream + sizeof(op_code);
-    memcpy(offset, &instruccion_len_int, sizeof(int));
-    offset += sizeof(int);
-    memcpy(offset, proceso.instruccion, instruccion_len);
-    offset += instruccion_len;
-    memcpy(offset, proceso.extra, extra_len);
-    offset += extra_len;
-    
-    // Serializa la estructura pcb
-    void* pcb_stream = serializar_pcb(proceso.contexto);
-    memcpy(offset, pcb_stream, sizeof(pcb));
-    free(pcb_stream);
-
-    return stream;
-}
-
-static void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso) {
-    int instruccion_len_int;
-    
-    memcpy(&instruccion_len_int, stream + sizeof(op_code), sizeof(int));
-    void* offset = stream + sizeof(op_code) + sizeof(int);
-    
-    size_t instruccion_len = (size_t)instruccion_len_int;
-    
-    proceso->instruccion = malloc(instruccion_len);
-    memcpy(proceso->instruccion, offset, instruccion_len);
-    offset += instruccion_len;
-    
-    size_t extra_len = strlen(offset) + 1;
-    proceso->extra = malloc(extra_len);
-    memcpy(proceso->extra, offset, extra_len);
-    offset += extra_len;
-    pcb base;
-    // Deserializa la estructura pcb
-    deserializar_pcb(offset, &proceso->contexto);
-    proceso->contexto=base;
-}
-
-
-bool send_pcbDesalojado(pcbDesalojado proceso, int fd) {
-    void* stream = serializar_pcbDesalojado(proceso);
-    size_t size = sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb) + strlen(proceso.instruccion) + 1 + strlen(proceso.extra) + 1;
-
-    if (send(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-
-    free(stream);
-    return true;
-}
-
-bool recv_pcbDesalojado(int fd, pcbDesalojado* proceso) {
-    size_t size = sizeof(op_code) + 2 * sizeof(int) + sizeof(pcb);
-    void* stream = malloc(size);
-
-    if (recv(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-
-    deserializar_pcbDesalojado(stream, proceso);
-
-    free(stream);
-    return true;
-}
-//--------------------------------------Envio de instrucciones-------------------------------
-static void* serializar_instruccion(Instruccion instruccion) {
-    void* stream = malloc(sizeof(op_code) + sizeof(instruccion));
-    
-    op_code cop = ENVIO_INSTRUCCION;
-    memcpy(stream, &cop, sizeof(op_code));
-    void* offset = stream + sizeof(op_code);
-    
-    memcpy(offset, instruccion.opcode, sizeof(instruccion.opcode));
-    offset += sizeof(instruccion.opcode);
-    memcpy(offset, instruccion.operando1, sizeof(instruccion.operando1));
-    offset += sizeof(instruccion.operando1);
-    memcpy(offset, instruccion.operando2, sizeof(instruccion.operando2));
-    
-    return stream;
-}
-
-static void deserializar_instruccion(void* stream, Instruccion* instruccion) {
-    void* offset = stream + sizeof(op_code);
-    
-    memcpy(instruccion->opcode, offset, sizeof(instruccion->opcode));
-    offset += sizeof(instruccion->opcode);
-    memcpy(instruccion->operando1, offset, sizeof(instruccion->operando1));
-    offset += sizeof(instruccion->operando1);
-    memcpy(instruccion->operando2, offset, sizeof(instruccion->operando2));
-}
-
-bool send_instruccion(int fd, Instruccion instruccion) {
-    size_t size = sizeof(op_code) + sizeof(Instruccion);
-    void* stream = serializar_instruccion(instruccion);
-    if (send(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-    free(stream);
-    return true;
-}
-
-bool recv_instruccion(int fd, Instruccion* instruccion) {
-    size_t size = sizeof(Instruccion);
-    void* stream = malloc(size);
-
-    if (recv(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-
-    deserializar_instruccion(stream, instruccion);
-
-    free(stream);
-    return true;
-}
-//--------------------------------------Envio de direcciones---------------------------------
-static void* serializar_direccion(Direccion direccion) {
-    void* stream = malloc(sizeof(op_code) + sizeof(Direccion));
-
-    op_code cop = ENVIO_DIRECCION;
-    memcpy(stream, &cop, sizeof(op_code));
-    memcpy(stream + sizeof(op_code), &direccion, sizeof(Direccion));
-    return stream;
-}
-
-static void deserializar_direccion(void* stream, Direccion* direccion) {
-    memcpy(direccion, stream + sizeof(op_code), sizeof(Direccion));
-}
-
-bool send_direccion(int fd, Direccion* direccion) {
-    size_t size = sizeof(op_code) + sizeof(Direccion);
-    void* stream = serializar_direccion(*direccion);
-    if (send(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-    free(stream);
-    printf("Envío de dirección exitoso\n");
-    return true;
-}
-
-bool recv_direccion(int fd, Direccion* direccion) {
-    size_t size = sizeof(Direccion);
-    void* stream = malloc(size);
-
-    if (recv(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-
-    deserializar_direccion(stream, direccion);
-
-    free(stream);
-    printf("Recepción de dirección exitosa\n");
-    return true;
-}
-// -------------------------------------EJEMPLOS DE FUNCIONES--------------------------------
-
-static void* serializar_aprobar_operativos(uint8_t nota1, uint8_t nota2) {
-    void* stream = malloc(sizeof(op_code) + sizeof(uint8_t) * 2);
-
-    op_code cop = APROBAR_OPERATIVOS;
-    memcpy(stream, &cop, sizeof(op_code));
-    memcpy(stream+sizeof(op_code), &nota1, sizeof(uint8_t));
-    memcpy(stream+sizeof(op_code)+sizeof(uint8_t), &nota2, sizeof(uint8_t));
-    return stream;
-}
-
-static void deserializar_aprobar_operativos(void* stream, uint8_t* nota1, uint8_t* nota2) {
-    memcpy(nota1, stream, sizeof(uint8_t));
-    memcpy(nota2, stream+sizeof(uint8_t), sizeof(uint8_t));
-}
-
-bool send_aprobar_operativos(int fd, uint8_t nota1, uint8_t nota2) {
-    size_t size = sizeof(op_code) + sizeof(uint8_t) * 2;
-    void* stream = serializar_aprobar_operativos(nota1, nota2);
-    if (send(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-    free(stream);
-    return true;
-}
-
-bool recv_aprobar_operativos(int fd, uint8_t* nota1, uint8_t* nota2) {
-    size_t size = sizeof(uint8_t) * 2;
-    void* stream = malloc(size);
-
-    if (recv(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-
-    deserializar_aprobar_operativos(stream, nota1, nota2);
-
-    free(stream);
-    return true;
-}
-
-// MIRAR_NETFLIX
-static void* serializar_mirar_netflix(size_t* size, char* peli, uint8_t cant_pochoclos) {
-    size_t size_peli = strlen(peli) + 1;
-    *size =
-          sizeof(op_code)   // cop
-        + sizeof(size_t)    // total
-        + sizeof(size_t)    // size de char* peli
-        + size_peli         // char* peli
-        + sizeof(uint8_t);  // cant_pochoclos
-    size_t size_payload = *size - sizeof(op_code) - sizeof(size_t);
-
-    void* stream = malloc(*size);
-
-    op_code cop = MIRAR_NETFLIX;
-    memcpy(stream, &cop, sizeof(op_code));
-    memcpy(stream+sizeof(op_code), &size_payload, sizeof(size_t));
-    memcpy(stream+sizeof(op_code)+sizeof(size_t), &size_peli, sizeof(size_t));
-    memcpy(stream+sizeof(op_code)+sizeof(size_t)*2, peli, size_peli);
-    memcpy(stream+sizeof(op_code)+sizeof(size_t)*2+size_peli, &cant_pochoclos, sizeof(uint8_t));
-
-    return stream;
-}
-
-static void deserializar_mirar_netflix(void* stream, char** peli, uint8_t* cant_pochoclos) {
-    // Peli
-    size_t size_peli;
-    memcpy(&size_peli, stream, sizeof(size_t));
-
-    char* r_peli = malloc(size_peli);
-    memcpy(r_peli, stream+sizeof(size_t), size_peli);
-    *peli = r_peli;
-
-    // Pochoclos
-    memcpy(cant_pochoclos, stream+sizeof(size_t)+size_peli, sizeof(uint8_t));
-}
-
-bool send_mirar_netflix(int fd, char* peli, uint8_t cant_pochoclos) {
-    size_t size;
-    void* stream = serializar_mirar_netflix(&size, peli, cant_pochoclos);
-    if (send(fd, stream, size, 0) != size) {
-        free(stream);
-        return false;
-    }
-    free(stream);
-    return true;
-}
-
-bool recv_mirar_netflix(int fd, char** peli, uint8_t* cant_pochoclos) {
-    size_t size_payload;
-    if (recv(fd, &size_payload, sizeof(size_t), 0) != sizeof(size_t))
-        return false;
-
-    void* stream = malloc(size_payload);
-    if (recv(fd, stream, size_payload, 0) != size_payload) {
-        free(stream);
-        return false;
-    }
-
-    deserializar_mirar_netflix(stream, peli, cant_pochoclos);
-
-    free(stream);
-    return true;
-}
-
-// DEBUG
-bool send_debug(int fd) {
-    op_code cop = DEBUG;
-    if (send(fd, &cop, sizeof(op_code), 0) != sizeof(op_code))
-        return false;
-    return true;
-}*/

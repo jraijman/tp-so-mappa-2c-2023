@@ -35,6 +35,7 @@ static void procesar_conexion(void* void_args) {
         }
     }
     // Cerrar los sockets y liberar recursos si es necesario.
+    free(args);
     close(cliente_socket_dispatch);
     close(cliente_socket_interrupt);
     log_info(logger_cpu, "Conexión cerrada, finalizando el procesamiento de la conexión.");

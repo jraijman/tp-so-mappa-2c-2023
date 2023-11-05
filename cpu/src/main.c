@@ -41,6 +41,7 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             Instruccion instruccion;
             fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger);
             contexto->pc++;
+            log_info(logger, "Instrucción recibida");
             decodeInstruccion(&instruccion);
             executeInstruccion(contexto, instruccion);
         }
@@ -125,7 +126,7 @@ void decodeInstruccion(Instruccion *instruccion){
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {
     log_info (logger, "Fetch de instruccion");
     Instruccion aux;
-    send_pcb(contexto, fd); // Envía el PCB (por el PID y PC para que te envíen la instrucción correspondiente)
+    send_fetch_instruccion(contexto->pid,contexto->pc, fd); // Envía paquete para pedir instrucciones
     aux=recv_instruccion(fd);
     strcpy(instruccion->opcode, aux.opcode);
     strcpy(instruccion->operando1, aux.operando1);
