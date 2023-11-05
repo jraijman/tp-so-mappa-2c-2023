@@ -2,18 +2,13 @@
 #include <sys/socket.h>
 
 static void procesar_conexion(void* void_args) {
-    printf("Esperando operacion...0");
     t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
     t_log* logger = args->log;
     log_info(logger, "Hilo en función procesar_conexion");
     int cliente_socket_dispatch = args->fd_dispatch;
     int cliente_socket_interrupt = args->fd_interrupt;
-    printf("Esperando operacion...0");
-    free(args);
-    printf("Esperando operacion...1");
     while(1)
     {
-        printf("Esperando operacion...");
         int cop = recibir_operacion(cliente_socket_dispatch);
         log_info(logger, "%d", cop);
         switch (cop) {
@@ -22,7 +17,7 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger_cpu,"Hay un pcb para ejecutar");
                 if (contexto->pid!=-1) {
                     log_info(logger, "Recibí PCB con ID: %d", contexto->pid);
-                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger_cpu);
+                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
                 } else {
                     log_error(logger, "Error al recibir el PCB");
                 }

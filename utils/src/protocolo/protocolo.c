@@ -269,7 +269,8 @@ pcb* desempaquetar_pcb(t_list* paquete){
 
 
 void send_pcb(pcb* contexto, int fd_modulo){
-	t_paquete* paquete = crear_paquete(ENVIO_PCB);
+	printf("Enviando pcb");
+    t_paquete* paquete = crear_paquete(ENVIO_PCB);
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
 	pcb_destroyer(contexto);
@@ -277,6 +278,7 @@ void send_pcb(pcb* contexto, int fd_modulo){
 }
 
 pcb* recv_pcb(int fd_modulo){
+    printf("Recibiendo pcb");
 	t_list* paquete = recibir_paquete(fd_modulo);
 	pcb* contexto_recibido = desempaquetar_pcb(paquete);
 	list_destroy(paquete);
@@ -390,6 +392,7 @@ Instruccion desempaquetar_instruccion(t_list* paquete) {
 }
 
 void send_instruccion(int socket_cliente, Instruccion instruccion) {
+    printf("Enviando instruccion");
     t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
     empaquetar_instruccion(paquete, instruccion);
     enviar_paquete(paquete, socket_cliente);
@@ -397,6 +400,7 @@ void send_instruccion(int socket_cliente, Instruccion instruccion) {
 }
 
 Instruccion recv_instruccion(int socket_cliente) {
+    printf("Recibiendo instruccion");
     t_list* paquete = recibir_paquete(socket_cliente);
     Instruccion instruccion = desempaquetar_instruccion(paquete);
     list_destroy(paquete);

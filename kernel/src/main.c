@@ -205,8 +205,6 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     //le sumo uno al contador que funciona como id de proceso
     contador_proceso++;
 
-   
-
 }
 
 bool remover(pcb* element) {
@@ -321,7 +319,7 @@ void* planif_corto_plazo(void* args){
                 list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
                 //mandar proceso a CPU
-                //send_pcb(conexion_dispatch, procesoAEjecutar);
+                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 //esperamos a bloqueo o a exit
                 //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
                 //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
@@ -337,11 +335,10 @@ void* planif_corto_plazo(void* args){
                 list_add(cola_exec->elements, procesoAEjecutar);
                 pthread_mutex_unlock(&mutex_exec);
                 //mandar proceso a CPU
-                //send_pcb(conexion_dispatch, procesoAEjecutar);
+                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 //esperamos a bloqueo o a exit
                 //si se bloquea, cambiamos el estado a 4 y lo metemos en bloqueo
                 //si tira el exit, hacer un signal al sem_ready y correr finalizar proceso
-
                 }
 
             }

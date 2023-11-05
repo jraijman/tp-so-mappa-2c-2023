@@ -1,6 +1,6 @@
 #include "./sockets.h"
 
-int iniciar_servidor(t_log* logger, char* ip, char* puerto)
+int iniciar_servidor(t_log* logger, char* ip, char* puerto, char* nombre)
 {
 	int socket_servidor;
 
@@ -25,7 +25,7 @@ int iniciar_servidor(t_log* logger, char* ip, char* puerto)
 
 	listen(socket_servidor, SOMAXCONN);
 
-	log_info(logger, "Listo para escuchar a mi cliente");
+	log_info(logger, "Escuchando en %s", nombre);
 
 	freeaddrinfo(servinfo);
 

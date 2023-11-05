@@ -57,7 +57,7 @@ int main(int argc, char *argv[])
     
 
      // inicio servidor de escucha
-    fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha);
+    fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha, "MEMORIA");
     
     // espero clientes kernel,cpu y filesystem
     pcbDesalojado contexto;

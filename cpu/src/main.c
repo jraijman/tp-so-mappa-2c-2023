@@ -6,8 +6,8 @@ int main(int argc, char* argv[]){
     logger_cpu = iniciar_logger("cpu.log", "CPU:");
 
     // Inicio servidor de dispatch e interrupt para el kernel
-    fd_cpu_dispatch = iniciar_servidor(logger_cpu, NULL, puerto_dispatch);
-    fd_cpu_interrupt = iniciar_servidor(logger_cpu, NULL, puerto_interrupt);
+    fd_cpu_dispatch = iniciar_servidor(logger_cpu, NULL, puerto_dispatch, "CPU DISPATCH");
+    fd_cpu_interrupt = iniciar_servidor(logger_cpu, NULL, puerto_interrupt, "CPU INTERRUPT");
 
     // Genero conexión a memoria
     conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);  
@@ -113,6 +113,7 @@ void traducir(Instruccion *instruccion, Direccion *direccion) {
 
 
 void decodeInstruccion(Instruccion *instruccion){
+    log_info(logger_cpu, "Decoding instruccion");
     Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
@@ -122,7 +123,7 @@ void decodeInstruccion(Instruccion *instruccion){
 }
 
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {
-    int bytesRecibidos;
+    log_info (logger, "Fetch de instruccion");
     Instruccion aux;
     send_pcb(contexto, fd); // Envía el PCB (por el PID y PC para que te envíen la instrucción correspondiente)
     aux=recv_instruccion(fd);
