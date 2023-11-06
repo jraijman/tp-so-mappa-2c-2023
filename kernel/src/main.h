@@ -14,6 +14,14 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
 
+typedef struct{
+	char* recurso;
+	int instancias;
+    int encontrado;
+	//t_list* cola_block;
+	pthread_mutex_t mutex;
+}t_recurso;
+
 
 
 int fd_cpu_dispatch;
@@ -30,14 +38,13 @@ char* puerto_cpu_dispatch;
 char* algoritmo_planificacion;
 char* quantum;
 int grado_multiprogramacion;
-t_list* recursos;
-t_list* instancia_recursos;
+char** recursos;
+int* instancia_recursos;
 
 t_log* logger_kernel;
 t_config* config;
 
 int pid_a_eliminar = -1;
-bool encontre_pid = false;
 
 //listas de estados
 t_queue* cola_new;
@@ -45,6 +52,10 @@ t_queue* cola_ready;
 t_queue* cola_exec;
 t_queue* cola_block;
 t_queue* cola_exit;
+
+
+//lista recursos
+t_list *lista_recursos;
 
 //semaforos
 sem_t cantidad_multiprogramacion;
@@ -100,5 +111,10 @@ void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado);
 
 t_list* pid_lista_ready (t_list* lista);
 char *estado_proceso_a_char(estado_proceso numero);
+pcb* buscar_pcb_cola(t_queue* cola, int id);
+t_list* inicializar_recursos();
+int* string_to_int_array(char** array_de_strings);
+t_recurso* buscar_recurso(char* recurso);
+
 
 #endif 
