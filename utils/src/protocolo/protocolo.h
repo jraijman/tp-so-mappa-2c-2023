@@ -75,10 +75,10 @@ typedef struct
     // valores de los registros de uso general de la CPU.
     int prioridad;    // Prioridad del proceso
     int tiempo_ejecucion;
+    char *path;
     estado_proceso estado;
     t_registros *registros;
     t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
-    // char path[256]; TODO: Verificar si el path tienen que estar en el pcb, si esta hay que agregarlo al empaquetar_pcb
 } pcb;
 
 typedef enum

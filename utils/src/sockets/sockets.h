@@ -16,10 +16,6 @@
 #include<assert.h>
 #include<pthread.h>
 
-int cliente_dispatch;
-int cliente_interrupt;
-
-
 
 int iniciar_servidor(t_log* logger, char* ip, char* puerto, char* nombre);
 int esperar_cliente(t_log* logger, const char* name, int socket_servidor);

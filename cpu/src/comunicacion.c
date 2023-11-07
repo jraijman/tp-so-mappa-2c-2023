@@ -17,7 +17,8 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger_cpu,"Hay un pcb para ejecutar");
                 if (contexto->pid!=-1) {
                     log_info(logger, "Recibí PCB con ID: %d", contexto->pid);
-                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
+                    enviar_mensaje("deberia mandar pcb desalojad", cliente_socket_interrupt);
+                    //ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
                 } else {
                     log_error(logger, "Error al recibir el PCB");
                 }

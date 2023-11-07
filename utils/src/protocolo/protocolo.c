@@ -238,6 +238,7 @@ void empaquetar_pcb(t_paquete* paquete, pcb* contexto){
 	agregar_a_paquete(paquete, &(contexto->size), sizeof(int));
 	agregar_a_paquete(paquete, &(contexto->prioridad), sizeof(int));
 	agregar_a_paquete(paquete, &(contexto->tiempo_ejecucion), sizeof(int));
+	agregar_a_paquete(paquete, (contexto->path), strlen(contexto->path) + 1);
 	agregar_a_paquete(paquete, &(contexto->estado), sizeof(estado_proceso));
 	empaquetar_registros(paquete, contexto->registros);
 	empaquetar_archivos(paquete, contexto->archivos);
@@ -267,11 +268,16 @@ pcb* desempaquetar_pcb(t_list* paquete){
 	contexto->tiempo_ejecucion = *tiempo_ejecucion;
 	free(tiempo_ejecucion);
 
-	estado_proceso* estado =  list_get(paquete, 5);
+	char* path = list_get(paquete, 5);
+	contexto->path =  malloc(strlen(path));
+	strcpy(contexto->path, path);
+	free(path);
+
+	estado_proceso* estado =  list_get(paquete, 6);
 	contexto->estado = *estado;
 	free(estado);
 
-	int comienzo_registros = 6;
+	int comienzo_registros = 7;
 	t_registros* registro_contexto = desempaquetar_registros(paquete, comienzo_registros);
 	contexto->registros = registro_contexto;
 
@@ -279,7 +285,6 @@ pcb* desempaquetar_pcb(t_list* paquete){
 	t_list* archivos = desempaquetar_archivos(paquete, comienzo_archivos);
 	contexto->archivos = archivos;
 	
-    
     
     return contexto;
 }
@@ -380,6 +385,8 @@ void send_inicializar_proceso(pcb *contexto, int fd_modulo){
 	//pcb_destroyer(contexto); no se   porq lo destruye
 	eliminar_paquete(paquete);
 }
+
+
 
 void send_terminar_proceso(int pid, int fd_modulo){
 	t_paquete* paquete = crear_paquete(FINALIZAR_PROCESO);

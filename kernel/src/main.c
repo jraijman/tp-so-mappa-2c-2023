@@ -14,17 +14,18 @@ int main(int argc, char* argv[]) {
 		log_error(logger_kernel, "Alguna conexion falló");
 		// libero conexiones, log y config
         terminar_programa(logger_kernel, config);
-        //liberar_conexion(fd_cpu_dispatch);
-        //liberar_conexion(fd_cpu_interrupt);
+        liberar_conexion(fd_cpu_dispatch);
+        liberar_conexion(fd_cpu_interrupt);
         liberar_conexion(fd_memoria);
-        //liberar_conexion(fd_filesystem);
+        liberar_conexion(fd_filesystem);
 		exit(1);
 	}
     
     //mensajes de prueba
-    //enviar_mensaje("Hola, Soy Kernel!", fd_filesystem);
+    enviar_mensaje("Hola, Soy Kernel!", fd_filesystem);
 	enviar_mensaje("Hola, Soy Kernel!", fd_memoria);
-	//enviar_mensaje("Hola, Soy Kernel!", fd_cpu);
+	//enviar_mensaje("Hola, Soy Kernel dispatch", fd_cpu_dispatch);
+    //enviar_mensaje("Hola, Soy Kernel interrupt", fd_cpu_interrupt);
     
 
     // inicio hilos
@@ -36,10 +37,10 @@ int main(int argc, char* argv[]) {
    
     // libero conexiones, log y config
     terminar_programa(logger_kernel, config);
-    //liberar_conexion(fd_cpu_dispatch);
-    //liberar_conexion(fd_cpu_interrupt);
+    liberar_conexion(fd_cpu_dispatch);
+    liberar_conexion(fd_cpu_interrupt);
     liberar_conexion(fd_memoria);
-    //liberar_conexion(fd_filesystem);
+    liberar_conexion(fd_filesystem);
 }
 
 bool generar_conexiones() {
@@ -151,8 +152,6 @@ void * leer_consola(void * arg)
     }
 }
 
-
-
 void iniciar_hilos(){
     //creo hilo para la consola
     pthread_create(&hilo_consola, NULL, leer_consola, NULL);
@@ -202,11 +201,19 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     proceso->registros->cx =0;
     proceso->registros->dx =0;
     proceso->archivos = list_create();
-    //memcpy(proceso->path, path, sizeof(path));
+    proceso->path = malloc(sizeof(char) * strlen(path) + 1);
+    strcpy(proceso->path, path);
     //ver si falta el tiempo para manejar el quantum
     agregar_a_new(proceso);
     //MANDAR MENSAJE A MEMORIA- CREACION DE PROCESO-
     send_inicializar_proceso(proceso, fd_memoria);
+
+    int cop = recibir_operacion(fd_memoria);
+    switch (cop) {
+        case MENSAJE:
+            recibir_mensaje(logger_kernel, fd_memoria);
+            break;
+    }
     //le sumo uno al contador que funciona como id de proceso
     contador_proceso++;
 
@@ -329,7 +336,7 @@ void* planif_corto_plazo(void* args){
                 agregar_a_exec(procesoAEjecutar);
                 //mandar proceso a CPU
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                //espero a  pcb actualizado               
+                //espero a  pcb actualizado
                 }
             }
         else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
@@ -339,8 +346,8 @@ void* planif_corto_plazo(void* args){
                 agregar_a_exec(procesoAEjecutar);
                 //mandar proceso a CPU
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                 //espero a  pcb actualizado   
-                 // si en ready hay uno con mayor prioridad, cambiarlo
+                //espero a  pcb actualizado   
+                // si en ready hay uno con mayor prioridad, cambiarlo
 
                 }
 

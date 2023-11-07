@@ -148,8 +148,9 @@ static void procesar_conexion(void *void_args) {
 			break;
 		case INICIALIZAR_PROCESO:
 			pcb* proceso = recv_pcb(cliente_socket);
-			log_info(logger_memoria, "Creación de Proceso PID: %d", proceso->pid);
-            //tabla de paginas
+			log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
+            enviar_mensaje("hola soy memoria recibi para ioniciar un proceso", cliente_socket);
+            //tabla de pagina
 			//send_proceso_inicializado(tabla_segmentos_inicial, cliente_socket);
 			break;
 		case FINALIZAR_PROCESO:

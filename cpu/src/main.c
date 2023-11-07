@@ -29,9 +29,9 @@ void levantar_config(char* ruta){
     puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
     puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
     puerto_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
-    log_info(logger_cpu, "Módulo CPU iniciado correctamente");
-    log_info(logger_cpu, "ip_memoria: %s y el puerto_memoria: %s", ip_memoria, puerto_memoria);
-    log_info(logger_cpu, "puerto_dispatch: %s y puerto_interrupt: %s", puerto_dispatch, puerto_interrupt);
+    //log_info(logger_cpu, "Módulo CPU iniciado correctamente");
+    //log_info(logger_cpu, "ip_memoria: %s y el puerto_memoria: %s", ip_memoria, puerto_memoria);
+    //log_info(logger_cpu, "puerto_dispatch: %s y puerto_interrupt: %s", puerto_dispatch, puerto_interrupt);
 }
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
@@ -45,9 +45,9 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             decodeInstruccion(&instruccion);
             executeInstruccion(contexto, instruccion);
         }
-        pcbDesalojado interrumpido;
-        interrumpido.contexto = contexto;
-        strcpy(interrumpido.extra, "INTERRUPCIÓN");
+        pcbDesalojado* interrumpido;
+        interrumpido->contexto = contexto;
+        strcpy(interrumpido->extra, "INTERRUPCIÓN");
         //send_pcbDesalojado(interrumpido, cliente_socket_dispatch);
         // NO SÉ SI AL KERNEL DEBERÍA ENVIARLO POR EL DISPATCH O SI PASA A TRAVÉS DE MEMORIA
     }
