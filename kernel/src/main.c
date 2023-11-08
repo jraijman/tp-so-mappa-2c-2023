@@ -208,12 +208,12 @@ void iniciar_proceso(char * path, char* size, char* prioridad)
     //MANDAR MENSAJE A MEMORIA- CREACION DE PROCESO-
     send_inicializar_proceso(proceso, fd_memoria);
 
-    int cop = recibir_operacion(fd_memoria);
+    /*int cop = recibir_operacion(fd_memoria);
     switch (cop) {
         case MENSAJE:
             recibir_mensaje(logger_kernel, fd_memoria);
             break;
-    }
+    }*/
     //le sumo uno al contador que funciona como id de proceso
     contador_proceso++;
 
@@ -242,6 +242,7 @@ void finalizar_proceso(char * pid)
         // hacer log de fin de proceso
         log_info(logger_kernel, "Finaliza el proceso %d - Motivo: <SUCCESS - CONSOLA>", procesoAEliminar->pid);
         //borrar todo lo que corresponde a ese proceso
+        send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
     }
     
     
@@ -337,6 +338,12 @@ void* planif_corto_plazo(void* args){
                 //mandar proceso a CPU
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 //espero a  pcb actualizado
+                int cop = recibir_operacion(fd_cpu_dispatch);
+                switch (cop) {
+                    case MENSAJE:
+                        recibir_mensaje(logger_kernel, fd_cpu_dispatch);
+                        break;
+                }
                 }
             }
         else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){

@@ -66,21 +66,19 @@ typedef struct {
     int* puntero;
 } t_archivos;
 
-// Definición de estructura para representar un proceso (PCB)
-typedef struct
+typedef struct 
 {
-    int pid; // Identificador del proceso
-    int pc;  // Número de la próxima instrucción a ejecutar.
-    int size;
-    // valores de los registros de uso general de la CPU.
-    int prioridad;    // Prioridad del proceso
-    int tiempo_ejecucion;
-    char *path;
-    estado_proceso estado;
-    t_registros *registros;
-    t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
-    TablaPaginas *tabla_paginas;
-} pcb;
+    uint32_t num_marco;
+    bool en_memoria; //bit de presencia
+    bool modificado; // bit de modificado
+}Pagina;
+typedef struct{
+    int num_pagina;
+    int pid;
+    Pagina * paginas;
+}TablaPaginas;
+
+// Definición de estructura para representar un proceso (PCB)
 
 typedef enum
 {
@@ -127,24 +125,9 @@ typedef enum
     RECURSO_INEXISTENTE,
 } motivo_exit;
 
-typedef struct
-{
-    pcb* contexto;
-    char *instruccion;
-    char *extra;
-} pcbDesalojado;
 
-typedef struct 
-{
-    uint32_t num_marco;
-    bool en_memoria; //bit de presencia
-    bool modificado; // bit de modificado
-}Pagina;
-typedef struct{
-    int num_pagina;
-    int pid;
-    Pagina * paginas;
-}TablaPaginas;
+
+
 
 typedef struct main
 {
@@ -182,6 +165,27 @@ typedef struct
     int tamano;
     int tipo;
 } Recibido;
+
+typedef struct
+{
+    int pid; // Identificador del proceso
+    int pc;  // Número de la próxima instrucción a ejecutar.
+    int size;
+    int prioridad;    // Prioridad del proceso
+    int tiempo_ejecucion;
+    char *path;
+    estado_proceso estado;
+    t_registros *registros;
+    t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    TablaPaginas *tabla_paginas; //agregar en protocolo
+} pcb;
+
+typedef struct
+{
+    pcb* contexto;
+    char *instruccion;
+    char *extra;
+} pcbDesalojado;
 
 void pcb_destroyer(pcb* contexto);
 

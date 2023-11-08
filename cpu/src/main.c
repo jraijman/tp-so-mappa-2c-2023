@@ -45,9 +45,9 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             decodeInstruccion(&instruccion);
             executeInstruccion(contexto, instruccion);
         }
-        pcbDesalojado* interrumpido;
-        interrumpido->contexto = contexto;
-        strcpy(interrumpido->extra, "INTERRUPCIÓN");
+        //pcbDesalojado* interrumpido;
+        //interrumpido->contexto = contexto;
+        //strcpy(interrumpido->extra, "INTERRUPCIÓN");
         //send_pcbDesalojado(interrumpido, cliente_socket_dispatch);
         // NO SÉ SI AL KERNEL DEBERÍA ENVIARLO POR EL DISPATCH O SI PASA A TRAVÉS DE MEMORIA
     }
@@ -74,7 +74,8 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
         pcbDes.contexto = contexto_ejecucion;
         pcbDes.instruccion = "SLEEP";
         pcbDes.extra = instruccion.operando1;
-        //send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
+        //send_pcbDesalojado(pcb,char operando,op_code,fd_cpu_dispatch); 
+
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
         log_info(logger_cpu, "Instrucción WAIT - Proceso está esperando por recurso: %s", instruccion.operando1);
         pcbDes.contexto = contexto_ejecucion;
