@@ -79,6 +79,7 @@ typedef struct
     estado_proceso estado;
     t_registros *registros;
     t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    TablaPaginas *tabla_paginas;
 } pcb;
 
 typedef enum
@@ -132,6 +133,18 @@ typedef struct
     char *instruccion;
     char *extra;
 } pcbDesalojado;
+
+typedef struct 
+{
+    uint32_t num_marco;
+    bool en_memoria; //bit de presencia
+    bool modificado; // bit de modificado
+}Pagina;
+typedef struct{
+    int num_pagina;
+    int pid;
+    Pagina * paginas;
+}TablaPaginas;
 
 typedef struct main
 {

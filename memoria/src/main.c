@@ -148,15 +148,14 @@ static void procesar_conexion(void *void_args) {
 			break;
 		case INICIALIZAR_PROCESO:
 			pcb* proceso = recv_pcb(cliente_socket);
-			log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
-            enviar_mensaje("hola soy memoria recibi para ioniciar un proceso", cliente_socket);
-            //tabla de pagina
-			//send_proceso_inicializado(tabla_segmentos_inicial, cliente_socket);
-			break;
+            log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
+            enviar_mensaje("hola soy memoria recibi para iniciar un proceso", cliente_socket);
+            TablaPaginas* tabla_paginas = inicializar_proceso(proceso->pid);
+		    send_proceso_inicializado(tabla_paginas, cliente_socket);			break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
-			//terminar_proceso(pid_fin);
+			terminar_proceso(pid_fin);
 			break;
 
 	return;
@@ -236,23 +235,11 @@ void eliminar_proceso_memoria(int pid) {
     list_destroy(marcos_asignados);
 }
 
-void inicializar_estructura_proceso(int pid) {
+TablaPaginas* inicializar_proceso(int pid) {
     
-    Proceso* proceso = malloc(sizeof(Proceso));
-    
-    if (proceso == NULL) {
-        perror("Error en la asignación de memoria para la estructura de proceso");
-        return;
-    }
-
-    proceso->pid = pid;
-    proceso->estado = NEW; 
-    proceso->rutaArchivo = NULL; 
-    proceso->siguiente = NULL; 
-
-    // insertarProcesoOrdenado(l_proceso, proceso->pid, proceso->estado, proceso->rutaArchivo);
-
-
+    TablaPaginas* tabla_de_paginas = malloc(sizeof(TablaPaginas));
+    tabla_de_paginas->pid = pid;
+    //tabla_de_paginas->paginas = ; a que debo igualarlo?
 }
 bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
     
@@ -268,7 +255,30 @@ bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
 
     return true;
 }
+void terminar_proceso(int pid){
+    pcb* proceso = encontrar_proceso(pid);
+    liberar_recursos(proceso);
+    eliminar_proceso(pid);
+    free(proceso);
+}
+pcb* encontrar_proceso(int pid){
+    //falta implementar
+}
+void eliminar_proceso(int pid){
+    //falta implementar
+}
+void liberar_recursos(pcb* proceso) {
 
+    if (proceso->registros) {
+        free(proceso->registros);
+    }
+    for (int i = 0; i < list_size(proceso->archivos); i++) {
+        t_archivos* archivo = list_get(proceso->archivos, i);
+        fclose(archivo->puntero);
+        free(archivo);
+    }
+    list_destroy(proceso->archivos);
+}
 // Función para notificar al módulo FS y liberar páginas en la partición de SWAP
 bool notificarLiberacionSwap(int socket_fd, int pid, int cantidadPaginas, int* paginas) {
     SolicitudLiberacionSwap solicitud;
