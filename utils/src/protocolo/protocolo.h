@@ -30,7 +30,12 @@ typedef enum
     INICIALIZAR_PROCESO,
     FINALIZAR_PROCESO,
     PAQUETE,
-    MENSAJE
+    MENSAJE,
+    PCB_SIGNAL,
+    PCB_WAIT,
+    PCB_SLEEP,
+    PCB_INTERRUPCION,
+    PCB_EXIT,
 } op_code;
 typedef struct
 {
@@ -208,9 +213,9 @@ void* serializar_paquete(t_paquete* paquete, int bytes);
 
 //Empaquetados
 void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos);
-t_list* desempaquetar_archivos(t_list* paquete, int comienzo);
+t_list* desempaquetar_archivos(t_list* paquete, int* comienzo);
 void empaquetar_pcb(t_paquete* paquete, pcb* contexto);
-pcb* desempaquetar_pcb(t_list* paquete);
+pcb* desempaquetar_pcb(t_list* paquete, int* counter);
 void empaquetar_registros(t_paquete* paquete, t_registros* registros);
 t_registros* desempaquetar_registros(t_list* paquete, int comienzo);
 void empaquetar_instruccion(t_paquete* paquete, Instruccion instruccion);

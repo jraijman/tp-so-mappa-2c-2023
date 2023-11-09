@@ -146,12 +146,12 @@ void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos) {
     }
 }
 
-t_list* desempaquetar_archivos(t_list* paquete, int comienzo) {
+t_list* desempaquetar_archivos(t_list* paquete, int* comienzo) {
     t_list* lista_archivos = list_create();
-    int* cantidad_archivos = list_get(paquete, comienzo);
-    int i = comienzo + 1;
+    int* cantidad_archivos = list_get(paquete, *comienzo);
+    int i = *comienzo + 1;
 
-    while (i - comienzo - 1 < (*cantidad_archivos * 2)) {
+    while (i - *comienzo - 1 < (*cantidad_archivos * 2)) {
         t_archivos* archivo = malloc(sizeof(t_archivos));
 
         // Desempaquetar la ruta del archivo
@@ -162,14 +162,14 @@ t_list* desempaquetar_archivos(t_list* paquete, int comienzo) {
 
         // Desempaquetar el puntero
         int* puntero = list_get(paquete, i);
-        archivo->puntero = *puntero;
+        archivo->puntero = puntero;
         free(puntero);
         i++;
 
         list_add(lista_archivos, archivo);
     }
+	comienzo*=i;
     free(cantidad_archivos);
-
     return lista_archivos;
 }
 
@@ -245,7 +245,7 @@ void empaquetar_pcb(t_paquete* paquete, pcb* contexto){
     
 }
 
-pcb* desempaquetar_pcb(t_list* paquete){
+pcb* desempaquetar_pcb(t_list* paquete, int* counter){
 	pcb* contexto = malloc(sizeof(pcb));
 
 	int* pid = list_get(paquete, 0);
@@ -281,10 +281,10 @@ pcb* desempaquetar_pcb(t_list* paquete){
 	t_registros* registro_contexto = desempaquetar_registros(paquete, comienzo_registros);
 	contexto->registros = registro_contexto;
 
-	int comienzo_archivos = comienzo_registros + 4;
-	t_list* archivos = desempaquetar_archivos(paquete, comienzo_archivos);
+	counter = comienzo_registros + 4;
+	t_list* archivos = desempaquetar_archivos(paquete, counter);
 	contexto->archivos = archivos;
-	
+
     
     return contexto;
 }
@@ -466,4 +466,37 @@ int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
 
     list_destroy(paquete);
     return 0; // Puedes devolver el valor necesario en tu implementación.
+}
+
+void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger){
+	t_paquete* paquete;
+	if(strcmp(instruccion,"SIGNAL")==0){
+		paquete=crear_paquete(PCB_SIGNAL);
+		empaquetar_pcb(paquete, contexto);
+		agregar_a_paquete(paquete, extra);
+	}else if(strcmp(instruccion,"WAIT")==0){
+		paquete=crear_paquete(PCB_WAIT);
+		empaquetar_pcb(paquete, contexto);
+		agregar_a_paquete(paquete, extra);
+	}else if(strcmp(instruccion,"EXIT")==0){
+		paquete=crear_paquete(PCB_EXIT);
+		empaquetar_pcb(paquete, contexto);
+		agregar_a_paquete(paquete, extra);
+	}else if(strcmp(instruccion,"SLEEP")==0){
+		paquete=crear_paquete(PCB_SLEEP);
+		empaquetar_pcb(paquete, contexto);
+		agregar_a_paquete(paquete, extra);
+	}else if(strcmp(instruccion,"INTERRUPCION")==0){
+		paquete=crear_paquete(PCB_INTERRUPCION);
+		empaquetar_pcb(paquete, contexto);
+		agregar_a_paquete(paquete, extra);
+	}else{log_error(logger,"NO SE RECONOCE EL MOTIVO DE DESALOJO")
+	return;}
+	enviar_paquete(paquete, fd);
+}
+void recv_pcbDesalojado(int fd,pcb* contexto, char* extra){
+	t_list* paquete=recibir_paquete(fd);
+	int counter;
+	contexto=desempaquetar_pcb(paquete,&counter);
+	extra=(char*)list_get(paquete, counter);
 }
