@@ -56,7 +56,7 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
 void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
     log_info(logger_cpu, "Instrucción ejecutada: %s %s %s", instruccion.opcode, instruccion.operando1, instruccion.operando2);
 
-    pcbDesalojado pcbDes;
+    //pcbDesalojado pcbDes;
     if (strcmp(instruccion.opcode, "SET") == 0) {
         if (strcmp(instruccion.operando1, "AX") == 0) {
             *(contexto_ejecucion->registros->ax) = atoi(instruccion.operando2);
@@ -71,28 +71,28 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
         }
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
         log_info(logger_cpu, "Instrucción SLEEP - Proceso se bloqueará por %s segundos", instruccion.operando1);
-        pcbDes.contexto = contexto_ejecucion;
-        pcbDes.instruccion = "SLEEP";
-        pcbDes.extra = instruccion.operando1;
+        //pcbDes.contexto = contexto_ejecucion;
+        //pcbDes.instruccion = "SLEEP";
+        //pcbDes.extra = instruccion.operando1;
         //send_pcbDesalojado(pcb,char operando,op_code,fd_cpu_dispatch); 
 
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
         log_info(logger_cpu, "Instrucción WAIT - Proceso está esperando por recurso: %s", instruccion.operando1);
-        pcbDes.contexto = contexto_ejecucion;
-        pcbDes.instruccion = "WAIT";
-        pcbDes.extra = instruccion.operando1;
+        //pcbDes.contexto = contexto_ejecucion;
+        //pcbDes.instruccion = "WAIT";
+        //pcbDes.extra = instruccion.operando1;
         //send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
         log_info(logger_cpu, "Instrucción SIGNAL - Proceso ha liberado recurso: %s", instruccion.operando1);
-        pcbDes.contexto = contexto_ejecucion;
-        pcbDes.instruccion = "SIGNAL";
-        pcbDes.extra = instruccion.operando1;
+        //pcbDes.contexto = contexto_ejecucion;
+        //pcbDes.instruccion = "SIGNAL";
+        //pcbDes.extra = instruccion.operando1;
         //send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
     } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
         log_info(logger_cpu, "Instrucción EXIT - Proceso ha finalizado su ejecución");
-        pcbDes.contexto = contexto_ejecucion;
-        pcbDes.instruccion = "EXIT";
-        pcbDes.extra = "";
+        //pcbDes.contexto = contexto_ejecucion;
+        //pcbDes.instruccion = "EXIT";
+        //pcbDes.extra = "";
         //send_pcbDesalojado(pcbDes, fd_cpu_dispatch);
     }
 }

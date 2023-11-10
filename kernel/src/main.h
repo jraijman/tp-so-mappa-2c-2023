@@ -18,7 +18,8 @@ typedef struct{
 	char* recurso;
 	int instancias;
     int encontrado;
-	//t_list* cola_block;
+	t_list* procesos;
+	t_queue* bloqueados;
 	pthread_mutex_t mutex;
 }t_recurso;
 
@@ -61,6 +62,7 @@ sem_t cantidad_new;
 sem_t cantidad_ready;
 sem_t cantidad_exit;
 sem_t cantidad_exec;
+sem_t cantidad_block;
 sem_t puedo_ejecutar_proceso;
 
 pthread_mutex_t mutex_new;
@@ -99,10 +101,12 @@ void agregar_a_new(pcb* proceso);
 pcb* sacar_de_new();
 void agregar_a_ready(pcb* proceso);
 void agregar_a_exit(pcb* proceso);
+void agregar_a_exec(pcb* proceso);
+pcb* sacar_de_exec();
 void * pasar_new_a_ready(void * args);
 void * planif_corto_plazo(void* args);
 void * planif_largo_plazo(void* args);
-manejar_conexion_cpu(int socket_fd);
+void manejar_recibir(int socket_fd);
 pcb* obtenerSiguienteFIFO();
 pcb* obtenerSiguientePRIORIDADES();
 pcb* obtenerSiguienteRR();
@@ -111,10 +115,11 @@ void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado);
 pcb* crear_pcb(char* nombre_archivo, char * size, char * prioridad);
 t_list* pid_lista_ready (t_list* lista);
 char *estado_proceso_a_char(estado_proceso numero);
-pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id);
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t s);
 t_list* inicializar_recursos();
 int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);
+bool lista_contiene_id(t_list* lista, int id);
 
 
 #endif 

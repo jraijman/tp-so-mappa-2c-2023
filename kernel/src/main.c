@@ -22,11 +22,10 @@ int main(int argc, char* argv[]) {
 	}
     
     //mensajes de prueba
-    enviar_mensaje("Hola, Soy Kernel!", fd_filesystem);
-	enviar_mensaje("Hola, Soy Kernel!", fd_memoria);
-	//enviar_mensaje("Hola, Soy Kernel dispatch", fd_cpu_dispatch);
-    //enviar_mensaje("Hola, Soy Kernel interrupt", fd_cpu_interrupt);
-    
+    enviar_mensaje("soy Kernel", fd_filesystem);
+	enviar_mensaje("soy Kernel", fd_memoria);
+    enviar_mensaje("soy Kernel", fd_cpu_dispatch);
+
 
     // inicio hilos
     iniciar_hilos();
@@ -44,25 +43,10 @@ int main(int argc, char* argv[]) {
 }
 
 bool generar_conexiones() {
-	pthread_t conexion_filesystem;
-	pthread_t conexion_cpu_dispatch;
-    pthread_t conexion_cpu_interrupt;
-
 	fd_filesystem = crear_conexion(logger_kernel,"FILESYSTEM",ip_filesystem,puerto_filesystem);
-	//pthread_create(&conexion_filesystem, NULL, (void*) procesar_conexion_fs, (void*) &fd_filesystem);
-	//pthread_detach(conexion_filesystem);
-
-
 	fd_cpu_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
-    //pthread_create(&conexion_cpu_dispatch, NULL, (void*) procesar_conexion_dispatch, (void*) &fd_cpu_dispatch);
-	//pthread_detach(conexion_cpu_dispatch);
     fd_cpu_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
-	//pthread_create(&conexion_cpu_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) &fd_cpu_interrupt);
-	//pthread_detach(conexion_cpu_interrupt);
-    
-    
     fd_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
-
 	return fd_filesystem != -1 && fd_cpu_dispatch != -1 && fd_cpu_interrupt != -1 && fd_memoria != -1;
 }
 
@@ -173,33 +157,29 @@ void iniciar_listas(){
 
 //-------------------------------OPERACIONES DE CONSOLA-------------------------------------------
 
-void iniciar_proceso(char * path, char* size, char* prioridad)
-{   // Código para crear un nuevo proceso en base a un archivo dentro del file system de linux y dejar el mismo en el estado NEW
+void iniciar_proceso(char * path, char* size, char* prioridad){   
+    // Código para crear un nuevo proceso en base a un archivo dentro del file system de linux y dejar el mismo en el estado NEW
     pcb* proceso = crear_pcb(path, size, prioridad);
     agregar_a_new(proceso);
     send_inicializar_proceso(proceso, fd_memoria);
-    int tipo_mensaje = recibir_operacion(fd_memoria);
-    if (tipo_mensaje == MENSAJE) {
-        recibir_mensaje(logger_kernel, fd_memoria);
-    }
+    manejar_recibir(fd_memoria);
 }
 
-void finalizar_proceso(char * pid)
-{
+void finalizar_proceso(char * pid){
     // Código para finalizar un proceso que se encuentre dentro del sistema
     // y liberar recursos, archivos y memoria
     int pid_int = atoi(pid);
     pcb* procesoAEliminar = NULL;
 
-    procesoAEliminar = buscar_y_remover_pcb_cola(cola_new, pid_int);
+    procesoAEliminar = buscar_y_remover_pcb_cola(cola_new, pid_int, cantidad_new);
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_y_remover_pcb_cola(cola_ready, pid_int);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_ready, pid_int, cantidad_ready);
     }
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int, cantidad_exec);
     }
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_y_remover_pcb_cola(cola_block, pid_int);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_block, pid_int, cantidad_block);
     }
 
     if(procesoAEliminar == NULL){
@@ -213,7 +193,7 @@ void finalizar_proceso(char * pid)
             sem_post(&cantidad_multiprogramacion);
         }
         //Incrementar el semáforo puedo_ejecutar_proceso para indicar que hay un lugar libre en la cola de EXEC
-         if (procesoAEliminar->estado == EXEC) {
+        if (procesoAEliminar->estado == EXEC) {
             sem_post(&puedo_ejecutar_proceso);
         }
         //borrar todo lo que corresponde a ese proceso
@@ -221,20 +201,17 @@ void finalizar_proceso(char * pid)
         agregar_a_exit(procesoAEliminar);
         //mandar mensaje a memoria para que libere
         send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
+        //recivo mensaje de fin
+        manejar_recibir(fd_memoria);
         }
-    
-    
-    
-    
+ 
 }
-void detener_planificacion()
-{
+void detener_planificacion(){
     // Código para pausar la planificación de corto y largo plazo
     // y pausar el manejo de los motivos de desalojo de los procesos
     printf("detengo planificacion \n");
 }
-void iniciar_planificacion()
-{
+void iniciar_planificacion(){
     // Código para retomar la planificación de corto y largo plazo
     // en caso de que se encuentre pausada
     printf("inicio planificacion \n");
@@ -245,8 +222,7 @@ void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
     grado_multiprogramacion = atoi(nuevo_grado_multiprogramacion);
     printf("Se cambió el grado de multiprogramación a %d\n", grado_multiprogramacion);
 }
-void proceso_estado()
-{
+void proceso_estado(){
     // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
     printf("Procesos por estado:\n");
     printf("Procesos NEW: %s\n",list_to_string(pid_lista_ready(cola_new->elements)));
@@ -292,6 +268,13 @@ void agregar_a_exec(pcb* proceso){
 	pthread_mutex_unlock(&mutex_exec);
 	sem_post(&cantidad_exec);
 }
+pcb* sacar_de_exec(){
+    sem_wait(&cantidad_exec);
+    pthread_mutex_lock(&mutex_exec);
+    pcb *proceso = queue_pop(cola_exec);
+    pthread_mutex_unlock(&mutex_exec);
+    return proceso;
+}
 
 void agregar_a_exit(pcb* proceso){
     cambiar_estado(proceso, EXIT_ESTADO);
@@ -299,6 +282,14 @@ void agregar_a_exit(pcb* proceso){
     queue_push(cola_exit, proceso);
 	pthread_mutex_unlock(&mutex_exit);
 	sem_post(&cantidad_exit);
+}
+
+void agregar_a_block(pcb* proceso){
+    cambiar_estado(proceso, BLOCK);
+    pthread_mutex_lock(&mutex_block);
+    queue_push(cola_block, proceso);
+    pthread_mutex_unlock(&mutex_block);
+    sem_post(&cantidad_block);
 }
 
 
@@ -310,7 +301,6 @@ void agregar_a_exit(pcb* proceso){
 void* planif_largo_plazo(void* args){
     //falta agregar lo de finalizar cuando recibe un exit
     while(1){
-        manejar_conexion_cpu(fd_cpu_dispatch);
         sem_wait(&cantidad_multiprogramacion);
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
@@ -326,15 +316,8 @@ void* planif_corto_plazo(void* args){
             pcb* procesoAEjecutar = obtenerSiguienteFIFO();
             if(procesoAEjecutar != NULL) {
                 agregar_a_exec(procesoAEjecutar);
-                //mandar proceso a CPU
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                //espero a  pcb actualizado
-                /*int cop = recibir_operacion(fd_cpu_dispatch);
-                switch (cop) {
-                    case MENSAJE:
-                        recibir_mensaje(logger_kernel, fd_cpu_dispatch);
-                        break;
-                }*/
+                manejar_recibir(fd_cpu_dispatch);
                 }
             }
         else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
@@ -342,22 +325,26 @@ void* planif_corto_plazo(void* args){
             pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
             if(procesoAEjecutar != NULL) {
                 agregar_a_exec(procesoAEjecutar);
-                //mandar proceso a CPU
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                //espero a  pcb actualizado   
-                // si en ready hay uno con mayor prioridad, cambiarlo
-
+                manejar_recibir(fd_cpu_dispatch);
                 }
 
             }
         else if(strcmp(algoritmo_planificacion,"RR")==0){
-            //procesoPlanificado = obtenerSiguienteRR();
+            //TIENE DESALOJO
+            pcb *procesoAEjecutar = obtenerSiguienteRR();
+            if(procesoAEjecutar != NULL) {
+                agregar_a_exec(procesoAEjecutar);
+                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
+                manejar_recibir(fd_cpu_dispatch);
+                }
             }
     }
 }
 
 
 pcb* obtenerSiguienteFIFO(){
+    sem_wait(&cantidad_ready);
 	pcb* procesoPlanificado = NULL;
 	pthread_mutex_lock(&mutex_ready);
 	procesoPlanificado = queue_pop(cola_ready);
@@ -393,25 +380,76 @@ pcb* obtenerSiguientePRIORIDADES(){
 
 void manejar_wait(pcb* pcb, char* recurso){
 	t_recurso* recursobuscado= buscar_recurso(recurso);
+    sacar_de_exec();
 	if(recursobuscado->encontrado == -1){
-		log_error(logger_kernel, "No existe el recurso solicitado: %s", recurso);
-		//pcb->contexto_de_ejecucion->motivo_exit = RECURSO_INEXISTENTE;
-		//safe_pcb_add(cola_exit,pcb, &mutex_cola_exit);
-		//sem_post(&sem_exit);
-		//sem_post(&sem_exec);
-	}else{
+        // El recurso no existe, enviar proceso a EXIT
+		log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
+        agregar_a_exit(pcb);
+        sem_post(&puedo_ejecutar_proceso);
+        //mando a memoria que finalizo proceso?
+        //send_terminar_proceso(pcb->pid,fd_memoria);  
+	}
+    else{
+        pthread_mutex_lock(&recursobuscado->mutex);
 		recursobuscado->instancias --;
+        pthread_mutex_unlock(&recursobuscado->mutex);
 		log_info(logger_kernel,"PID: %d - Wait: %s - Instancias: %d", pcb->pid,recurso,recursobuscado->instancias);
 		if(recursobuscado->instancias < 0){
-			cambiar_estado(pcb, BLOCK);
+            // No hay instancias disponibles, bloquear proceso
+            //dudas con esta parte
 			log_info(logger_kernel,"PID: %d - Bloqueado por: %s", pcb->pid,recurso);
-			//safe_pcb_add(recursobuscado->cola_block_asignada, pcb, &recursobuscado->mutex_asignado);
-			//sem_post(&sem_exec);
-		}else{
-			//safe_pcb_add(cola_exec, pcb, &mutex_cola_exec);
-			//send_contexto_ejecucion(pcb->contexto_de_ejecucion, fd_cpu);
+            //agregar a la cola de bloqueados del recurso
+            pthread_mutex_lock(&recursobuscado->mutex);
+            queue_push(recursobuscado->bloqueados, pcb);
+            pthread_mutex_unlock(&recursobuscado->mutex);
+            //agregar a la cola de block
+            agregar_a_block(pcb);
+            sem_post(&puedo_ejecutar_proceso);
+		}
+        else{
+            // Hay instancias disponibles, continuar ejecución
+            list_add(recursobuscado->procesos, &(pcb->pid));
+			agregar_a_exec(pcb);
+			send_pcb(pcb,fd_cpu_dispatch);
 		}
 	}
+}
+
+void manejar_signal(pcb* proceso, char* recurso){
+    t_recurso* recursobuscado= buscar_recurso(recurso);
+    sacar_de_exec();
+    if(recursobuscado->encontrado == -1){
+        // El recurso no existe, enviar proceso a EXIT
+        log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
+        agregar_a_exit(proceso);
+        sem_post(&puedo_ejecutar_proceso);
+        //mando a memoria que finalizo proceso?
+        //send_terminar_proceso(pcb->pid,fd_memoria);  
+    }
+    else{
+        if(lista_contiene_id(recursobuscado->procesos, proceso->pid) == false){
+            // proceso no tiene instancias del recusro
+            agregar_a_exec(proceso);
+            send_pcb(proceso,fd_cpu_dispatch);
+        }
+        else{
+            pthread_mutex_lock(&recursobuscado->mutex);
+            recursobuscado->instancias ++;
+            pthread_mutex_unlock(&recursobuscado->mutex);
+            log_info(logger_kernel,"PID: %d - Signal: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
+            if(recursobuscado->instancias <= 0){
+                //tengo q desbloquear los bloqueados por el recurso
+                //saco de la cola de bloqueados del recurso
+                pthread_mutex_lock(&recursobuscado->mutex);
+                queue_pop(recursobuscado->bloqueados);
+                pthread_mutex_unlock(&recursobuscado->mutex);
+                //mover de block a ready
+            }
+            // Devuelvo pcb a cpu
+            agregar_a_exec(proceso);
+            send_pcb(proceso,fd_cpu_dispatch);
+        }
+    }
 }
 t_recurso* buscar_recurso(char* recurso){
 	int largo = list_size(lista_recursos);
@@ -428,8 +466,29 @@ t_recurso* buscar_recurso(char* recurso){
 
 //---------------------------------------------------------------
 
-manejar_conexion_cpu(fd_cpu_dispatch){
-
+void manejar_recibir(int socket_fd){
+    pcb* proceso = NULL;
+    char * extra = NULL;
+    int tipo_mensaje = recibir_operacion(socket_fd);
+    if (tipo_mensaje == MENSAJE) {
+        recibir_mensaje(logger_kernel, socket_fd);
+    }if(tipo_mensaje == PCB_WAIT){
+        recv_pcbDesalojado(socket_fd, proceso, extra);
+        manejar_wait(proceso, extra);
+    }
+    if(tipo_mensaje == PCB_SIGNAL){
+        recv_pcbDesalojado(socket_fd, proceso, extra);
+        manejar_signal(proceso, extra);
+    }
+    if(tipo_mensaje == PCB_EXIT){
+        recv_pcbDesalojado(socket_fd, proceso, extra);
+    }
+    if(tipo_mensaje == PCB_SLEEP){
+        recv_pcbDesalojado(socket_fd, proceso, extra);
+    }
+    if(tipo_mensaje == PCB_INTERRUPCION){
+        recv_pcbDesalojado(socket_fd, proceso, extra);
+    }
 }
 
 
@@ -439,9 +498,8 @@ void iniciar_semaforos(){
     sem_init(&cantidad_ready,0,0);
     sem_init(&cantidad_exit,0,0);
     sem_init(&cantidad_exec,0,0);
+    sem_init(&cantidad_block,0,0);
     sem_init(&puedo_ejecutar_proceso,0,1);
-
-
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);
@@ -449,8 +507,6 @@ void iniciar_semaforos(){
 	pthread_mutex_init(&mutex_exec, NULL);
     pthread_mutex_init(&mutex_block, NULL);
 	pthread_mutex_init(&mutex_exit, NULL);
-    
-
 }
 
 
@@ -509,14 +565,21 @@ t_list* inicializar_recursos(){
 	return lista;
 }
 
-pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id){
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t semaforo){
     // Función para verificar si un PCB tiene el PID especificado
     bool tiene_pid(pcb* proceso) {
         return proceso->pid == id;
     }
      // Buscar el PCB en la cola y revover si existe
      //hay que meter semaforo
-    return  list_remove_by_condition(cola->elements, (void *) tiene_pid);
+    pcb * proceso = NULL;
+    proceso = list_remove_by_condition(cola->elements, (void *) tiene_pid);
+    if(proceso != NULL){
+        sem_wait(&semaforo);
+        return proceso;
+    }else{
+        return NULL;
+    }
 }
 
 
@@ -565,4 +628,16 @@ int* string_to_int_array(char** array_de_strings){
 		numbers[i] = num;
 	}
 	return numbers;
+}
+
+bool lista_contiene_id(t_list* lista, int id) {
+    bool contiene_id = false;
+    for (int i = 0; i < list_size(lista); i++) {
+        int* elemento = (int*) list_get(lista, i);
+        if (*elemento == id) {
+            contiene_id = true;
+            break;
+        }
+    }
+    return contiene_id;
 }

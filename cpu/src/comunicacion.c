@@ -4,7 +4,7 @@
 static void procesar_conexion(void* void_args) {
     t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
     t_log* logger = args->log;
-    log_info(logger, "Hilo en función procesar_conexion");
+    log_info(logger, ANSI_COLOR_BLUE "Hilo en función procesar_conexion");
     int cliente_socket_dispatch = args->fd_dispatch;
     int cliente_socket_interrupt = args->fd_interrupt;
     while(1)
@@ -12,11 +12,17 @@ static void procesar_conexion(void* void_args) {
         int cop = recibir_operacion(cliente_socket_dispatch);
         log_info(logger, "%d", cop);
         switch (cop) {
+            case MENSAJE:
+                recibir_mensaje(logger, cliente_socket_dispatch);
+                break;
+		    case PAQUETE:
+                t_list *paquete_recibido = recibir_paquete(cliente_socket_dispatch);
+                log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
+                break;
             case ENVIO_PCB: {
                 pcb* contexto=recv_pcb(cliente_socket_dispatch);
-                log_info(logger_cpu,"Hay un pcb para ejecutar");
                 if (contexto->pid!=-1) {
-                    log_info(logger, "Recibí PCB con ID: %d", contexto->pid);
+                    log_info(logger, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
                     //ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
@@ -38,12 +44,11 @@ static void procesar_conexion(void* void_args) {
             }
         }
     }
-    }
     // Cerrar los sockets y liberar recursos si es necesario.
-    free(args);
+    //free(args);
     close(cliente_socket_dispatch);
     close(cliente_socket_interrupt);
-    log_info(logger_cpu, "Conexión cerrada, finalizando el procesamiento de la conexión.");
+    log_info(logger_cpu, ANSI_COLOR_BLUE "Conexión cerrada, finalizando el procesamiento de la conexión.");
 }
 
 int server_escuchar(t_log* logger, int fd_cpu_interrupt, int fd_cpu_dispatch) {

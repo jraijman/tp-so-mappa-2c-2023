@@ -147,14 +147,15 @@ static void procesar_conexion(void *void_args) {
 		case INICIALIZAR_PROCESO:
 			pcb* proceso = recv_pcb(cliente_socket);
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
-            enviar_mensaje("OK", cliente_socket);
+            enviar_mensaje("OK inicio proceso", cliente_socket);
             TablaPaginas* tabla_paginas = inicializar_proceso(proceso->pid);
 		    //send_proceso_inicializado(tabla_paginas, cliente_socket);			
             break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
+            enviar_mensaje("OK fin proceso", cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
-			terminar_proceso(pid_fin);
+			//terminar_proceso(pid_fin);
 			break;
 
 	return;

@@ -201,6 +201,8 @@ int recibir_operacion(int socket_cliente);
 void* recibir_buffer(int* size, int socket_cliente);
 void recibir_mensaje(t_log* logger, int socket_cliente);
 void crear_buffer(t_paquete* paquete);
+void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
+void recv_pcbDesalojado(int fd,pcb* contexto, char* extra);
 
 //Paquetes
 t_list* recibir_paquete(int);
