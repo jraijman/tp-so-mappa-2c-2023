@@ -73,7 +73,7 @@ void recibir_mensaje(t_log* logger, int socket_cliente) {
     int size;
     char* buffer = (char*)recibir_buffer(&size, socket_cliente);
     if (buffer != NULL) {
-        log_info(logger, "Me llegó el mensaje: %s", buffer);
+        log_info(logger, ANSI_COLOR_YELLOW"Me llegó el mensaje: %s", buffer);
         free(buffer); // Liberar la memoria del mensaje recibido
     }
 }
@@ -147,30 +147,30 @@ void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos) {
 }
 
 t_list* desempaquetar_archivos(t_list* paquete, int* comienzo) {
-    t_list* lista_archivos = list_create();
-    int* cantidad_archivos = list_get(paquete, *comienzo);
-    int i = *comienzo + 1;
+	t_list* lista_archivos = list_create();
+	int* cantidad_archivos = list_get(paquete, *comienzo);
+	int i = *comienzo + 1;
 
-    while (i - *comienzo - 1 < (*cantidad_archivos * 2)) {
-        t_archivos* archivo = malloc(sizeof(t_archivos));
+	while (i - *comienzo - 1 < (*cantidad_archivos * 2)) {
+		t_archivos* archivo = malloc(sizeof(t_archivos));
 
-        // Desempaquetar la ruta del archivo
-        char* path = (char*)list_get(paquete, i);
-        archivo->path = strdup(path);
-        free(path);
-        i++;
+		// Desempaquetar la ruta del archivo
+		char* path = (char*)list_get(paquete, i);
+		archivo->path = strdup(path);
+		free(path);
+		i++;
 
-        // Desempaquetar el puntero
-        int* puntero = list_get(paquete, i);
-        archivo->puntero = puntero;
-        free(puntero);
-        i++;
+		// Desempaquetar el puntero
+		int* puntero = list_get(paquete, i);
+		archivo->puntero = (int*) puntero;
+		free(puntero);
+		i++;
 
-        list_add(lista_archivos, archivo);
-    }
-	comienzo*=i;
-    free(cantidad_archivos);
-    return lista_archivos;
+		list_add(lista_archivos, archivo);
+	}
+	*comienzo = i;
+	free(cantidad_archivos);
+	return lista_archivos;
 }
 
 void send_archivos(int fd_modulo, t_list* lista_archivos) {
@@ -184,7 +184,7 @@ t_list* recv_archivos(t_log* logger, int fd_modulo) {
     t_list* paquete = recibir_paquete(fd_modulo);
     t_list* lista_archivos = desempaquetar_archivos(paquete, 0);
     list_destroy(paquete);
-    log_info(logger, "Se recibió una lista de archivos.");
+    log_info(logger,ANSI_COLOR_YELLOW "Se recibió una lista de archivos.");
     return lista_archivos;
 }
 
@@ -203,28 +203,28 @@ void lista_archivos_destroy(t_list* lista) {
 }
 
 void empaquetar_registros(t_paquete* paquete, t_registros* registro){
-	agregar_a_paquete(paquete,&(registro->ax), sizeof(int));
-	agregar_a_paquete(paquete,&(registro->bx), sizeof(int));
-	agregar_a_paquete(paquete,&(registro->cx), sizeof(int));
-	agregar_a_paquete(paquete,&(registro->dx), sizeof(int));
+	agregar_a_paquete(paquete,&(registro->ax), sizeof(uint32_t));
+	agregar_a_paquete(paquete,&(registro->bx), sizeof(uint32_t));
+	agregar_a_paquete(paquete,&(registro->cx), sizeof(uint32_t));
+	agregar_a_paquete(paquete,&(registro->dx), sizeof(uint32_t));
 }
 
 t_registros* desempaquetar_registros(t_list * paquete,int posicion){
 	t_registros *registro = malloc(sizeof(t_registros));
 
-	int* ax = list_get(paquete,posicion);
+	uint32_t* ax = list_get(paquete,posicion);
 	registro->ax = ax;
 	free(ax);
 
-	int* bx = list_get(paquete,posicion+1);
+	uint32_t* bx = list_get(paquete,posicion+1);
 	registro->bx = bx;
 	free(bx);
 
-	int* cx = list_get(paquete,posicion+2);
+	uint32_t* cx = list_get(paquete,posicion+2);
     registro->cx = cx;
 	free(cx);
 
-	int* dx = list_get(paquete,posicion+3);
+	uint32_t* dx = list_get(paquete,posicion+3);
 	registro->dx = dx;
 	free(dx);
 
@@ -245,7 +245,7 @@ void empaquetar_pcb(t_paquete* paquete, pcb* contexto){
     
 }
 
-pcb* desempaquetar_pcb(t_list* paquete, int* counter){
+pcb* desempaquetar_pcb(t_list* paquete, int* counter) {
 	pcb* contexto = malloc(sizeof(pcb));
 
 	int* pid = list_get(paquete, 0);
@@ -269,11 +269,11 @@ pcb* desempaquetar_pcb(t_list* paquete, int* counter){
 	free(tiempo_ejecucion);
 
 	char* path = list_get(paquete, 5);
-	contexto->path =  malloc(strlen(path));
+	contexto->path = malloc(strlen(path) + 1);
 	strcpy(contexto->path, path);
 	free(path);
 
-	estado_proceso* estado =  list_get(paquete, 6);
+	estado_proceso* estado = list_get(paquete, 6);
 	contexto->estado = *estado;
 	free(estado);
 
@@ -281,14 +281,12 @@ pcb* desempaquetar_pcb(t_list* paquete, int* counter){
 	t_registros* registro_contexto = desempaquetar_registros(paquete, comienzo_registros);
 	contexto->registros = registro_contexto;
 
-	counter = comienzo_registros + 4;
+	*counter = comienzo_registros + 4;
 	t_list* archivos = desempaquetar_archivos(paquete, counter);
 	contexto->archivos = archivos;
 
-    
-    return contexto;
+	return contexto;
 }
-
 
 
 void send_pcb(pcb* contexto, int fd_modulo){
@@ -296,14 +294,14 @@ void send_pcb(pcb* contexto, int fd_modulo){
     t_paquete* paquete = crear_paquete(ENVIO_PCB);
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
-	pcb_destroyer(contexto);
 	eliminar_paquete(paquete);
 }
 
 pcb* recv_pcb(int fd_modulo){
-    printf("Recibiendo pcb");
+	printf("Recibiendo pcb");
 	t_list* paquete = recibir_paquete(fd_modulo);
-	pcb* contexto_recibido = desempaquetar_pcb(paquete);
+	int counter = 0;
+	pcb* contexto_recibido = desempaquetar_pcb(paquete, &counter);
 	list_destroy(paquete);
 	return contexto_recibido;
 }
@@ -382,7 +380,6 @@ void send_inicializar_proceso(pcb *contexto, int fd_modulo){
     t_paquete* paquete = crear_paquete(INICIALIZAR_PROCESO);
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
-	//pcb_destroyer(contexto); no se   porq lo destruye
 	eliminar_paquete(paquete);
 }
 
@@ -473,25 +470,27 @@ void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t
 	if(strcmp(instruccion,"SIGNAL")==0){
 		paquete=crear_paquete(PCB_SIGNAL);
 		empaquetar_pcb(paquete, contexto);
-		agregar_a_paquete(paquete, extra);
+		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
 	}else if(strcmp(instruccion,"WAIT")==0){
 		paquete=crear_paquete(PCB_WAIT);
 		empaquetar_pcb(paquete, contexto);
-		agregar_a_paquete(paquete, extra);
+		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
 	}else if(strcmp(instruccion,"EXIT")==0){
 		paquete=crear_paquete(PCB_EXIT);
 		empaquetar_pcb(paquete, contexto);
-		agregar_a_paquete(paquete, extra);
+		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
 	}else if(strcmp(instruccion,"SLEEP")==0){
 		paquete=crear_paquete(PCB_SLEEP);
 		empaquetar_pcb(paquete, contexto);
-		agregar_a_paquete(paquete, extra);
+		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
 	}else if(strcmp(instruccion,"INTERRUPCION")==0){
 		paquete=crear_paquete(PCB_INTERRUPCION);
 		empaquetar_pcb(paquete, contexto);
-		agregar_a_paquete(paquete, extra);
-	}else{log_error(logger,"NO SE RECONOCE EL MOTIVO DE DESALOJO")
-	return;}
+		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
+	}else{
+		log_error(logger,"NO SE RECONOCE EL MOTIVO DE DESALOJO");
+		return;
+	}
 	enviar_paquete(paquete, fd);
 }
 void recv_pcbDesalojado(int fd,pcb* contexto, char* extra){

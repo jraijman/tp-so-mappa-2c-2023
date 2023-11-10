@@ -86,70 +86,59 @@ void levantar_config(char* ruta){
 	instancia_recursos = string_to_int_array(instancias);
 	string_array_destroy(instancias);
     grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
-    
-    log_info(logger_kernel,"Config cargada");
 }
 
 void * leer_consola(void * arg)
 {
-    while (true){
-        int leido;
-        //LISTADO DE FUNCIONES
-        printf("\n\n1-INICIAR_PROCESO \n");
-        printf("2-FINALIZAR_PROCESO\n");
-        printf("3-DETENER_PLANIFICACION \n");
-        printf("4-INICIAR_PLANIFICACION \n");
-        printf("5-MULTIPROGRAMACION\n");
-        printf("6-PROCESO_ESTADO \n\n");
-        scanf("%d", &leido);
-        switch (leido)
-        {        
-        // INICIAR_PROCESO [PATH] [SIZE] [PRIORIDAD]
-        case 1:
-            //leo de la consola los parametros separados por espacio, y los mando a la funcion
-            char * leido = readline("Ingrese PATH SIZE PRIORIDAD: ");
-            //no se si usar free
-            char * parametros[3];
-            int i = 0;
-            char *p = strtok (leido, " ");
-            while (p)
-                {
-                    parametros[i++] = p;
-                    p = strtok (NULL, " ");
-                }
-            if (parametros[0] != NULL || parametros[1] != NULL || parametros[2] != NULL){
-                 iniciar_proceso(parametros[0], parametros[1], parametros[2]);
-            }else printf("error en algun parametro \n");
-            free(leido);  
-            free (p);
-            break;
-        //FINALIZAR_PROCESO [PID]
-        case 2:
-            char * pid = readline("Ingrese PID: ");
-            finalizar_proceso(pid);
-            free (pid);
-            break;
-        //DETENER_PLANIFICACION
-        case 3:
-            detener_planificacion();
-            break;
-        //INICIAR_PLANIFICACION
-        case 4:
-            iniciar_planificacion();
-            break;
-        //MULTIPROGRAMACION [VALOR]
-        case 5:
-            multiprogramacion(/*valor*/);
-            break;
-        //PROCESO_ESTADO
-        case 6:
-            proceso_estado();
-            break;
-        default:
-            printf("Comando incorrecto \n");
-            break;
+    while (1) {
+        // Leer el comando ingresado por el usuario
+        char* comando = readline("Ingrese un comando: ");
+
+        // Verificar si el usuario ingresó algo
+        if (comando == NULL || strlen(comando) == 0) {
+            continue;
         }
+
+        // Separar el comando y los argumentos
+        char* token = strtok(comando, " ");
+        char* arg1 = strtok(NULL, " ");
+        char* arg2 = strtok(NULL, " ");
+        char* arg3 = strtok(NULL, " ");
+
+        // Ejecutar la función correspondiente según el comando ingresado
+        if (strcmp(token, "INICIAR_PROCESO") == 0) {
+            if (arg1 != NULL && arg2 != NULL && arg3 != NULL) {
+                iniciar_proceso(arg1, arg2, arg3);
+            } else {
+                printf("Error en algun parametro\n");
+            }
+        } else if (strcmp(token, "FINALIZAR_PROCESO") == 0) {
+            if (arg1 != NULL) {
+                finalizar_proceso(arg1);
+            } else {
+                printf("Error en algun parametro\n");
+            }
+        } else if (strcmp(token, "DETENER_PLANIFICACION") == 0) {
+            detener_planificacion();
+        } else if (strcmp(token, "INICIAR_PLANIFICACION") == 0) {
+            iniciar_planificacion();
+        } else if (strcmp(token, "MULTIPROGRAMACION") == 0) {
+            if (arg1 != NULL) {
+                cambiar_multiprogramacion(arg1);
+            } else {
+                printf("Error en algun parametro\n");
+            }
+        } else if (strcmp(token, "PROCESO_ESTADO") == 0) {
+            proceso_estado();
+        } else {
+            printf("Comando no reconocido\n");
+        }
+
+        // Liberar la memoria utilizada por el comando ingresado
+        free(comando);
     }
+
+    return 0;
 }
 
 void iniciar_hilos(){
@@ -163,12 +152,12 @@ void iniciar_hilos(){
     pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
 
     //creo hilo que espera mensaje de CPU de finalizar proceso
-    pthread_create(&hilo_cpu_exit, NULL, finalizar_proceso_cpu, NULL);
+    //pthread_create(&hilo_cpu_exit, NULL, finalizar_proceso_cpu, NULL);
 
     pthread_detach(hilo_consola);
     pthread_detach(hilo_plan_largo);
     pthread_detach(hilo_plan_corto);
-    pthread_detach(hilo_cpu_exit);
+    //pthread_detach(hilo_cpu_exit);
 
 }
 
@@ -182,68 +171,57 @@ void iniciar_listas(){
     lista_recursos = inicializar_recursos();
 }
 
+//-------------------------------OPERACIONES DE CONSOLA-------------------------------------------
+
 void iniciar_proceso(char * path, char* size, char* prioridad)
-{
-    //generar estructura PCB
-    pcb* proceso = malloc(sizeof(pcb));
-    proceso->pid = contador_proceso;
-    proceso->size = atoi(size);
-    proceso->pc = 0;//arranca desde la instruccion 0
-    proceso->prioridad = atoi(prioridad);
-    proceso->estado = NEW;
-    proceso->registros = malloc(sizeof(t_registros));
-    proceso->registros->ax = malloc(sizeof(int));
-	proceso->registros->bx = malloc(sizeof(int));
-	proceso->registros->cx = malloc(sizeof(int));
-	proceso->registros->dx = malloc(sizeof(int));
-    proceso->registros->ax =0;
-    proceso->registros->bx =0;
-    proceso->registros->cx =0;
-    proceso->registros->dx =0;
-    proceso->archivos = list_create();
-    proceso->path = malloc(sizeof(char) * strlen(path) + 1);
-    strcpy(proceso->path, path);
-    //ver si falta el tiempo para manejar el quantum
+{   // Código para crear un nuevo proceso en base a un archivo dentro del file system de linux y dejar el mismo en el estado NEW
+    pcb* proceso = crear_pcb(path, size, prioridad);
     agregar_a_new(proceso);
-    //MANDAR MENSAJE A MEMORIA- CREACION DE PROCESO-
     send_inicializar_proceso(proceso, fd_memoria);
-
-    /*int cop = recibir_operacion(fd_memoria);
-    switch (cop) {
-        case MENSAJE:
-            recibir_mensaje(logger_kernel, fd_memoria);
-            break;
-    }*/
-    //le sumo uno al contador que funciona como id de proceso
-    contador_proceso++;
-
+    int tipo_mensaje = recibir_operacion(fd_memoria);
+    if (tipo_mensaje == MENSAJE) {
+        recibir_mensaje(logger_kernel, fd_memoria);
+    }
 }
 
 void finalizar_proceso(char * pid)
 {
-    pid_a_eliminar = atoi(pid);
+    // Código para finalizar un proceso que se encuentre dentro del sistema
+    // y liberar recursos, archivos y memoria
+    int pid_int = atoi(pid);
     pcb* procesoAEliminar = NULL;
 
-    procesoAEliminar = buscar_pcb_cola(cola_new, pid_a_eliminar);
+    procesoAEliminar = buscar_y_remover_pcb_cola(cola_new, pid_int);
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_pcb_cola(cola_ready, pid_a_eliminar);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_ready, pid_int);
     }
-    else if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_pcb_cola(cola_exec, pid_a_eliminar);
+    if(procesoAEliminar == NULL){
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int);
     }
-    else if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_pcb_cola(cola_block, pid_a_eliminar);
+    if(procesoAEliminar == NULL){
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_block, pid_int);
     }
 
     if(procesoAEliminar == NULL){
-        printf("error al finalizar proceso \n");
+         printf("No se encontró el proceso con PID %d\n", pid_int);
     }
     else{
         // hacer log de fin de proceso
-        log_info(logger_kernel, "Finaliza el proceso %d - Motivo: <SUCCESS - CONSOLA>", procesoAEliminar->pid);
+        log_info(logger_kernel, "Finaliza el proceso %d - Motivo: CONSOLA", procesoAEliminar->pid);
+        // Incrementar el semáforo cantidad_multiprogramacion para indicar que hay un lugar libre en el grado de multiprogramación
+        if (procesoAEliminar->estado != NEW) {
+            sem_post(&cantidad_multiprogramacion);
+        }
+        //Incrementar el semáforo puedo_ejecutar_proceso para indicar que hay un lugar libre en la cola de EXEC
+         if (procesoAEliminar->estado == EXEC) {
+            sem_post(&puedo_ejecutar_proceso);
+        }
         //borrar todo lo que corresponde a ese proceso
+        // Mandar a la cola de EXIT;
+        agregar_a_exit(procesoAEliminar);
+        //mandar mensaje a memoria para que libere
         send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
-    }
+        }
     
     
     
@@ -251,19 +229,32 @@ void finalizar_proceso(char * pid)
 }
 void detener_planificacion()
 {
+    // Código para pausar la planificación de corto y largo plazo
+    // y pausar el manejo de los motivos de desalojo de los procesos
     printf("detengo planificacion \n");
 }
 void iniciar_planificacion()
 {
+    // Código para retomar la planificación de corto y largo plazo
+    // en caso de que se encuentre pausada
     printf("inicio planificacion \n");
 }
-void multiprogramacion(/*char* grado_multiprogramacion*/)
-{
-    printf("multiprogramacion \n");
+void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
+    // Código para actualizar el grado de multiprogramación configurado inicialmente
+    // por archivo de configuración y desalojar o finalizar los procesos si es necesario
+    grado_multiprogramacion = atoi(nuevo_grado_multiprogramacion);
+    printf("Se cambió el grado de multiprogramación a %d\n", grado_multiprogramacion);
 }
 void proceso_estado()
 {
-    printf("proceso_estado \n");
+    // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
+    printf("Procesos por estado:\n");
+    printf("Procesos NEW: %s\n",list_to_string(pid_lista_ready(cola_new->elements)));
+    printf("Procesos READY: %s\n",list_to_string(pid_lista_ready(cola_ready->elements)));
+    printf("Procesos EXEC: %s\n",list_to_string(pid_lista_ready(cola_exec->elements)));
+    printf("Procesos BLOCKED: %s\n",list_to_string(pid_lista_ready(cola_block->elements)));
+    printf("Procesos EXIT: %s\n",list_to_string(pid_lista_ready(cola_exit->elements)));
+    printf("\n");
 }
 
 //-----------------------------------OPERACIONES DE LISTAS/COLAS-------------------------------------------
@@ -303,11 +294,9 @@ void agregar_a_exec(pcb* proceso){
 }
 
 void agregar_a_exit(pcb* proceso){
-    const char* estado_anterior = estado_proceso_a_char(proceso->estado);
-	pthread_mutex_lock(&mutex_exit);
-    proceso->estado = 5;
-    log_info(logger_kernel, "PID: %d - Estado Anterior: %s - Estado Actual: %s",proceso->pid,estado_anterior,estado_proceso_a_char(proceso->estado));
-	list_add(cola_exit->elements, proceso);
+    cambiar_estado(proceso, EXIT_ESTADO);
+    pthread_mutex_lock(&mutex_exit);
+    queue_push(cola_exit, proceso);
 	pthread_mutex_unlock(&mutex_exit);
 	sem_post(&cantidad_exit);
 }
@@ -317,9 +306,11 @@ void agregar_a_exit(pcb* proceso){
 //             PLANIFICADORES
 
 
+
 void* planif_largo_plazo(void* args){
     //falta agregar lo de finalizar cuando recibe un exit
     while(1){
+        manejar_conexion_cpu(fd_cpu_dispatch);
         sem_wait(&cantidad_multiprogramacion);
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
@@ -338,12 +329,12 @@ void* planif_corto_plazo(void* args){
                 //mandar proceso a CPU
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 //espero a  pcb actualizado
-                int cop = recibir_operacion(fd_cpu_dispatch);
+                /*int cop = recibir_operacion(fd_cpu_dispatch);
                 switch (cop) {
                     case MENSAJE:
                         recibir_mensaje(logger_kernel, fd_cpu_dispatch);
                         break;
-                }
+                }*/
                 }
             }
         else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
@@ -437,31 +428,8 @@ t_recurso* buscar_recurso(char* recurso){
 
 //---------------------------------------------------------------
 
-void * finalizar_proceso_cpu(void * args){
-    while(1){
-        /*pcbDesalojado* pcbDes;
-        if (recv_pcbDesalojado(conexion_dispatch, pcbDes)){
-            if (strcmp(pcbDes->instruccion, "EXIT") == 0){
-                log_info(logger_kernel, "Instrucción EXIT - Proceso ha finalizado su ejecución");
-                cambiar_estado_pcb(pcbDes->contexto, 5);
-                agregar_a_exit(pcbDes->contexto); 
-                //no entiendo de donde sale el proceso
-                pthread_mutex_lock(&mutex_exec);
-                list_remove(lista_exec,0);
-                pthread_mutex_unlock(&mutex_exec);
-                sem_wait(&cantidad_exec)
-                //aviso a memoria que liubere
+manejar_conexion_cpu(fd_cpu_dispatch){
 
-                //libero recursos del pcb
-                
-
-            }
-            return true;
-        } else {
-            log_error(logger_kernel, "Error al recibir la instrucción de finalizar proceso de CPU");
-            return false;
-        }*/
-    }
 }
 
 
@@ -488,6 +456,26 @@ void iniciar_semaforos(){
 
 
 //------------------AUXILIARES----------------------------------------------------------------------------
+
+pcb* crear_pcb(char* nombre_archivo, char* size, char* prioridad) {
+    // Crear un PCB y asignar los valores iniciales
+    pcb* proceso = malloc(sizeof(pcb));
+    proceso->pid = contador_pid;
+    proceso->size = atoi(size);
+    proceso->pc = 0;
+    proceso->prioridad = atoi(prioridad);
+    proceso->estado = NEW;
+    proceso->registros = malloc(sizeof(t_registros));
+    proceso->registros->ax = 0;
+    proceso->registros->bx = 0;
+    proceso->registros->cx = 0;
+    proceso->registros->dx = 0;
+    proceso->archivos = list_create();
+    proceso->path = malloc(sizeof(char) * strlen(nombre_archivo) + 1);
+    strcpy(proceso->path, nombre_archivo);
+    contador_pid++;
+    return proceso;
+}
 
 t_list* config_list_to_t_list(t_config* config, char* nombre){
     t_list* lista = list_create();
@@ -521,15 +509,14 @@ t_list* inicializar_recursos(){
 	return lista;
 }
 
-bool remover(pcb* element) {
-    return (element->pid == pid_a_eliminar);
-} 
-
-pcb* buscar_pcb_cola(t_queue* cola, int id){
-    t_list* lista = cola->elements;
-
-      
-    return  list_remove_by_condition(lista, (void *)remover);
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id){
+    // Función para verificar si un PCB tiene el PID especificado
+    bool tiene_pid(pcb* proceso) {
+        return proceso->pid == id;
+    }
+     // Buscar el PCB en la cola y revover si existe
+     //hay que meter semaforo
+    return  list_remove_by_condition(cola->elements, (void *) tiene_pid);
 }
 
 

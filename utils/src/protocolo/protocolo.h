@@ -60,10 +60,10 @@ typedef enum
 
 typedef struct
 {
-    int* ax;
-    int* bx;
-    int* cx;
-    int* dx;
+    uint32_t* ax;
+    uint32_t* bx;
+    uint32_t* cx;
+    uint32_t* dx;
 } t_registros;
 
 typedef struct {

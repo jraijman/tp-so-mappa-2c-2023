@@ -13,12 +13,10 @@ void levantar_config(char *ruta)
     path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
     retardo_respuesta = config_get_string_value(config, "RETARDO_RESPUESTA");
     algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
-
-    log_info(logger_memoria, "Config cargada");
 }
 bool leerYEnviarInstruccion(FILE *archivo, int conexion_memoria) {
     char linea[256];
-    Instruccion instruccion;
+    Instruccion instruccion = {0};
     if (fgets(linea, sizeof(linea), archivo) != NULL) {
         char **palabras = string_split(linea, " ");
 
@@ -134,7 +132,7 @@ static void procesar_conexion(void *void_args) {
 	op_code cop;
 	while (cliente_socket != -1) {
 		if (recv(cliente_socket, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
-			log_info(logger_memoria, "El cliente se desconecto de %s server", server_name);
+			log_info(logger_memoria, ANSI_COLOR_BLUE"El cliente se desconecto de %s server", server_name);
 			return;
 		}
 		switch (cop) {
@@ -143,15 +141,16 @@ static void procesar_conexion(void *void_args) {
 			break;
 		case PAQUETE:
 			t_list *paquete_recibido = recibir_paquete(cliente_socket);
-			log_info(logger_memoria, "Recibí un paquete con los siguientes valores: ");
+			log_info(logger_memoria, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
 			//list_iterate(paquete_recibido, (void*) iterator);
 			break;
 		case INICIALIZAR_PROCESO:
 			pcb* proceso = recv_pcb(cliente_socket);
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
-            enviar_mensaje("hola soy memoria recibi para iniciar un proceso", cliente_socket);
+            enviar_mensaje("OK", cliente_socket);
             TablaPaginas* tabla_paginas = inicializar_proceso(proceso->pid);
-		    send_proceso_inicializado(tabla_paginas, cliente_socket);			break;
+		    //send_proceso_inicializado(tabla_paginas, cliente_socket);			
+            break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
@@ -274,7 +273,7 @@ void liberar_recursos(pcb* proceso) {
     }
     for (int i = 0; i < list_size(proceso->archivos); i++) {
         t_archivos* archivo = list_get(proceso->archivos, i);
-        fclose(archivo->puntero);
+        fclose((FILE*) archivo->path);
         free(archivo);
     }
     list_destroy(proceso->archivos);

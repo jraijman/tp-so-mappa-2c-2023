@@ -44,8 +44,6 @@ int* instancia_recursos;
 t_log* logger_kernel;
 t_config* config;
 
-int pid_a_eliminar = -1;
-
 //listas de estados
 t_queue* cola_new;
 t_queue* cola_ready;
@@ -79,7 +77,7 @@ pthread_t hilo_cpu_exit;
 pthread_t hilo_plan_corto;
 
 // contador para id de procesos unico
-int contador_proceso = 0;
+int contador_pid = 0;
 
 bool generar_conexiones();
 
@@ -90,7 +88,7 @@ void iniciar_proceso(char*, char*, char*);
 void finalizar_proceso(char*);
 void detener_planificacion(void);
 void iniciar_planificacion(void);
-void multiprogramacion(/*char**/);
+void cambiar_multiprogramacion(char* nuevo);
 void proceso_estado(void);
 
 void iniciar_listas();
@@ -100,18 +98,20 @@ void iniciar_semaforos();
 void agregar_a_new(pcb* proceso);
 pcb* sacar_de_new();
 void agregar_a_ready(pcb* proceso);
+void agregar_a_exit(pcb* proceso);
 void * pasar_new_a_ready(void * args);
-void * finalizar_proceso_cpu(void * args);
 void * planif_corto_plazo(void* args);
 void * planif_largo_plazo(void* args);
+manejar_conexion_cpu(int socket_fd);
 pcb* obtenerSiguienteFIFO();
 pcb* obtenerSiguientePRIORIDADES();
 pcb* obtenerSiguienteRR();
 void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado);
 
+pcb* crear_pcb(char* nombre_archivo, char * size, char * prioridad);
 t_list* pid_lista_ready (t_list* lista);
 char *estado_proceso_a_char(estado_proceso numero);
-pcb* buscar_pcb_cola(t_queue* cola, int id);
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id);
 t_list* inicializar_recursos();
 int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);

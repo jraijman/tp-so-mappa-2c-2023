@@ -87,3 +87,7 @@ void manejarConexion(pcbDesalojado contexto){
         printf("No reconocido");
     }
 }
+
+inicializar_estructura_proceso(int* pid){
+
+}

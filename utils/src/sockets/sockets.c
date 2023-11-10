@@ -25,7 +25,7 @@ int iniciar_servidor(t_log* logger, char* ip, char* puerto, char* nombre)
 
 	listen(socket_servidor, SOMAXCONN);
 
-	log_info(logger, "Escuchando en %s", nombre);
+	log_info(logger, ANSI_COLOR_GREEN "Escuchando en %s", nombre);
 
 	freeaddrinfo(servinfo);
 
@@ -38,7 +38,7 @@ int esperar_cliente(t_log* logger, const char* name, int socket_servidor) {
 
     int socket_cliente = accept(socket_servidor, (void*) &dir_cliente, &tam_direccion);
 
-    log_info(logger, "Cliente conectado a %s", name);
+    log_info(logger,ANSI_COLOR_GREEN "Cliente conectado a %s", name);
 
     return socket_cliente;
 }
@@ -76,7 +76,7 @@ int crear_conexion(t_log *logger, const char *server_name, char *ip, char *puert
         return 0;
     }
     else
-        log_info(logger, "Me conecte en %s:%s (a %s)\n", ip, puerto, server_name);
+        log_info(logger,ANSI_COLOR_GREEN "Me conecte en %s:%s (a %s)\n", ip, puerto, server_name);
 
     freeaddrinfo(server_info);
 
