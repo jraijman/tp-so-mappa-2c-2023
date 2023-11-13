@@ -63,7 +63,7 @@ void levantar_config(char* ruta){
     puerto_cpu_dispatch = config_get_string_value(config,"PUERTO_CPU_DISPATCH");
     puerto_cpu_interrupt = config_get_string_value(config,"PUERTO_CPU_INTERRUPT");
     algoritmo_planificacion = config_get_string_value(config,"ALGORITMO_PLANIFICACION");
-    quantum = config_get_string_value(config,"QUANTUM");
+    quantum = config_get_int_value(config,"QUANTUM");
     recursos =  config_get_array_value(config, "RECURSOS");
     char** instancias = string_array_new();
 	instancias = config_get_array_value(config, "INSTANCIAS_RECURSOS");
@@ -306,6 +306,7 @@ void* planif_largo_plazo(void* args){
     }
 }
 void* planif_corto_plazo(void* args){
+    pthread_t hilo_interrupciones;
     while(1){
         //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
         sem_wait(&puedo_ejecutar_proceso);
@@ -321,6 +322,8 @@ void* planif_corto_plazo(void* args){
             //TIENE DESALOJO
             pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
             if(procesoAEjecutar != NULL) {
+                //hilo que controla si hay que mandar interrupcion
+                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
                 agregar_a_exec(procesoAEjecutar);
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 manejar_recibir(fd_cpu_dispatch);
@@ -331,6 +334,8 @@ void* planif_corto_plazo(void* args){
             //TIENE DESALOJO
             pcb *procesoAEjecutar = obtenerSiguienteRR();
             if(procesoAEjecutar != NULL) {
+                //hilo que controla si hay que mandar interrupcion
+                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
                 agregar_a_exec(procesoAEjecutar);
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 manejar_recibir(fd_cpu_dispatch);
@@ -339,6 +344,27 @@ void* planif_corto_plazo(void* args){
     }
 }
 
+void controlar_interrupcion_rr(){
+    while(1){
+        sem_wait(&control_interrupciones_rr);
+        cpu_disponible=false;
+        printf(" \n controlo interrupcion Round Robin \n");
+        usleep(quantum*1000);
+		if(!cpu_disponible){
+			printf(" \n deberia mandar interrupt \n ");
+			hay_interrupcion=true;
+		}
+    }
+
+}
+void controlar_interrupcion_prioridades(){
+    while(1){
+        sem_wait(&control_interrupciones_prioridades);
+        cpu_disponible=false;
+        printf(" \n controlo interrupcion PRIORIDADES \n");
+		//controlar si en ready hay un proceso con mayor prioridad
+    }
+}
 
 pcb* obtenerSiguienteFIFO(){
     sem_wait(&cantidad_ready);
@@ -350,7 +376,13 @@ pcb* obtenerSiguienteFIFO(){
 }
 
 pcb* obtenerSiguienteRR(){
-	
+	sem_wait(&cantidad_ready);
+	pcb* procesoPlanificado = NULL;
+	pthread_mutex_lock(&mutex_ready);
+	procesoPlanificado = queue_pop(cola_ready);
+    pthread_mutex_unlock(&mutex_ready);
+    sem_post(&control_interrupciones_rr);
+	return procesoPlanificado;
 }
 
 bool cmp(void *a, void *b) { 
@@ -369,6 +401,7 @@ pcb* obtenerSiguientePRIORIDADES(){
     list_remove_element(cola_ready->elements,procesoPlanificado);
     pthread_mutex_unlock(&mutex_ready);
     }
+    sem_post(&control_interrupciones_prioridades);
 	return procesoPlanificado;
 }
 
@@ -503,6 +536,8 @@ void iniciar_semaforos(){
     sem_init(&cantidad_exec,0,0);
     sem_init(&cantidad_block,0,0);
     sem_init(&puedo_ejecutar_proceso,0,1);
+    sem_init(&control_interrupciones_rr,0,0);
+    sem_init(&control_interrupciones_prioridades,0,0);
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);

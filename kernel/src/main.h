@@ -23,7 +23,8 @@ typedef struct{
 	pthread_mutex_t mutex;
 }t_recurso;
 
-
+bool cpu_disponible = true;
+bool hay_interrupcion=false;
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;
@@ -37,7 +38,7 @@ char* puerto_filesystem;
 char* puerto_cpu_interrupt;
 char* puerto_cpu_dispatch;
 char* algoritmo_planificacion;
-char* quantum;
+int quantum;
 int grado_multiprogramacion;
 char** recursos;
 int* instancia_recursos;
@@ -64,6 +65,8 @@ sem_t cantidad_exit;
 sem_t cantidad_exec;
 sem_t cantidad_block;
 sem_t puedo_ejecutar_proceso;
+sem_t control_interrupciones_prioridades;
+sem_t control_interrupciones_rr;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
@@ -92,6 +95,9 @@ void detener_planificacion(void);
 void iniciar_planificacion(void);
 void cambiar_multiprogramacion(char* nuevo);
 void proceso_estado(void);
+
+void controlar_interrupcion_prioridades ();
+void controlar_interrupcion_rr();
 
 void iniciar_listas();
 void iniciar_hilos();
