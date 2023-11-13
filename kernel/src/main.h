@@ -115,7 +115,7 @@ void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado);
 pcb* crear_pcb(char* nombre_archivo, char * size, char * prioridad);
 t_list* pid_lista_ready (t_list* lista);
 char *estado_proceso_a_char(estado_proceso numero);
-pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t s);
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t s, pthread_mutex_t m);
 t_list* inicializar_recursos();
 int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);

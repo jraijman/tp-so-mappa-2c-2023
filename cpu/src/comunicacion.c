@@ -10,7 +10,7 @@ static void procesar_conexion(void* void_args) {
     while(1)
     {
         int cop = recibir_operacion(cliente_socket_dispatch);
-        log_info(logger, "%d", cop);
+        log_info(logger, ANSI_COLOR_BLUE "%d", cop);
         switch (cop) {
             case MENSAJE:
                 recibir_mensaje(logger, cliente_socket_dispatch);
@@ -23,10 +23,10 @@ static void procesar_conexion(void* void_args) {
                 pcb* contexto=recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
-                    enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
+                    //enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
-                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
-                    send_pcbDesalojado(contexto,"SLEEP","2",fd_cpu_dispatch,logger_cpu);//Para prueba
+                    //ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
+                    send_pcbDesalojado(contexto,"SLEEP","2",cliente_socket_dispatch,logger_cpu);//Para prueba
                 } else {
                     log_error(logger, "Error al recibir el PCB");
                 }
@@ -54,6 +54,7 @@ static void procesar_conexion(void* void_args) {
 int server_escuchar(t_log* logger, int fd_cpu_interrupt, int fd_cpu_dispatch) {
 
 	char* server_name = "CPU";
+    printf("Esperando conexiones entrantes...\n");
 	int socket_cliente_interrupt = esperar_cliente(logger, server_name, fd_cpu_interrupt);
     int socket_cliente_dispatch = esperar_cliente(logger, server_name, fd_cpu_dispatch);
 	

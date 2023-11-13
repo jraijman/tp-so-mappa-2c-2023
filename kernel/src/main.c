@@ -9,7 +9,7 @@ int main(int argc, char* argv[]) {
     iniciar_semaforos();
 
     // Conecto kernel con cpu, memoria y filesystem
-	fd_cpu_dispatch = -1,fd_cpu_interrupt = -1, fd_memoria = -1, fd_filesystem = -1;
+	fd_cpu_dispatch = 0,fd_cpu_interrupt = 0, fd_memoria = 0, fd_filesystem = 0;
 	if (!generar_conexiones()) {
 		log_error(logger_kernel, "Alguna conexion falló");
 		// libero conexiones, log y config
@@ -47,7 +47,7 @@ bool generar_conexiones() {
 	fd_cpu_dispatch = crear_conexion(logger_kernel,"CPU_DISPATCH",ip_cpu,puerto_cpu_dispatch);
     fd_cpu_interrupt = crear_conexion(logger_kernel,"CPU_INTERRUPT",ip_cpu,puerto_cpu_interrupt);
     fd_memoria = crear_conexion(logger_kernel,"MEMORIA",ip_memoria,puerto_memoria);
-	return fd_filesystem != -1 && fd_cpu_dispatch != -1 && fd_cpu_interrupt != -1 && fd_memoria != -1;
+	return fd_filesystem != 0 && fd_cpu_dispatch != 0 && fd_cpu_interrupt != 0 && fd_memoria != 0;
 }
 
 
@@ -117,7 +117,6 @@ void * leer_consola(void * arg)
         } else {
             printf("Comando no reconocido\n");
         }
-
         // Liberar la memoria utilizada por el comando ingresado
         free(comando);
     }
@@ -171,15 +170,15 @@ void finalizar_proceso(char * pid){
     int pid_int = atoi(pid);
     pcb* procesoAEliminar = NULL;
 
-    procesoAEliminar = buscar_y_remover_pcb_cola(cola_new, pid_int, cantidad_new);
+    procesoAEliminar = buscar_y_remover_pcb_cola(cola_new, pid_int, cantidad_new, mutex_new);
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_y_remover_pcb_cola(cola_ready, pid_int, cantidad_ready);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_ready, pid_int, cantidad_ready, mutex_ready);
     }
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int, cantidad_exec);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int, cantidad_exec, mutex_exec);
     }
     if(procesoAEliminar == NULL){
-        procesoAEliminar = buscar_y_remover_pcb_cola(cola_block, pid_int, cantidad_block);
+        procesoAEliminar = buscar_y_remover_pcb_cola(cola_block, pid_int, cantidad_block, mutex_block);
     }
 
     if(procesoAEliminar == NULL){
@@ -310,8 +309,6 @@ void* planif_corto_plazo(void* args){
     while(1){
         //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
         sem_wait(&puedo_ejecutar_proceso);
-        sem_wait(&cantidad_ready);
-        
         if(strcmp(algoritmo_planificacion,"FIFO")==0){
             pcb* procesoAEjecutar = obtenerSiguienteFIFO();
             if(procesoAEjecutar != NULL) {
@@ -467,27 +464,33 @@ t_recurso* buscar_recurso(char* recurso){
 //---------------------------------------------------------------
 
 void manejar_recibir(int socket_fd){
-    pcb* proceso = NULL;
-    char * extra = NULL;
-    int tipo_mensaje = recibir_operacion(socket_fd);
-    if (tipo_mensaje == MENSAJE) {
-        recibir_mensaje(logger_kernel, socket_fd);
-    }if(tipo_mensaje == PCB_WAIT){
-        recv_pcbDesalojado(socket_fd, proceso, extra);
-        manejar_wait(proceso, extra);
-    }
-    if(tipo_mensaje == PCB_SIGNAL){
-        recv_pcbDesalojado(socket_fd, proceso, extra);
-        manejar_signal(proceso, extra);
-    }
-    if(tipo_mensaje == PCB_EXIT){
-        recv_pcbDesalojado(socket_fd, proceso, extra);
-    }
-    if(tipo_mensaje == PCB_SLEEP){
-        recv_pcbDesalojado(socket_fd, proceso, extra);
-    }
-    if(tipo_mensaje == PCB_INTERRUPCION){
-        recv_pcbDesalojado(socket_fd, proceso, extra);
+    if(socket_fd == 0){
+        printf("Error al recibir mensaje\n");
+        return;
+    }else{
+        pcb* proceso = NULL;
+        char * extra = NULL;
+        int tipo_mensaje = recibir_operacion(socket_fd);
+        if (tipo_mensaje == MENSAJE) {
+            recibir_mensaje(logger_kernel, socket_fd);
+        }if(tipo_mensaje == PCB_WAIT){
+            recv_pcbDesalojado(socket_fd, &proceso, &extra);
+            manejar_wait(proceso, extra);
+        }
+        if(tipo_mensaje == PCB_SIGNAL){
+            recv_pcbDesalojado(socket_fd, &proceso, &extra);
+            manejar_signal(proceso, extra);
+        }
+        if(tipo_mensaje == PCB_EXIT){
+            recv_pcbDesalojado(socket_fd, &proceso, &extra);
+        }
+        if(tipo_mensaje == PCB_SLEEP){
+            recv_pcbDesalojado(socket_fd, &proceso, &extra);
+            
+        }
+        if(tipo_mensaje == PCB_INTERRUPCION){
+            recv_pcbDesalojado(socket_fd, &proceso, &extra);
+        }
     }
 }
 
@@ -565,7 +568,7 @@ t_list* inicializar_recursos(){
 	return lista;
 }
 
-pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t semaforo){
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t semaforo, pthread_mutex_t mutex){
     // Función para verificar si un PCB tiene el PID especificado
     bool tiene_pid(pcb* proceso) {
         return proceso->pid == id;
@@ -573,7 +576,9 @@ pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t semaforo){
      // Buscar el PCB en la cola y revover si existe
      //hay que meter semaforo
     pcb * proceso = NULL;
+    pthread_mutex_lock(&mutex);
     proceso = list_remove_by_condition(cola->elements, (void *) tiene_pid);
+    pthread_mutex_unlock(&mutex);
     if(proceso != NULL){
         sem_wait(&semaforo);
         return proceso;

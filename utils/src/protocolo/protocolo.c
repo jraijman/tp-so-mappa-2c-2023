@@ -466,6 +466,7 @@ int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
 }
 
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger){
+	printf("Enviando pcb desalojado");
 	t_paquete* paquete;
 	if(strcmp(instruccion,"SIGNAL")==0){
 		paquete=crear_paquete(PCB_SIGNAL);
@@ -493,9 +494,9 @@ void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t
 	}
 	enviar_paquete(paquete, fd);
 }
-void recv_pcbDesalojado(int fd,pcb* contexto, char* extra){
-	t_list* paquete=recibir_paquete(fd);
-	int counter;
-	contexto=desempaquetar_pcb(paquete,&counter);
-	extra=(char*)list_get(paquete, counter);
+void recv_pcbDesalojado(int fd, pcb** contexto, char** extra) {
+    t_list* paquete = recibir_paquete(fd);
+    int counter;
+    *contexto = desempaquetar_pcb(paquete, &counter);
+    *extra = (char*) list_get(paquete, counter);
 }

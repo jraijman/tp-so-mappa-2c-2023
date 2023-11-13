@@ -71,17 +71,18 @@ typedef struct {
     int* puntero;
 } t_archivos;
 
+
+
+t_list* tabla_de_pagina;
+t_list* lista_tablas_de_procesos;
 typedef struct 
 {
-    uint32_t num_marco;
+    int num_marco;
     bool en_memoria; //bit de presencia
     bool modificado; // bit de modificado
-}Pagina;
-typedef struct{
-    int num_pagina;
     int pid;
-    Pagina * paginas;
-}TablaPaginas;
+    //int posicion_swap; 
+}entrada_pagina;
 
 // Definición de estructura para representar un proceso (PCB)
 
@@ -182,7 +183,6 @@ typedef struct
     estado_proceso estado;
     t_registros *registros;
     t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
-    TablaPaginas *tabla_paginas; //agregar en protocolo
 } pcb;
 
 typedef struct
@@ -202,7 +202,7 @@ void* recibir_buffer(int* size, int socket_cliente);
 void recibir_mensaje(t_log* logger, int socket_cliente);
 void crear_buffer(t_paquete* paquete);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
-void recv_pcbDesalojado(int fd,pcb* contexto, char* extra);
+void recv_pcbDesalojado(int fd,pcb** contexto, char** extra);
 
 //Paquetes
 t_list* recibir_paquete(int);
@@ -245,7 +245,6 @@ char* recv_recurso(int fd_modulo);
 int recv_terminar_proceso(int fd_modulo);
 Instruccion recv_instruccion(int socket_cliente);
 int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc);
-void recv_pcbDesalojado(int fd,pcb* contexto, char* extra);
 // bool send_int(int fd, int pid);
 // bool recv_int(int fd, int *pid);
 // bool send_pcb(int fd, pcb *proceso);
