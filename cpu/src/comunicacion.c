@@ -25,8 +25,8 @@ static void procesar_conexion(void* void_args) {
                     log_info(logger, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
-                    //ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
-                    //send_unpcbquesale; Vamos a manejar la estructura de desalojo con protocolo. Es decir un paquete con pcb + instruccion + extra
+                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
+                    send_pcbDesalojado(contexto,"SLEEP","2",fd_cpu_dispatch,logger_cpu);//Para prueba
                 } else {
                     log_error(logger, "Error al recibir el PCB");
                 }
@@ -63,7 +63,6 @@ int server_escuchar(t_log* logger, int fd_cpu_interrupt, int fd_cpu_dispatch) {
         args->log = logger;
         args->fd_dispatch = socket_cliente_dispatch;
         args->fd_interrupt = socket_cliente_interrupt;
-        //log_info(logger_cpu, "Conexión aceptada, creando hilo para procesar la conexión.");
         pthread_create(&hilo_cpu, NULL,(void*)procesar_conexion, args);
         return 1;
  	}

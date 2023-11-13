@@ -234,7 +234,8 @@ void send_recurso_signal(char* recurso, int fd_modulo);
 void send_inicializar_proceso(pcb * contexto, int fd_modulo);
 void send_terminar_proceso(int pid, int fd_modulo);
 void send_instruccion(int socket_cliente, Instruccion instruccion);
-
+void send_fetch_instruccion(int pid, int pc, int fd_modulo);
+void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
 pcb* recv_pcb(int fd_modulo);
@@ -242,7 +243,9 @@ estado_proceso recv_cambiar_estado(int fd_modulo);
 int recv_tiempo_io(int fd_modulo);
 char* recv_recurso(int fd_modulo);
 int recv_terminar_proceso(int fd_modulo);
-Instruccion recv_instruccion(int socket_cliente); 
+Instruccion recv_instruccion(int socket_cliente);
+int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc);
+void recv_pcbDesalojado(int fd,pcb* contexto, char* extra);
 // bool send_int(int fd, int pid);
 // bool recv_int(int fd, int *pid);
 // bool send_pcb(int fd, pcb *proceso);
