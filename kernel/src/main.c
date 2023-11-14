@@ -130,17 +130,21 @@ void iniciar_hilos(){
 
      //creo hilo para pasar a cola de ready
     pthread_create(&hilo_plan_largo, NULL, planif_largo_plazo, NULL);
-
     //creo hilo para la planificacion a corto plazo
     pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
 
-    //creo hilo que espera mensaje de CPU de finalizar proceso
-    //pthread_create(&hilo_cpu_exit, NULL, finalizar_proceso_cpu, NULL);
+    //creo hilo para recv de fds
+    pthread_create(&hilo_respuestas_cpu, NULL, (void*)manejar_recibir_cpu, NULL);
+    pthread_create(&hilo_respuestas_fs, NULL, (void*)manejar_recibir_fs, NULL);
+    pthread_create(&hilo_respuestas_memoria, NULL, (void*)manejar_recibir_memoria, NULL);
 
     pthread_detach(hilo_consola);
     pthread_detach(hilo_plan_largo);
     pthread_detach(hilo_plan_corto);
     //pthread_detach(hilo_cpu_exit);
+    pthread_detach(hilo_respuestas_cpu);   
+    pthread_detach(hilo_respuestas_fs);
+    pthread_detach(hilo_respuestas_memoria);
 
 }
 
@@ -161,7 +165,6 @@ void iniciar_proceso(char * path, char* size, char* prioridad){
     pcb* proceso = crear_pcb(path, size, prioridad);
     agregar_a_new(proceso);
     send_inicializar_proceso(proceso, fd_memoria);
-    manejar_recibir(fd_memoria);
 }
 
 void finalizar_proceso(char * pid){
@@ -200,8 +203,6 @@ void finalizar_proceso(char * pid){
         agregar_a_exit(procesoAEliminar);
         //mandar mensaje a memoria para que libere
         send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
-        //recivo mensaje de fin
-        manejar_recibir(fd_memoria);
         }
  
 }
@@ -218,8 +219,8 @@ void iniciar_planificacion(){
 void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
     // Código para actualizar el grado de multiprogramación configurado inicialmente
     // por archivo de configuración y desalojar o finalizar los procesos si es necesario
+    log_info(logger_kernel, "Grado Anterior: %d - Grado Actual: %d", grado_multiprogramacion, atoi(nuevo_grado_multiprogramacion));
     grado_multiprogramacion = atoi(nuevo_grado_multiprogramacion);
-    printf("Se cambió el grado de multiprogramación a %d\n", grado_multiprogramacion);
 }
 void proceso_estado(){
     // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
@@ -315,7 +316,6 @@ void* planif_corto_plazo(void* args){
             if(procesoAEjecutar != NULL) {
                 agregar_a_exec(procesoAEjecutar);
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                manejar_recibir(fd_cpu_dispatch);
                 }
             }
         else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
@@ -326,7 +326,6 @@ void* planif_corto_plazo(void* args){
                 pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
                 agregar_a_exec(procesoAEjecutar);
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                manejar_recibir(fd_cpu_dispatch);
                 }
 
             }
@@ -338,7 +337,6 @@ void* planif_corto_plazo(void* args){
                 pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
                 agregar_a_exec(procesoAEjecutar);
                 send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                manejar_recibir(fd_cpu_dispatch);
                 }
             }
     }
@@ -348,11 +346,16 @@ void controlar_interrupcion_rr(){
     while(1){
         sem_wait(&control_interrupciones_rr);
         cpu_disponible=false;
-        printf(" \n controlo interrupcion Round Robin \n");
         usleep(quantum*1000);
 		if(!cpu_disponible){
-			printf(" \n deberia mandar interrupt \n ");
-			hay_interrupcion=true;
+            if(list_size(cola_exec->elements) > 0){
+                pcb * proceso = queue_peek(cola_exec);
+                log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
+                hay_interrupcion=true;
+                send_interrupcion(proceso->pid,fd_cpu_interrupt);
+            }else{
+                printf("No hay procesos en ejecucion\n");
+            }
 		}
     }
 
@@ -430,7 +433,8 @@ void manejar_wait(pcb* pcb, char* recurso){
 			log_info(logger_kernel,"PID: %d - Bloqueado por: %s", pcb->pid,recurso);
             //agregar a la cola de bloqueados del recurso
             pthread_mutex_lock(&recursobuscado->mutex);
-            queue_push(recursobuscado->bloqueados, pcb);
+            //NO FUNCIONAN BIEN LAS COLAS DENTRO DE LOS RECURSOS
+            //queue_push(recursobuscado->bloqueados, pcb);
             pthread_mutex_unlock(&recursobuscado->mutex);
             //agregar a la cola de block
             agregar_a_block(pcb);
@@ -438,7 +442,7 @@ void manejar_wait(pcb* pcb, char* recurso){
 		}
         else{
             // Hay instancias disponibles, continuar ejecución
-            list_add(recursobuscado->procesos, &(pcb->pid));
+            //list_add(recursobuscado->procesos, &(pcb->pid));
 			agregar_a_exec(pcb);
 			send_pcb(pcb,fd_cpu_dispatch);
 		}
@@ -494,37 +498,93 @@ t_recurso* buscar_recurso(char* recurso){
 	return recursobuscado;
 }
 
-//---------------------------------------------------------------
+//--------------FUNCIONES DE RECIBIR MENSAJES-----------------
 
-void manejar_recibir(int socket_fd){
-    if(socket_fd == 0){
-        printf("Error al recibir mensaje\n");
-        return;
-    }else{
-        pcb* proceso = NULL;
-        char * extra = NULL;
-        int tipo_mensaje = recibir_operacion(socket_fd);
-        if (tipo_mensaje == MENSAJE) {
-            recibir_mensaje(logger_kernel, socket_fd);
-        }if(tipo_mensaje == PCB_WAIT){
-            recv_pcbDesalojado(socket_fd, &proceso, &extra);
-            manejar_wait(proceso, extra);
+void manejar_recibir_cpu(){
+    while(1){
+        if(fd_cpu_dispatch == 0){
+            printf("Error al recibir mensaje\n");
+            return;
         }
-        if(tipo_mensaje == PCB_SIGNAL){
-            recv_pcbDesalojado(socket_fd, &proceso, &extra);
-            manejar_signal(proceso, extra);
+        else{
+            pcb* proceso = NULL;
+            char * extra = NULL;
+            op_code cop = recibir_operacion(fd_cpu_dispatch);
+            switch (cop) {
+                case MENSAJE:
+                    recibir_mensaje(logger_kernel, fd_cpu_dispatch);
+                    break;
+                case PCB_WAIT:
+                    printf("\n manejo wait \n");
+                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    manejar_wait(proceso, extra);
+                    break;
+                case PCB_SIGNAL:
+                    printf("\n manejo signal \n");
+                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    manejar_signal(proceso, extra);
+                    break;
+                case PCB_EXIT:
+                    printf("\n manejo exit \n");
+                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    // hacer algo con el proceso recibido
+                    break;
+                case PCB_SLEEP:
+                    printf("\n manejo sleep \n");
+                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    // hacer algo con el proceso recibido
+                    break;
+                case PCB_INTERRUPCION:
+                    printf("\n manejo interrupcion \n");
+                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    // hacer algo con el proceso recibido
+                    break;
+                default:
+                    printf("Error al recibir mensaje\n");
+                    break;
+            }
+        }   
+    }    
+}
+
+void manejar_recibir_memoria(){
+    while(1){
+        if(fd_memoria == 0){
+            printf("Error al recibir mensaje\n");
+            return;
         }
-        if(tipo_mensaje == PCB_EXIT){
-            recv_pcbDesalojado(socket_fd, &proceso, &extra);
+        else{
+            op_code cop = recibir_operacion(fd_memoria);
+            switch (cop) {
+                case MENSAJE:
+                    recibir_mensaje(logger_kernel, fd_memoria);
+                    break;
+                default:
+                    printf("Error al recibir mensaje\n");
+                    break;
+            }
+        }   
+    }    
+}
+
+void manejar_recibir_fs(){
+    while(1){
+        if(fd_filesystem == 0){
+            printf("Error al recibir mensaje\n");
+            return;
         }
-        if(tipo_mensaje == PCB_SLEEP){
-            recv_pcbDesalojado(socket_fd, &proceso, &extra);
-            
-        }
-        if(tipo_mensaje == PCB_INTERRUPCION){
-            recv_pcbDesalojado(socket_fd, &proceso, &extra);
-        }
-    }
+        else{
+            op_code cop = recibir_operacion(fd_filesystem);
+            switch (cop) {
+                case MENSAJE:
+                    recibir_mensaje(logger_kernel, fd_filesystem);
+                    break;
+                default:
+                    printf("Error al recibir mensaje\n");
+                    break;
+            }
+        }   
+    }    
 }
 
 

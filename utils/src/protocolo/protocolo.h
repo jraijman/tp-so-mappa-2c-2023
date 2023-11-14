@@ -36,6 +36,7 @@ typedef enum
     PCB_SLEEP,
     PCB_INTERRUPCION,
     PCB_EXIT,
+    INTERRUPCION,
 } op_code;
 typedef struct
 {
@@ -245,17 +246,7 @@ char* recv_recurso(int fd_modulo);
 int recv_terminar_proceso(int fd_modulo);
 Instruccion recv_instruccion(int socket_cliente);
 int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc);
-// bool send_int(int fd, int pid);
-// bool recv_int(int fd, int *pid);
-// bool send_pcb(int fd, pcb *proceso);
-// bool recv_pcb(int fd, pcb *proceso);
-// // void deserializar_pcbDesalojado(void* stream, pcbDesalojado* proceso);
-// // void* serializar_pcbDesalojado(pcbDesalojado proceso);
-// bool send_pcbDesalojado(pcbDesalojado proceso, int fd);
-// bool recv_pcbDesalojado(int fd, pcbDesalojado *proceso);
-// bool send_instruccion(int fd, Instruccion instruccion);
-// bool recv_instruccion(int fd, Instruccion *instruccion);
-// bool send_direccion(int fd, Direccion *direccion);
-// bool recv_direccion(int fd, Direccion *direccion);
+void send_interrupcion(int pid, int fd_modulo);
+int recv_interrupcion(int fd_modulo, int pid);
 
 #endif

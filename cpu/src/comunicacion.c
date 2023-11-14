@@ -23,15 +23,20 @@ static void procesar_conexion(void* void_args) {
                 pcb* contexto=recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
-                    //enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
+                    enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
                     //ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
-                    send_pcbDesalojado(contexto,"SLEEP","2",cliente_socket_dispatch,logger_cpu);//Para prueba
+                    send_pcbDesalojado(contexto,"WAIT","2",cliente_socket_dispatch,logger_cpu);//Para prueba
                 } else {
                     log_error(logger, "Error al recibir el PCB");
                 }
                 break;
             }
+            case INTERRUPCION:
+                log_info(logger, ANSI_COLOR_YELLOW "Recibí una interrupción");
+                int id,
+                recv_interrupcion(cliente_socket_interrupt,id);
+                break;
             case -1:{
                 			log_error(logger, "el cliente se desconecto. Terminando servidor");
                             close(cliente_socket_dispatch);

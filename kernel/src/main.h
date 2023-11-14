@@ -80,11 +80,17 @@ pthread_t hilo_new_ready;
 pthread_t hilo_plan_largo;
 pthread_t hilo_cpu_exit;
 pthread_t hilo_plan_corto;
+pthread_t hilo_respuestas_cpu;
+pthread_t hilo_respuestas_memoria;
+pthread_t hilo_respuestas_fs;
 
 // contador para id de procesos unico
 int contador_pid = 0;
 
 bool generar_conexiones();
+void manejar_recibir_memoria();
+void manejar_recibir_fs();
+void manejar_recibir_cpu();
 
 void* leer_consola(void * arg);
 void levantar_config(char* ruta);
