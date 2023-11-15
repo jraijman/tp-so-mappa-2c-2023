@@ -464,7 +464,7 @@ int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
     list_destroy(paquete);
     return 0; // Puedes devolver el valor necesario en tu implementación.
 }
-
+//----------------------------------PCBDESALOJADO-----------------------------------------
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger){
 	t_paquete* paquete;
 	if(strcmp(instruccion,"SIGNAL")==0){
@@ -498,4 +498,46 @@ void recv_pcbDesalojado(int fd,pcb* contexto, char* extra){
 	int counter;
 	contexto=desempaquetar_pcb(paquete,&counter);
 	extra=(char*)list_get(paquete, counter);
+}
+
+//---------------------------------------Direccion---------------------------------------
+void empaquetar_direccion(t_paquete* paquete, Direccion* direccion) {
+    agregar_a_paquete(paquete, &direccion->direccionLogica, sizeof(int));
+    agregar_a_paquete(paquete, &direccion->tamano_pagina, sizeof(int));
+    agregar_a_paquete(paquete, &direccion->desplazamiento, sizeof(int));
+    agregar_a_paquete(paquete, &direccion->numeroMarco, sizeof(int));
+    agregar_a_paquete(paquete, &direccion->direccionFisica, sizeof(int));
+    agregar_a_paquete(paquete, &direccion->pageFault, sizeof(bool));
+}
+
+Direccion desempaquetar_direccion(t_list* paquete) {
+    Direccion direccion;
+    direccion.direccionLogica = *(int*)list_get(paquete, 0);
+    direccion.tamano_pagina = *(int*)list_get(paquete, 1);
+    direccion.desplazamiento = *(int*)list_get(paquete, 2);
+    direccion.numeroMarco = *(int*)list_get(paquete, 3);
+    direccion.direccionFisica = *(int*)list_get(paquete, 4);
+    direccion.pageFault = *(bool*)list_get(paquete, 5);
+    return direccion;
+}
+
+void send_direccion(int socket_cliente, Direccion* direccion) {
+    printf("Enviando direccion\n");
+    t_paquete* paquete = crear_paquete(ENVIO_DIRECCION);
+    empaquetar_direccion(paquete, direccion);
+    enviar_paquete(paquete, socket_cliente);
+    eliminar_paquete(paquete);
+}
+
+void recv_direccion(int socket_cliente,Direccion* direccion) {
+    printf("Recibiendo direccion\n");
+    t_list* paquete = recibir_paquete(socket_cliente);
+    Direccion direccionaux = desempaquetar_direccion(paquete);
+	direccion->desplazamiento=direccionaux.desplazamiento;
+	direccion->direccionFisica=direccionaux.direccionFisica;
+	direccion->direccionLogica=direccionaux.direccionLogica;
+	direccion->numeroMarco=direccionaux.numeroMarco;
+	direccion->tamano_pagina=direccionaux.tamano_pagina;
+	direccion->pageFault=direccionaux.pageFault;
+    list_destroy(paquete);
 }

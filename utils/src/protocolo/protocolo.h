@@ -36,6 +36,7 @@ typedef enum
     PCB_SLEEP,
     PCB_INTERRUPCION,
     PCB_EXIT,
+    PCB_PAGEFAULT,
 } op_code;
 typedef struct
 {
@@ -157,11 +158,12 @@ typedef struct
 
 typedef struct
 {
-    uint32_t direccionLogica;
-    uint32_t tamano_pagina;
-    uint32_t desplazamiento;
-    uint32_t numeroMarco;
-    uint32_t direccionFisica;
+    int direccionLogica;
+    int tamano_pagina;
+    int desplazamiento;
+    int numeroMarco;
+    int direccionFisica;
+    bool pageFault;
 } Direccion;
 
 ///
@@ -185,13 +187,6 @@ typedef struct
     TablaPaginas *tabla_paginas; //agregar en protocolo
 } pcb;
 
-typedef struct
-{
-    pcb* contexto;
-    char *instruccion;
-    char *extra;
-} pcbDesalojado;
-
 void pcb_destroyer(pcb* contexto);
 
 
@@ -203,7 +198,8 @@ void recibir_mensaje(t_log* logger, int socket_cliente);
 void crear_buffer(t_paquete* paquete);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 void recv_pcbDesalojado(int fd,pcb* contexto, char* extra);
-
+void send_direccion(int conexion_cpu_memoria,Direccion* direccion);
+void recv_direccion(int conexion_cpu_memoria,Direccion* direccion);
 //Paquetes
 t_list* recibir_paquete(int);
 t_paquete* crear_paquete(op_code);

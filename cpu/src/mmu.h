@@ -1,5 +1,5 @@
 #ifndef COMUNICACION_H_
-#define COMUNICACION_H_
+#define MMU_H_
 
 
 #include "main.h"
@@ -15,14 +15,5 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "../../utils/src/protocolo/protocolo.h"
 
-
-typedef struct {
-    t_log* log;
-    int fd_dispatch;
-    int fd_interrupt;
-} t_procesar_conexion_args;
-
-void inicializar_estructura_proceso(int);
-void manejarConexion(pcbDesalojado contexto);
-int server_escuchar(t_log* logger, int server_socket_dispatch, int server_socket_interupt);
+void traducir(Instruccion *instruccion, Direccion *direccion,pcb* contexto);
 #endif 

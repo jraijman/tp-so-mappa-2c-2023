@@ -13,13 +13,86 @@ int main(int argc, char* argv[]){
     conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);  
     //mensaje prueba 
     enviar_mensaje("Hola, soy CPU!", conexion_cpu_memoria);
-
+    
     // Espero msjs
     while(server_escuchar(logger_cpu, fd_cpu_interrupt, fd_cpu_dispatch));
 
     // Cerrar LOG y CONFIG y liberar conexión
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);
+}
+
+int server_escuchar(t_log* logger, int fd_cpu_interrupt, int fd_cpu_dispatch) {
+
+	char* server_name = "CPU";
+	int socket_cliente_interrupt = esperar_cliente(logger, server_name, fd_cpu_interrupt);
+    int socket_cliente_dispatch = esperar_cliente(logger, server_name, fd_cpu_dispatch);
+	
+    if (socket_cliente_interrupt != -1 && socket_cliente_dispatch !=-1) {
+        pthread_t hilo_cpu;
+        t_procesar_conexion_args* args = malloc(sizeof(t_procesar_conexion_args));
+        args->log = logger;
+        args->fd_dispatch = socket_cliente_dispatch;
+        args->fd_interrupt = socket_cliente_interrupt;
+        pthread_create(&hilo_cpu, NULL,(void*)procesar_conexion, args);
+        return 1;
+ 	}
+    else{   
+        log_info(logger, "Hubo un error en la conexion del Kernel");
+    }
+    return 0;
+}
+
+static void procesar_conexion(void* void_args) {
+    t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
+    t_log* logger = args->log;
+    log_info(logger, ANSI_COLOR_BLUE "Hilo en función procesar_conexion");
+    int cliente_socket_dispatch = args->fd_dispatch;
+    int cliente_socket_interrupt = args->fd_interrupt;
+    free(args);
+    while(1)
+    {
+        int cop = recibir_operacion(cliente_socket_dispatch);
+        log_info(logger, "%d", cop);
+        switch (cop) {
+            case MENSAJE:
+                recibir_mensaje(logger, cliente_socket_dispatch);
+                break;
+		    case PAQUETE:
+                t_list *paquete_recibido = recibir_paquete(cliente_socket_dispatch);
+                log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
+                break;
+            case ENVIO_PCB: {
+                pcb* contexto=recv_pcb(cliente_socket_dispatch);
+                if (contexto->pid!=-1) {
+                    log_info(logger, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
+                    enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
+                    sleep(0.99);
+                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
+                    return;
+                } else {
+                    log_error(logger, "Error al recibir el PCB");
+                    return;
+                }
+                break;
+            }
+            case -1:{
+                			log_error(logger, "el cliente se desconecto. Terminando servidor");
+                            close(cliente_socket_dispatch);
+                            return;
+                break;
+            }
+            default: {
+                log_error(logger, "Código de operación no reconocido: %d", cop);
+                break;
+            }
+        }
+    }
+    // Cerrar los sockets y liberar recursos si es necesario.
+    //free(args);
+    close(cliente_socket_dispatch);
+    close(cliente_socket_interrupt);
+    log_info(logger_cpu, ANSI_COLOR_BLUE "Conexión cerrada, finalizando el procesamiento de la conexión.");
 }
 
 void levantar_config(char* ruta){
@@ -29,9 +102,6 @@ void levantar_config(char* ruta){
     puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
     puerto_dispatch = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
     puerto_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
-    //log_info(logger_cpu, "Módulo CPU iniciado correctamente");
-    //log_info(logger_cpu, "ip_memoria: %s y el puerto_memoria: %s", ip_memoria, puerto_memoria);
-    //log_info(logger_cpu, "puerto_dispatch: %s y puerto_interrupt: %s", puerto_dispatch, puerto_interrupt);
 }
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
@@ -42,10 +112,11 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger);
             contexto->pc++;
             log_info(logger, "Instrucción recibida");
-            decodeInstruccion(&instruccion);
+            decodeInstruccion(&instruccion,contexto);
             executeInstruccion(contexto, instruccion);
         }
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
+        return;
     }
 }
 
@@ -80,29 +151,12 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
     }
 }
 
-void traducir(Instruccion *instruccion, Direccion *direccion) {
-/*
-    if(strcmp(instruccion->opcode,"MOV_OUT"))
-    {
-        direccion->direccionLogica=atoi(instruccion->operando1);
-            send_direccion(conexion_cpu_memoria, direccion);
-            recv_direccion(conexion_cpu_memoria, direccion);
-    }else{
-        direccion->direccionLogica=atoi(instruccion->operando2);
-            send_direccion(conexion_cpu_memoria, direccion);
-            recv_direccion(conexion_cpu_memoria, direccion);
-    }
-    //TODO LOGICA DEL CALCULO HAY QUE VER EN MEMORIA COMO MANEJAMOS LA ESTRUCTURA
-*/
-}
-
-
-void decodeInstruccion(Instruccion *instruccion){
+void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
     log_info(logger_cpu, "Decoding instruccion");
     Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
-        //traducir(instruccion, &direccion);
+        traducir(instruccion, &direccion, contexto);
     }
     log_info(logger_cpu, "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
 }
