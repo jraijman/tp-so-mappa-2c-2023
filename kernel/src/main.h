@@ -23,7 +23,8 @@ typedef struct{
 	pthread_mutex_t mutex;
 }t_recurso;
 
-
+bool cpu_disponible = true;
+bool hay_interrupcion=false;
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;
@@ -37,7 +38,7 @@ char* puerto_filesystem;
 char* puerto_cpu_interrupt;
 char* puerto_cpu_dispatch;
 char* algoritmo_planificacion;
-char* quantum;
+int quantum;
 int grado_multiprogramacion;
 char** recursos;
 int* instancia_recursos;
@@ -64,6 +65,8 @@ sem_t cantidad_exit;
 sem_t cantidad_exec;
 sem_t cantidad_block;
 sem_t puedo_ejecutar_proceso;
+sem_t control_interrupciones_prioridades;
+sem_t control_interrupciones_rr;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
@@ -77,11 +80,17 @@ pthread_t hilo_new_ready;
 pthread_t hilo_plan_largo;
 pthread_t hilo_cpu_exit;
 pthread_t hilo_plan_corto;
+pthread_t hilo_respuestas_cpu;
+pthread_t hilo_respuestas_memoria;
+pthread_t hilo_respuestas_fs;
 
 // contador para id de procesos unico
 int contador_pid = 0;
 
 bool generar_conexiones();
+void manejar_recibir_memoria();
+void manejar_recibir_fs();
+void manejar_recibir_cpu();
 
 void* leer_consola(void * arg);
 void levantar_config(char* ruta);
@@ -92,6 +101,9 @@ void detener_planificacion(void);
 void iniciar_planificacion(void);
 void cambiar_multiprogramacion(char* nuevo);
 void proceso_estado(void);
+
+void controlar_interrupcion_prioridades ();
+void controlar_interrupcion_rr();
 
 void iniciar_listas();
 void iniciar_hilos();
@@ -115,7 +127,7 @@ void cambiar_estado(pcb *pcb, estado_proceso nuevo_estado);
 pcb* crear_pcb(char* nombre_archivo, char * size, char * prioridad);
 t_list* pid_lista_ready (t_list* lista);
 char *estado_proceso_a_char(estado_proceso numero);
-pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t s);
+pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t s, pthread_mutex_t m);
 t_list* inicializar_recursos();
 int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);

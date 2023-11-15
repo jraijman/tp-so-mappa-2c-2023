@@ -1,5 +1,9 @@
 #include "main.h"
 
+pthread_mutex_t mx_memoria = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mx_bitarray_marcos_ocupados = PTHREAD_MUTEX_INITIALIZER;
+uint8_t* bitarray_marcos_ocupados;
+void* memoria;
 void levantar_config(char *ruta)
 {
     logger_memoria = iniciar_logger("memoria.log", "MEMORIA:");
@@ -148,7 +152,7 @@ static void procesar_conexion(void *void_args) {
 			pcb* proceso = recv_pcb(cliente_socket);
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             enviar_mensaje("OK inicio proceso", cliente_socket);
-            TablaPaginas* tabla_paginas = inicializar_proceso(proceso->pid);
+            t_list* tabla_paginas = inicializar_proceso(proceso->pid);
 		    //send_proceso_inicializado(tabla_paginas, cliente_socket);			
             break;
 		case FINALIZAR_PROCESO:
@@ -187,23 +191,6 @@ void liberar_marco(t_marco* marco){
     marco->pid = -1;
 }
 
-t_marco* marco_create(uint32_t numero_marco, uint32_t pid,bool estado_marco){
-    t_marco* marco = malloc(sizeof(t_marco));
-    marco->pid = pid;
-    marco->ocupado = estado_marco;
-    marco->num_marco = numero_marco;
-}
-int reservar_primer_marco_libre(int pid){
-    for(int i = 0; i < list_size(l_marco);i++){
-        t_marco* marco = list_get(l_marco,i);
-        if(!marco->ocupado){
-            marco->ocupado = true;
-            marco->pid = pid;
-            return marco->num_marco;
-        }
-    }
-    return -1;
-}
 int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
     for (int i = 0; i < num_marcos; i++) {
         if (marcos[i].ocupado && marcos[i].pid == pid) {
@@ -213,16 +200,52 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
     
     return -1;
 }
+// Devuelve el contenido de un marco que está en memoria.
+void* obtener_marco(uint32_t nro_marco) {
+  // Reserva memoria para un marco
+  void* marco = malloc(tam_pagina);
+  char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
+  uint32_t tam_pagina_int = atoi(tam_pagina_str);
+  // Bloquea el acceso al array de memoria
+  pthread_mutex_lock(&mx_memoria);
 
-bool marco_asignado_a_este_proceso(int pid,t_marco * marco) {
-    return marco->pid == pid;
+  memcpy(marco, memoria + nro_marco * tam_pagina_int, tam_pagina);
+
+  // Desbloquea el acceso al array de memoria
+  pthread_mutex_unlock(&mx_memoria);
+
+  
+  return marco;
 }
-
-t_list* obtenerMarcosAsignados(int pid){
-    t_list* marcos_asignados = list_filter(l_marco, (void*)marco_asignado_a_este_proceso);
-    return marcos_asignados;
+void escribir_marco_en_memoria(uint32_t nro_marco, void* marco){
+	char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
+    uint32_t tam_pagina_int = atoi(tam_pagina_str);
+    uint32_t marco_en_memoria = nro_marco * tam_pagina_int;
+	pthread_mutex_lock(&mx_memoria);
+	memcpy(memoria + marco_en_memoria, marco, tam_pagina);
+	pthread_mutex_unlock(&mx_memoria);
 }
-
+int buscar_marco_libre(){
+	pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
+    
+	for (int i = 0; i < get_memory_and_page_size(); i++){
+		if (bitarray_marcos_ocupados[i] == 0){
+			pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
+			return i;
+		}
+	}
+	pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
+	return -1;
+}
+// Devuelve la cantidad de marcos que requiere un proceso del tamanio especificado
+uint32_t calcular_cant_marcos(uint16_t tamanio){
+	uint32_t  cant_marcos = get_memory_and_page_size()-1;
+    char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
+    uint32_t tam_pagina_int = atoi(tam_pagina_str);
+	if (tamanio % tam_pagina_int != 0)
+		cant_marcos++;
+	return cant_marcos;
+}
 void eliminar_proceso_memoria(int pid) {
     
     t_list* marcos_asignados = obtenerMarcosAsignados(pid);
@@ -235,12 +258,13 @@ void eliminar_proceso_memoria(int pid) {
     list_destroy(marcos_asignados);
 }
 
-TablaPaginas* inicializar_proceso(int pid) {
+t_list* inicializar_proceso(int pid) {
     
-    TablaPaginas* tabla_de_paginas = malloc(sizeof(TablaPaginas));
+    entrada_pagina* tabla_de_paginas = malloc(sizeof(entrada_pagina));
     tabla_de_paginas->pid = pid;
     //tabla_de_paginas->paginas = ; a que debo igualarlo?
 }
+
 bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
     
     SolicitudReservaSwap solicitud;
@@ -307,7 +331,27 @@ int obtenerCantidadPaginasAsignadas(int pid) {
     list_destroy(marcos_asignados);
     return cantidadDePaginasAsignadas;
 }
+uint32_t get_memory_and_page_size() {
+  char* tam_memoria_str = config_get_string_value(config, "TAM_MEMORIA");
+  char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
 
+  uint32_t tam_memoria_int = atoi(tam_memoria_str);
+  uint32_t tam_pagina_int = atoi(tam_pagina_str);
+
+  return (tam_memoria_int / tam_pagina_int) + 1;
+}
+t_list* crear_tabla(int pid){
+    t_list* tabla_de_pagina = list_create();
+    uint32_t entrada_de_paginas = get_memory_and_page_size();
+    for(int i=0; i<(entrada_de_paginas) + 1; i++){
+        entrada_pagina* pagina = malloc(entrada_de_paginas* sizeof(entrada_pagina));
+        pagina -> num_marco = -1;
+        pagina -> modificado = 0;
+        pagina -> en_memoria = 0;
+        list_add(tabla_de_pagina,pagina);
+    }
+    return tabla_de_pagina;
+}
 /*
 TODO:
 INSTRUCCIONES SE ENVIA 1 SOLA, LA PETICION ES ITERATIVA DEL LADO CPU POR LO CUAL VAN A IR LLEGANDO PETICIONES DE INSTRUCCION (INDEXAS CON EL PROGRAM COUNTER PARA BAJAR LA LINEA QUE NECESITO)

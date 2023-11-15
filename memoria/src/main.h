@@ -38,9 +38,13 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques);
 int obtenerCantidadPaginasAsignadas(int pid);
 int server_escuchar(int fd_memoria);
-TablaPaginas* inicializar_proceso(int pid);
 void terminar_proceso(int pid);
+t_list* inicializar_proceso(int pid);
 pcb* encontrar_proceso(int pid);
+void* obtener_marco(uint32_t nro_marco); 
 void eliminar_proceso(int pid);
 void liberar_recursos(pcb* proceso);
+void escribir_marco_en_memoria(uint32_t nro_marco, void* marco);
+uint32_t get_memory_and_page_size();
+buscar_marco_libre();
 #endif 

@@ -466,6 +466,7 @@ int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
 }
 //----------------------------------PCBDESALOJADO-----------------------------------------
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger){
+	printf("Enviando pcb desalojado");
 	t_paquete* paquete;
 	if(strcmp(instruccion,"SIGNAL")==0){
 		paquete=crear_paquete(PCB_SIGNAL);
@@ -493,12 +494,27 @@ void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t
 	}
 	enviar_paquete(paquete, fd);
 }
-void recv_pcbDesalojado(int fd,pcb* contexto, char* extra){
-	t_list* paquete=recibir_paquete(fd);
-	int counter;
-	contexto=desempaquetar_pcb(paquete,&counter);
-	extra=(char*)list_get(paquete, counter);
+void recv_pcbDesalojado(int fd, pcb** contexto, char** extra) {
+    t_list* paquete = recibir_paquete(fd);
+    int counter;
+    *contexto = desempaquetar_pcb(paquete, &counter);
+    *extra = (char*) list_get(paquete, counter);
 }
+
+void send_interrupcion(int pid, int fd_modulo){
+	t_paquete* paquete = crear_paquete(INTERRUPCION);
+	agregar_a_paquete(paquete, &pid, sizeof(int));
+	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
+}
+
+int recv_interrupcion(int fd_modulo, int pid){
+	t_list* paquete = recibir_paquete(fd_modulo);
+	memcpy(&pid, list_get(paquete, 0), sizeof(int));
+	list_destroy(paquete);
+	return 0; // Puedes devolver el valor necesario en tu implementación.
+}
+
 
 //---------------------------------------Direccion---------------------------------------
 void empaquetar_direccion(t_paquete* paquete, Direccion* direccion) {
