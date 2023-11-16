@@ -10,7 +10,7 @@
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "../../utils/src/protocolo/protocolo.h"
-#include "mmu.h"
+#include "instrucciones.h"
 
 typedef struct {
     t_log* log;
@@ -33,7 +33,7 @@ void levantar_config(char*);
 void ciclo_instruccion(pcb* contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);
 void decodeInstruccion(Instruccion* instruccion, pcb* contexto);
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger);
-void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion);
+void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd, int fd_memoria);
 int server_escuchar(t_log* logger, int server_socket_dispatch, int server_socket_interupt);
 static void procesar_conexion(void* void_args);
 

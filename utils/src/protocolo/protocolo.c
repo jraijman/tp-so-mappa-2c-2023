@@ -488,6 +488,10 @@ void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t
 		paquete=crear_paquete(PCB_INTERRUPCION);
 		empaquetar_pcb(paquete, contexto);
 		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
+	}else if(strcmp(instruccion,"PAGEFAULT")==0){
+		paquete=crear_paquete(PCB_PAGEFAULT);
+		empaquetar_pcb(paquete, contexto);
+		agregar_a_paquete(paquete, extra, strlen(extra) + 1);
 	}else{
 		log_error(logger,"NO SE RECONOCE EL MOTIVO DE DESALOJO");
 		return;

@@ -163,8 +163,9 @@ typedef struct
     int direccionLogica;
     int tamano_pagina;
     int desplazamiento;
-    int numeroMarco;
+    int numeroPagina;
     int direccionFisica;
+    int marco;
     bool pageFault;
 } Direccion;
 

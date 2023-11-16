@@ -113,41 +113,46 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             contexto->pc++;
             log_info(logger, "Instrucción recibida");
             decodeInstruccion(&instruccion,contexto);
-            executeInstruccion(contexto, instruccion);
+            executeInstruccion(contexto, instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
         }
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
         return;
     }
 }
 
-void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion) {
+void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd_cpu_dispatch, int fd_memoria) {
     log_info(logger_cpu, "Instrucción ejecutada: %s %s %s", instruccion.opcode, instruccion.operando1, instruccion.operando2);
 
     if (strcmp(instruccion.opcode, "SET") == 0) {
-        if (strcmp(instruccion.operando1, "AX") == 0) {
-            *(contexto_ejecucion->registros->ax) = atoi(instruccion.operando2);
-        }
+        setInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SUM") == 0) {
-        if (strcmp(instruccion.operando1, "AX") == 0 && strcmp(instruccion.operando2, "BX") == 0) {
-            *(contexto_ejecucion->registros->ax) = *(contexto_ejecucion->registros->ax) + *(contexto_ejecucion->registros->bx);
-        }
+        sumInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SUB") == 0) {
-        if (strcmp(instruccion.operando1, "AX") == 0 && strcmp(instruccion.operando2, "BX") == 0) {
-            *(contexto_ejecucion->registros->ax) = *(contexto_ejecucion->registros->ax) - *(contexto_ejecucion->registros->bx);
-        }
+        subInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
-        log_info(logger_cpu, "Instrucción SLEEP - Proceso se bloqueará por %s segundos", instruccion.operando1);
-        send_pcbDesalojado(contexto_ejecucion,"SLEEP",instruccion.operando1,fd_cpu_dispatch,logger_cpu); 
-
+        sleepInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
-        log_info(logger_cpu, "Instrucción WAIT - Proceso está esperando por recurso: %s", instruccion.operando1);
-        send_pcbDesalojado(contexto_ejecucion,"WAIT",instruccion.operando1,fd_cpu_dispatch,logger_cpu);
+        waitInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
-        log_info(logger_cpu, "Instrucción SIGNAL - Proceso ha liberado recurso: %s", instruccion.operando1);
-        send_pcbDesalojado(contexto_ejecucion,"SIGNAL",instruccion.operando1,fd_cpu_dispatch,logger_cpu);
+        signalInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
-        log_info(logger_cpu, "Instrucción EXIT - Proceso ha finalizado su ejecución");
-        send_pcbDesalojado(contexto_ejecucion,"EXIT","",fd_cpu_dispatch,logger_cpu);
+        exitInstruccion(contexto_ejecucion, instruccion, logger_cpu);
+    } else if (strcmp(instruccion.opcode,"MOV_IN")==0){
+        movInInstruccion(contexto_ejecucion, instruccion,logger_cpu);
+    } else if (strcmp(instruccion.opcode,"MOV_OUT")==0){
+        movOutInstruccion(contexto_ejecucion,instruccion,fd_memoria,logger_cpu);
+    } else if (strcmp(instruccion.opcode, "F_OPEN") == 0) {
+        fOpenInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+    } else if (strcmp(instruccion.opcode, "F_CLOSE") == 0) {
+        fCloseInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+    } else if (strcmp(instruccion.opcode, "F_SEEK") == 0) {
+        fSeekInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+    } else if (strcmp(instruccion.opcode, "F_READ") == 0) {
+        fReadInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch,fd_memoria, logger_cpu);
+    } else if (strcmp(instruccion.opcode, "F_WRITE") == 0) {
+        fWriteInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch,fd_memoria, logger_cpu);
+    } else if (strcmp(instruccion.opcode, "F_TRUNCATE") == 0) {
+        fTruncateInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     }
 }
 
@@ -156,7 +161,7 @@ void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
     Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
-        traducir(instruccion, &direccion, contexto);
+        //traducir(instruccion, &direccion, contexto);
     }
     log_info(logger_cpu, "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
 }
