@@ -8,13 +8,23 @@ static void procesar_conexion(void* void_args) {
     free(args);
     op_code cop;
     while(cliente_socket != -1){
-        //OP CODES
-        // aca van todos los tipos de mensaje que puede recibir, indicando en cada caso que hace
         if (recv(cliente_socket, &cop, sizeof(cop), 0) != sizeof(cop)) {
-    		log_info(logger, "DISCONNECT!");
-    		return;
+    		log_info(logger, ANSI_COLOR_BLUE"El cliente se desconecto de %s server", server_name);
+			return;
     	}
         switch (cop) {
+            case CONEXION_MEMORIA:
+                sleep(1);
+                conexion_filesystem_memoria = crear_conexion(logger,"MEMORIA",ip_memoria,puerto_memoria);
+                break;
+            case MENSAJE:
+                recibir_mensaje(logger, cliente_socket);
+                break;
+		    case PAQUETE:
+                t_list *paquete_recibido = recibir_paquete(cliente_socket);
+                log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
+                //list_iterate(paquete_recibido, (void*) iterator);
+                break;
             case ENVIO_PCB:
             {
                 pcb* proceso=recv_pcb(cliente_socket);
@@ -29,10 +39,6 @@ static void procesar_conexion(void* void_args) {
                 //send_bloquesReservados;
                 break;
             }
-            // Errores
-            case (-1):
-                log_error(logger, "Cliente desconectado de %s...", server_name);
-                return;
             default:
                 log_error(logger, "Algo anduvo mal en el server de %s", server_name);
                 return;

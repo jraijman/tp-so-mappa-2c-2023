@@ -61,6 +61,10 @@ int main(int argc, char *argv[])
 
      // inicio servidor de escucha
     fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha, "MEMORIA");
+    //mando a fs para que se conecte
+    t_paquete* paquete = crear_paquete(CONEXION_MEMORIA);
+	enviar_paquete(paquete, conexion_memoria_filesystem);
+	eliminar_paquete(paquete);
     
     // espero clientes kernel,cpu y filesystem
     //pcbDesalojado contexto;
