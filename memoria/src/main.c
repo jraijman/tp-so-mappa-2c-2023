@@ -11,11 +11,11 @@ void levantar_config(char *ruta)
     config = iniciar_config(ruta);
     puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
     ip_filesystem = config_get_string_value(config, "IP_FILESYSTEM");
-    tam_memoria = config_get_string_value(config, "TAM_MEMORIA");
+    tam_memoria = config_get_int_value(config, "TAM_MEMORIA");
     puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
-    tam_pagina = config_get_string_value(config, "TAM_PAGINA");
+    tam_pagina = config_get_int_value(config, "TAM_PAGINA");
     path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
-    retardo_respuesta = config_get_string_value(config, "RETARDO_RESPUESTA");
+    retardo_respuesta = config_get_int_value(config, "RETARDO_RESPUESTA");
     algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
 }
 bool leerYEnviarInstruccion(FILE *archivo, int conexion_memoria) {
@@ -56,13 +56,14 @@ int main(int argc, char *argv[])
 
     // genero conexion a filesystem
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
-    
+    //mensaje prueba 
+    //enviar_mensaje("Hola, soy MEMORIA", conexion_memoria_filesystem);
 
      // inicio servidor de escucha
     fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha, "MEMORIA");
     
     // espero clientes kernel,cpu y filesystem
-    pcbDesalojado contexto;
+    //pcbDesalojado contexto;
     pcb proceso;
     int bytes_recibidos = 0;
     int pid;
@@ -204,12 +205,10 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
 void* obtener_marco(uint32_t nro_marco) {
   // Reserva memoria para un marco
   void* marco = malloc(tam_pagina);
-  char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
-  uint32_t tam_pagina_int = atoi(tam_pagina_str);
   // Bloquea el acceso al array de memoria
   pthread_mutex_lock(&mx_memoria);
 
-  memcpy(marco, memoria + nro_marco * tam_pagina_int, tam_pagina);
+  memcpy(marco, memoria + nro_marco * tam_pagina, tam_pagina);
 
   // Desbloquea el acceso al array de memoria
   pthread_mutex_unlock(&mx_memoria);
@@ -246,6 +245,10 @@ uint32_t calcular_cant_marcos(uint16_t tamanio){
 		cant_marcos++;
 	return cant_marcos;
 }
+t_list* obtenerMarcosAsignados(int pid){
+
+}
+
 void eliminar_proceso_memoria(int pid) {
     
     t_list* marcos_asignados = obtenerMarcosAsignados(pid);

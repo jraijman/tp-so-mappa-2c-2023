@@ -28,8 +28,8 @@ typedef struct {
 } t_procesar_conexion_args;
 
 int server_escuchar_memoria(t_log* logger,char* server_name,int server_socket);
-void inicializar_estructura_proceso(int);
+void inicializar_estructura_proceso(int pid);
 bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int* bloques);
-void manejarConexion(pcbDesalojado contexto);
+//void manejarConexion(pcbDesalojado contexto);
 
 #endif 

@@ -20,10 +20,10 @@ int conexion_memoria_filesystem;
 char* puerto_escucha;
 char* ip_filesystem;
 char* puerto_filesystem;
-char* tam_memoria;
-char* tam_pagina;
+int tam_memoria;
+int tam_pagina;
 char* path_instrucciones;
-char* retardo_respuesta;
+int retardo_respuesta;
 char* algoritmo_reemplazo;
 
 t_log* logger_memoria;
@@ -46,5 +46,8 @@ void eliminar_proceso(int pid);
 void liberar_recursos(pcb* proceso);
 void escribir_marco_en_memoria(uint32_t nro_marco, void* marco);
 uint32_t get_memory_and_page_size();
-buscar_marco_libre();
+int buscar_marco_libre();
+t_list* obtenerMarcosAsignados( int pid);
+
+
 #endif 

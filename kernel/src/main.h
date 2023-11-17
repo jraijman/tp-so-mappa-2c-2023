@@ -18,7 +18,7 @@ typedef struct{
 	char* recurso;
 	int instancias;
     int encontrado;
-	t_list* procesos;
+	t_queue* procesos;
 	t_queue* bloqueados;
 	pthread_mutex_t mutex;
 }t_recurso;
@@ -115,6 +115,7 @@ void agregar_a_ready(pcb* proceso);
 void agregar_a_exit(pcb* proceso);
 void agregar_a_exec(pcb* proceso);
 pcb* sacar_de_exec();
+pcb* sacar_de_block();
 void * pasar_new_a_ready(void * args);
 void * planif_corto_plazo(void* args);
 void * planif_largo_plazo(void* args);
@@ -131,7 +132,7 @@ pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t s, pthread_mutex_t m
 t_list* inicializar_recursos();
 int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);
-bool lista_contiene_id(t_list* lista, int id);
-
+bool lista_contiene_id(t_list* lista, pcb * proceso);
+bool cmp(void *a, void *b);
 
 #endif 

@@ -65,7 +65,7 @@ bool notificar_liberacion_swap(int socket_fd, int pid, int cantidad_bloques, int
     return true;
 }
 
-void manejarConexion(pcbDesalojado contexto){
+/*void manejarConexion(pcb* contexto){
     char* instruccion = contexto.instruccion;
     if(strcmp(instruccion, "INICIALIZACION")==0)
     {
@@ -86,8 +86,8 @@ void manejarConexion(pcbDesalojado contexto){
     else{
         printf("No reconocido");
     }
-}
+}*/
 
-inicializar_estructura_proceso(int* pid){
+void inicializar_estructura_proceso(int pid){
 
 }

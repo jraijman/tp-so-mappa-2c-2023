@@ -12,12 +12,6 @@
 #include "../../utils/src/protocolo/protocolo.h"
 #include "instrucciones.h"
 
-typedef struct {
-    t_log* log;
-    int fd_dispatch;
-    int fd_interrupt;
-} t_procesar_conexion_args;
-
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;
@@ -34,8 +28,5 @@ void ciclo_instruccion(pcb* contexto,int cliente_socket_dispatch,int cliente_soc
 void decodeInstruccion(Instruccion* instruccion, pcb* contexto);
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger);
 void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd, int fd_memoria);
-int server_escuchar(t_log* logger, int server_socket_dispatch, int server_socket_interupt);
-static void procesar_conexion(void* void_args);
-
-
+int server_escuchar(int server_socket_dispatch, int server_socket_interupt);
 #endif

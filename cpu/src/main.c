@@ -5,94 +5,120 @@ int main(int argc, char* argv[]){
     levantar_config("cpu.config");
     logger_cpu = iniciar_logger("cpu.log", "CPU:");
 
-    // Inicio servidor de dispatch e interrupt para el kernel
-    fd_cpu_dispatch = iniciar_servidor(logger_cpu, NULL, puerto_dispatch, "CPU DISPATCH");
-    fd_cpu_interrupt = iniciar_servidor(logger_cpu, NULL, puerto_interrupt, "CPU INTERRUPT");
 
     // Genero conexión a memoria
     conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);  
     //mensaje prueba 
     enviar_mensaje("Hola, soy CPU!", conexion_cpu_memoria);
+
+
+    // Inicio servidor de dispatch e interrupt para el kernel
+    fd_cpu_dispatch = iniciar_servidor(logger_cpu, NULL, puerto_dispatch, "CPU DISPATCH");
+    fd_cpu_interrupt = iniciar_servidor(logger_cpu, NULL, puerto_interrupt, "CPU INTERRUPT");
     
     // Espero msjs
-    while(server_escuchar(logger_cpu, fd_cpu_interrupt, fd_cpu_dispatch));
+    while(server_escuchar(fd_cpu_interrupt, fd_cpu_dispatch));
+
 
     // Cerrar LOG y CONFIG y liberar conexión
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);
 }
 
-int server_escuchar(t_log* logger, int fd_cpu_interrupt, int fd_cpu_dispatch) {
+static void procesar_conexion_interrupt(void* void_args) {
+    int *args = (int*) void_args;
+	int cliente_socket_interrupt = *args;
 
-	char* server_name = "CPU";
-	int socket_cliente_interrupt = esperar_cliente(logger, server_name, fd_cpu_interrupt);
-    int socket_cliente_dispatch = esperar_cliente(logger, server_name, fd_cpu_dispatch);
-	
-    if (socket_cliente_interrupt != -1 && socket_cliente_dispatch !=-1) {
-        pthread_t hilo_cpu;
-        t_procesar_conexion_args* args = malloc(sizeof(t_procesar_conexion_args));
-        args->log = logger;
-        args->fd_dispatch = socket_cliente_dispatch;
-        args->fd_interrupt = socket_cliente_interrupt;
-        pthread_create(&hilo_cpu, NULL,(void*)procesar_conexion, args);
-        return 1;
- 	}
-    else{   
-        log_info(logger, "Hubo un error en la conexion del Kernel");
-    }
-    return 0;
-}
-
-static void procesar_conexion(void* void_args) {
-    t_procesar_conexion_args* args = (t_procesar_conexion_args*)void_args;
-    t_log* logger = args->log;
-    log_info(logger, ANSI_COLOR_BLUE "Hilo en función procesar_conexion");
-    int cliente_socket_dispatch = args->fd_dispatch;
-    int cliente_socket_interrupt = args->fd_interrupt;
-    free(args);
-    while(1)
-    {
-        int cop = recibir_operacion(cliente_socket_dispatch);
-        log_info(logger, "%d", cop);
+    op_code cop;
+	while (cliente_socket_interrupt != -1) {
+		if (recv(cliente_socket_interrupt, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
+			log_info(logger_cpu, ANSI_COLOR_BLUE"El cliente se desconecto de INTERRUPT");
+			return;
+		}
         switch (cop) {
             case MENSAJE:
-                recibir_mensaje(logger, cliente_socket_dispatch);
+                recibir_mensaje(logger_cpu, cliente_socket_interrupt);
                 break;
 		    case PAQUETE:
-                t_list *paquete_recibido = recibir_paquete(cliente_socket_dispatch);
-                log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
+                t_list *paquete_recibido = recibir_paquete(cliente_socket_interrupt);
+                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
-            case ENVIO_PCB: {
-                pcb* contexto=recv_pcb(cliente_socket_dispatch);
-                if (contexto->pid!=-1) {
-                    log_info(logger, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
-                    enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
-                    sleep(0.99);
-                    ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger);
-                    return;
-                } else {
-                    log_error(logger, "Error al recibir el PCB");
-                    return;
-                }
+            case INTERRUPCION:
+                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion");
+                int pid_recibido;
+                recv_interrupcion(cliente_socket_interrupt,pid_recibido );
                 break;
-            }
-            case -1:{
-                			log_error(logger, "el cliente se desconecto. Terminando servidor");
-                            close(cliente_socket_dispatch);
-                            return;
-                break;
-            }
             default: {
-                log_error(logger, "Código de operación no reconocido: %d", cop);
+                log_error(logger_cpu, "Código de operación no reconocido en Interrupt: %d", cop);
                 break;
             }
         }
     }
-    // Cerrar los sockets y liberar recursos si es necesario.
-    //free(args);
-    close(cliente_socket_dispatch);
-    close(cliente_socket_interrupt);
-    log_info(logger_cpu, ANSI_COLOR_BLUE "Conexión cerrada, finalizando el procesamiento de la conexión.");
+}
+
+static void procesar_conexion_dispatch(void* void_args) {
+    int *args = (int*) void_args;
+	int cliente_socket_dispatch = *args;
+
+    op_code cop;
+	while (cliente_socket_dispatch != -1) {
+		if (recv(cliente_socket_dispatch, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
+			log_info(logger_cpu, ANSI_COLOR_BLUE"El cliente se desconecto de DISPATCH");
+			return;
+		}
+        switch (cop) {
+            
+            case MENSAJE:
+                recibir_mensaje(logger_cpu, cliente_socket_dispatch);
+                break;
+		    case PAQUETE:
+                t_list *paquete_recibido = recibir_paquete(cliente_socket_dispatch);
+                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
+                break;
+            case ENVIO_PCB: {
+                pcb* contexto=recv_pcb(cliente_socket_dispatch);
+                if (contexto->pid!=-1) {
+                    log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
+                    enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
+                    sleep(0.99);
+                    send_pcbDesalojado(contexto, "SLEEP", "2", cliente_socket_dispatch, logger_cpu);
+                   // ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger_cpu);
+                    
+                } else {
+                    log_error(logger_cpu, "Error al recibir el PCB");
+                    
+                }
+                break;
+            }
+            default: {
+                log_error(logger_cpu, "Código de operación no reconocido en Dispatch: %d", cop);
+                break;
+            }
+        }
+    }
+}
+
+int server_escuchar(int fd_cpu_interrupt, int fd_cpu_dispatch) {
+	int socket_cliente_interrupt = esperar_cliente(logger_cpu, "CPU INTERRUPT", fd_cpu_interrupt);
+    char * server_name = "Cpu Dispatch";
+    int socket_cliente_dispatch = esperar_cliente(logger_cpu, server_name, fd_cpu_dispatch);
+	
+    if (socket_cliente_interrupt != -1 && socket_cliente_dispatch != -1) {
+        int *args = malloc(sizeof(int));
+        //hilo para servidor dispatch
+        pthread_t hilo_dispatch;
+		args = &socket_cliente_dispatch;
+		pthread_create(&hilo_dispatch, NULL, (void*) procesar_conexion_dispatch, (void*) args);
+		pthread_detach(hilo_dispatch);
+
+        //hilo para servidor interrupt
+        pthread_t hilo_interrupt;
+		args = &socket_cliente_interrupt;
+		pthread_create(&hilo_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) args);
+		pthread_detach(hilo_interrupt);
+        return 1;
+ 	}
+    return 0;
 }
 
 void levantar_config(char* ruta){
@@ -105,7 +131,7 @@ void levantar_config(char* ruta){
 }
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
-    log_info(logger, "Inicio del ciclo de instrucción");
+    log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1) {
         while (cliente_socket_interrupt != -1) {
             Instruccion instruccion;
@@ -157,7 +183,7 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd
 }
 
 void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
-    log_info(logger_cpu, "Decoding instruccion");
+    log_info(logger_cpu,ANSI_COLOR_BLUE "Decoding instruccion");
     Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
@@ -167,7 +193,7 @@ void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
 }
 
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {
-    log_info (logger, "Fetch de instruccion");
+    log_info (logger,ANSI_COLOR_BLUE "Fetch de instruccion");
     Instruccion aux;
     send_fetch_instruccion(contexto->pid,contexto->pc, fd); // Envía paquete para pedir instrucciones
     aux=recv_instruccion(fd);

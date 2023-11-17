@@ -1,23 +1,23 @@
 #include "./protocolo.h"
 
+
 void* serializar_paquete(t_paquete* paquete, int bytes) {
-    void* magic = malloc(bytes);
-    int desplazamiento = 0;
+	int size_paquete = sizeof(int) + sizeof(int) + paquete->buffer->size;
+    void* paquete_serializado = NULL;
 
-    // Copia el código de operación al búfer
-    memcpy(magic + desplazamiento, &(paquete->codigo_operacion), sizeof(int));
-    desplazamiento += sizeof(int);
+	paquete_serializado = malloc(size_paquete); // TODO: need free (3)
+	int offset = 0;
+	memcpy(paquete_serializado + offset, &(paquete->codigo_operacion), sizeof(int));
 
-    // Copia el tamaño del buffer al búfer
-    memcpy(magic + desplazamiento, &(paquete->buffer->size), sizeof(int));
-    desplazamiento += sizeof(int);
+	offset += sizeof(int);
+	memcpy(paquete_serializado + offset, &(paquete->buffer->size), sizeof(int));
 
-    // Copia los datos del buffer al búfer
-    memcpy(magic + desplazamiento, paquete->buffer->stream, paquete->buffer->size);
-    desplazamiento += paquete->buffer->size;
+	offset += sizeof(int);
+	memcpy(paquete_serializado + offset, paquete->buffer->stream, paquete->buffer->size);
 
-    return magic;
-}
+	return paquete_serializado;
+	}
+
 
 void eliminar_paquete(t_paquete* paquete) {
     // Liberar memoria de los datos en el paquete
@@ -290,7 +290,7 @@ pcb* desempaquetar_pcb(t_list* paquete, int* counter) {
 
 
 void send_pcb(pcb* contexto, int fd_modulo){
-	printf("Enviando pcb");
+	printf("\n ENVIANDO PCB PID: %d\n", contexto->pid);
     t_paquete* paquete = crear_paquete(ENVIO_PCB);
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
@@ -298,10 +298,10 @@ void send_pcb(pcb* contexto, int fd_modulo){
 }
 
 pcb* recv_pcb(int fd_modulo){
-	printf("Recibiendo pcb");
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int counter = 0;
 	pcb* contexto_recibido = desempaquetar_pcb(paquete, &counter);
+	printf("\n RECV PCB PID: %d\n", contexto_recibido->pid);
 	list_destroy(paquete);
 	return contexto_recibido;
 }
@@ -525,7 +525,8 @@ void empaquetar_direccion(t_paquete* paquete, Direccion* direccion) {
     agregar_a_paquete(paquete, &direccion->direccionLogica, sizeof(int));
     agregar_a_paquete(paquete, &direccion->tamano_pagina, sizeof(int));
     agregar_a_paquete(paquete, &direccion->desplazamiento, sizeof(int));
-    agregar_a_paquete(paquete, &direccion->numeroMarco, sizeof(int));
+	agregar_a_paquete(paquete, &direccion->numeroPagina, sizeof(int));
+    agregar_a_paquete(paquete, &direccion->marco, sizeof(int));
     agregar_a_paquete(paquete, &direccion->direccionFisica, sizeof(int));
     agregar_a_paquete(paquete, &direccion->pageFault, sizeof(bool));
 }
@@ -535,9 +536,10 @@ Direccion desempaquetar_direccion(t_list* paquete) {
     direccion.direccionLogica = *(int*)list_get(paquete, 0);
     direccion.tamano_pagina = *(int*)list_get(paquete, 1);
     direccion.desplazamiento = *(int*)list_get(paquete, 2);
-    direccion.numeroMarco = *(int*)list_get(paquete, 3);
-    direccion.direccionFisica = *(int*)list_get(paquete, 4);
-    direccion.pageFault = *(bool*)list_get(paquete, 5);
+	direccion.numeroPagina = *(int*)list_get(paquete, 3);
+    direccion.marco = *(int*)list_get(paquete,4);
+    direccion.direccionFisica = *(int*)list_get(paquete, 5);
+    direccion.pageFault = *(bool*)list_get(paquete, 6);
     return direccion;
 }
 
@@ -556,7 +558,8 @@ void recv_direccion(int socket_cliente,Direccion* direccion) {
 	direccion->desplazamiento=direccionaux.desplazamiento;
 	direccion->direccionFisica=direccionaux.direccionFisica;
 	direccion->direccionLogica=direccionaux.direccionLogica;
-	direccion->numeroMarco=direccionaux.numeroMarco;
+	direccion->numeroPagina=direccionaux.numeroPagina;
+	direccion->marco=direccionaux.marco;
 	direccion->tamano_pagina=direccionaux.tamano_pagina;
 	direccion->pageFault=direccionaux.pageFault;
     list_destroy(paquete);

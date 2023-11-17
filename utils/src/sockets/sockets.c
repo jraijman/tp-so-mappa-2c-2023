@@ -71,6 +71,7 @@ int crear_conexion(t_log *logger, const char *server_name, char *ip, char *puert
     // Error conectando
     if (connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen) == -1)
     {
+        perror("Error al conectarse");
         log_error(logger, "Error al conectarme (a %s)\n", server_name);
         freeaddrinfo(server_info);
         return 0;

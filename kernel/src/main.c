@@ -292,6 +292,14 @@ void agregar_a_block(pcb* proceso){
     sem_post(&cantidad_block);
 }
 
+pcb* sacar_de_block(){
+    sem_wait(&cantidad_block);
+    pthread_mutex_lock(&mutex_block);
+    pcb *proceso = queue_pop(cola_block);
+    pthread_mutex_unlock(&mutex_block);
+    return proceso;
+}
+
 
 //-----------------------------------------------------------------------
 //             PLANIFICADORES
@@ -353,6 +361,7 @@ void controlar_interrupcion_rr(){
                 log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
                 hay_interrupcion=true;
                 send_interrupcion(proceso->pid,fd_cpu_interrupt);
+                // VER TEMA DE CUANDO CORTAR LA EJECUCION
             }else{
                 printf("No hay procesos en ejecucion\n");
             }
@@ -361,11 +370,22 @@ void controlar_interrupcion_rr(){
 
 }
 void controlar_interrupcion_prioridades(){
+    sem_wait(&control_interrupciones_prioridades);
+     printf("\n controlo interrupt prioridad \n");
     while(1){
-        sem_wait(&control_interrupciones_prioridades);
         cpu_disponible=false;
-        printf(" \n controlo interrupcion PRIORIDADES \n");
 		//controlar si en ready hay un proceso con mayor prioridad
+        if(list_size(cola_exec->elements) > 0 && list_size(cola_ready->elements) > 0){
+            t_list* lista_ordenada = list_sorted(cola_ready->elements,cmp);
+            int prioridadAComparar = ((pcb*)list_get(lista_ordenada,0))->prioridad;
+            pcb * proceso = queue_peek(cola_exec);
+            if(prioridadAComparar < proceso->prioridad){
+                log_info(logger_kernel,"PID: %d - Desalojado por prioridad", proceso->pid);
+                hay_interrupcion=true;
+                send_interrupcion(proceso->pid,fd_cpu_interrupt);
+                // VER TEMA DE CUANDO CORTAR LA EJECUCION
+            }
+        }
     }
 }
 
@@ -396,14 +416,13 @@ bool cmp(void *a, void *b) {
 }
 
 pcb* obtenerSiguientePRIORIDADES(){
+    sem_wait(&cantidad_ready);
 	pcb* procesoPlanificado = NULL;
-    if (list_size(cola_ready->elements) > 0){
     pthread_mutex_lock(&mutex_ready);
     t_list* lista_ordenada = list_sorted(cola_ready->elements,cmp);
 	procesoPlanificado = list_remove(lista_ordenada, 0);
     list_remove_element(cola_ready->elements,procesoPlanificado);
     pthread_mutex_unlock(&mutex_ready);
-    }
     sem_post(&control_interrupciones_prioridades);
 	return procesoPlanificado;
 }
@@ -411,40 +430,40 @@ pcb* obtenerSiguientePRIORIDADES(){
 //---------------------------------------------------------------
 //              MANEJO DE RECURSOS
 
-void manejar_wait(pcb* pcb, char* recurso){
+void manejar_wait(pcb* proceso, char* recurso){
 	t_recurso* recursobuscado= buscar_recurso(recurso);
     sacar_de_exec();
 	if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
 		log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
-        agregar_a_exit(pcb);
+        agregar_a_exit(proceso);
         sem_post(&puedo_ejecutar_proceso);
-        //mando a memoria que finalizo proceso?
-        //send_terminar_proceso(pcb->pid,fd_memoria);  
+        //mando a memoria que finalizo proceso
+        send_terminar_proceso(proceso->pid,fd_memoria);  
 	}
     else{
         pthread_mutex_lock(&recursobuscado->mutex);
 		recursobuscado->instancias --;
         pthread_mutex_unlock(&recursobuscado->mutex);
-		log_info(logger_kernel,"PID: %d - Wait: %s - Instancias: %d", pcb->pid,recurso,recursobuscado->instancias);
+		log_info(logger_kernel,"PID: %d - Wait: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
 		if(recursobuscado->instancias < 0){
             // No hay instancias disponibles, bloquear proceso
-            //dudas con esta parte
-			log_info(logger_kernel,"PID: %d - Bloqueado por: %s", pcb->pid,recurso);
+			log_info(logger_kernel,"PID: %d - Bloqueado por: %s", proceso->pid,recurso);
             //agregar a la cola de bloqueados del recurso
             pthread_mutex_lock(&recursobuscado->mutex);
-            //NO FUNCIONAN BIEN LAS COLAS DENTRO DE LOS RECURSOS
-            //queue_push(recursobuscado->bloqueados, pcb);
+            queue_push(recursobuscado->bloqueados,proceso);
             pthread_mutex_unlock(&recursobuscado->mutex);
             //agregar a la cola de block
-            agregar_a_block(pcb);
+            agregar_a_block(proceso);
             sem_post(&puedo_ejecutar_proceso);
 		}
         else{
             // Hay instancias disponibles, continuar ejecución
-            //list_add(recursobuscado->procesos, &(pcb->pid));
-			agregar_a_exec(pcb);
-			send_pcb(pcb,fd_cpu_dispatch);
+            pthread_mutex_lock(&recursobuscado->mutex);
+            queue_push((recursobuscado->procesos),proceso);
+            pthread_mutex_unlock(&recursobuscado->mutex);
+			agregar_a_exec(proceso);
+			send_pcb(proceso,fd_cpu_dispatch);
 		}
 	}
 }
@@ -457,14 +476,15 @@ void manejar_signal(pcb* proceso, char* recurso){
         log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
         agregar_a_exit(proceso);
         sem_post(&puedo_ejecutar_proceso);
-        //mando a memoria que finalizo proceso?
-        //send_terminar_proceso(pcb->pid,fd_memoria);  
+        send_terminar_proceso(proceso->pid,fd_memoria);  
     }
     else{
-        if(lista_contiene_id(recursobuscado->procesos, proceso->pid) == false){
+        if(lista_contiene_id(recursobuscado->procesos->elements, proceso) == false){
             // proceso no tiene instancias del recusro
-            agregar_a_exec(proceso);
-            send_pcb(proceso,fd_cpu_dispatch);
+            log_info(logger_kernel, "No hay instancias del recurso: %s asignadas al proceso", recurso);
+            agregar_a_exit(proceso);
+            sem_post(&puedo_ejecutar_proceso);
+            send_terminar_proceso(proceso->pid,fd_memoria);  
         }
         else{
             pthread_mutex_lock(&recursobuscado->mutex);
@@ -475,9 +495,11 @@ void manejar_signal(pcb* proceso, char* recurso){
                 //tengo q desbloquear los bloqueados por el recurso
                 //saco de la cola de bloqueados del recurso
                 pthread_mutex_lock(&recursobuscado->mutex);
-                queue_pop(recursobuscado->bloqueados);
+                pcb * procesoQuitadoBloqueados = queue_pop(recursobuscado->bloqueados);
                 pthread_mutex_unlock(&recursobuscado->mutex);
-                //mover de block a ready
+                //sacar de block y mover a ready
+                buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
+                agregar_a_ready(procesoQuitadoBloqueados);
             }
             // Devuelvo pcb a cpu
             agregar_a_exec(proceso);
@@ -494,7 +516,6 @@ t_recurso* buscar_recurso(char* recurso){
 			return recursobuscado;
 		}
 	}
-	recursobuscado->encontrado=-1;
 	return recursobuscado;
 }
 
@@ -504,7 +525,7 @@ void manejar_recibir_cpu(){
     while(1){
         if(fd_cpu_dispatch == 0){
             printf("Error al recibir mensaje\n");
-            return;
+            break;
         }
         else{
             pcb* proceso = NULL;
@@ -536,8 +557,11 @@ void manejar_recibir_cpu(){
                     break;
                 case PCB_INTERRUPCION:
                     printf("\n manejo interrupcion \n");
+                    //ver bien coom hacer el interupt
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
-                    // hacer algo con el proceso recibido
+                    pcb* pcb_interrumpido = sacar_de_exec();
+                    agregar_a_ready(pcb_interrumpido);
+                    sem_post(&puedo_ejecutar_proceso);
                     break;
                 default:
                     printf("Error al recibir mensaje\n");
@@ -653,10 +677,10 @@ t_list* inicializar_recursos(){
 		t_recurso* recurso = malloc(sizeof(t_recurso));
 		recurso->recurso = malloc(sizeof(char) * strlen(string) + 1);
 		strcpy(recurso->recurso, string);
-		//t_list* cola_block = list_create();
+		recurso-> procesos = queue_create();
 		recurso->encontrado = 0;
 		recurso->instancias = instancia_recursos[i];
-		//recurso->cola_block_asignada = cola_block;
+		recurso->bloqueados = queue_create();
 		pthread_mutex_init(&recurso->mutex, NULL);
 		list_add(lista, recurso);
 	}
@@ -730,7 +754,8 @@ int* string_to_int_array(char** array_de_strings){
 	return numbers;
 }
 
-bool lista_contiene_id(t_list* lista, int id) {
+bool lista_contiene_id(t_list* lista, pcb * proceso) {
+    int id = proceso->pid;
     bool contiene_id = false;
     for (int i = 0; i < list_size(lista); i++) {
         int* elemento = (int*) list_get(lista, i);
