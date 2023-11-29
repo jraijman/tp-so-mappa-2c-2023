@@ -464,6 +464,89 @@ int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
     list_destroy(paquete);
     return 0; // Puedes devolver el valor necesario en tu implementación.
 }
+
+
+void send_reserva_swap(int fd, int pid, int cantidad_bloques) {
+	t_paquete* paquete = crear_paquete(RESERVA_SWAP);
+    // Agregar el PID al paquete
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+    // Agregar cant de bloques al paquete
+    agregar_a_paquete(paquete, &cantidad_bloques, sizeof(int));
+    enviar_paquete(paquete, fd);
+    eliminar_paquete(paquete);
+}
+
+void send_liberacion_swap(int fd, int pid){
+    t_paquete* paquete = crear_paquete(LIBERACION_SWAP);
+    agregar_a_paquete(paquete, &pid, sizeof(int));
+    enviar_paquete(paquete, fd);
+    eliminar_paquete(paquete);
+}
+int recv_liberacion_swap(int fd_modulo){
+	t_list* paquete = recibir_paquete(fd_modulo);
+	int* pid = list_get(paquete, 0);
+	list_destroy(paquete);
+	return *pid;
+}
+
+void recv_reserva_swap(int fd, int *pid, int *cantidad_bloques) {
+	t_list* paquete = recibir_paquete(fd);
+  	pid = list_get(paquete, 0);
+    cantidad_bloques = list_get(paquete, 1);
+}
+
+void empaquetar_bloques(t_paquete* paquete_bloques, t_list* lista_bloques) {
+    int cantidad_bloques = list_size(lista_bloques);
+
+    // Agregar la cantidad de bloques al paquete
+    agregar_a_paquete(paquete_bloques, &cantidad_bloques, sizeof(int));
+
+    for (int i = 0; i < cantidad_bloques; i++) {
+        int* bloque_asignado = list_get(lista_bloques, i);
+
+        // Agregar el numero de bloque al paquete
+        agregar_a_paquete(paquete_bloques, bloque_asignado, sizeof(int));
+    }
+}
+
+t_list* desempaquetar_bloques(t_list* paquete, int* comienzo) {
+	t_list* lista_bloques = list_create();
+	int* cantidad_bloques = list_get(paquete, *comienzo);
+	int i = *comienzo + 1;
+
+	while (i - *comienzo - 1 < *cantidad_bloques) {
+		int* bloque = malloc(sizeof(int));
+
+		// Desempaquetar la ruta del archivo
+		int* bloque_asignado = (int*)list_get(paquete, i);
+		free(bloque_asignado);
+		i++;
+
+		list_add(lista_bloques, archivo);
+	}
+
+	*comienzo = i;
+	free(cantidad_bloques);
+	return lista_bloques;
+}
+
+void send_bloques_reservados(int fd, t_list* bloques_reservados) {
+  	t_paquete* paquete_bloques = crear_paquete(BLOQUES_RESERVADOS);
+    empaquetar_bloques(paquete_bloques, bloques_reservados);
+    enviar_paquete(paquete_bloques, fd);
+    eliminar_paquete(paquete_bloques);
+}
+
+t_list* recv_bloques_reservados(t_log* logger, int fd_modulo) {
+    t_list* paquete = recibir_paquete(fd_modulo);
+    t_list* lista_bloques_reservados = desempaquetar_bloques(paquete, 0);
+    list_destroy(paquete);
+    log_info(logger,ANSI_COLOR_YELLOW "Se recibió una lista de bloques SWAP asignados.");
+    return lista_bloques_reservados;
+}
+
+
+
 //----------------------------------PCBDESALOJADO-----------------------------------------
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger){
 	printf("Enviando pcb desalojado");

@@ -523,13 +523,14 @@ t_recurso* buscar_recurso(char* recurso){
 
 void manejar_recibir_cpu(){
     while(1){
-        if(fd_cpu_dispatch == 0){
-            printf("Error al recibir mensaje\n");
+        if(fd_cpu_dispatch == 0|| fd_cpu_dispatch == -1){
+            printf("Error al recibir mensaje de cpu\n");
             break;
         }
         else{
             pcb* proceso = NULL;
             char * extra = NULL;
+            printf("da %d\n",fd_cpu_dispatch);
             op_code cop = recibir_operacion(fd_cpu_dispatch);
             switch (cop) {
                 case MENSAJE:
@@ -573,8 +574,8 @@ void manejar_recibir_cpu(){
 
 void manejar_recibir_memoria(){
     while(1){
-        if(fd_memoria == 0){
-            printf("Error al recibir mensaje\n");
+        if(fd_memoria == 0|| fd_memoria == -1){
+            printf("Error al recibir mensaje de memoria\n");
             return;
         }
         else{
@@ -593,8 +594,8 @@ void manejar_recibir_memoria(){
 
 void manejar_recibir_fs(){
     while(1){
-        if(fd_filesystem == 0){
-            printf("Error al recibir mensaje\n");
+        if(fd_filesystem == 0 || fd_filesystem == -1){
+            printf("Error al recibir mensaje de filesystem\n");
             return;
         }
         else{

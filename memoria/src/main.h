@@ -35,7 +35,6 @@ t_marco* marco_create(uint32_t, uint32_t,bool);
 int reservar_primer_marco_libre(int);
 void eliminar_proceso_memoria(int);
 int calcularMarco(int pid, t_marco* marcos, int num_marcos);
-bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques);
 int obtenerCantidadPaginasAsignadas(int pid);
 int server_escuchar(int fd_memoria);
 void terminar_proceso(int pid);

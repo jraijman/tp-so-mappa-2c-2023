@@ -39,6 +39,7 @@ typedef enum
     INTERRUPCION,
     PCB_PAGEFAULT,
     CONEXION_MEMORIA,
+    RESERVA_SWAP
 } op_code;
 typedef struct
 {
@@ -76,7 +77,7 @@ typedef struct {
 
 
 
-t_list* tabla_de_pagina;
+
 t_list* lista_tablas_de_procesos;
 typedef struct 
 {
@@ -85,7 +86,7 @@ typedef struct
     bool modificado; // bit de modificado
     int pid;
     //int posicion_swap; 
-}entrada_pagina;
+} entrada_pagina;
 
 // Definición de estructura para representar un proceso (PCB)
 
@@ -144,11 +145,6 @@ typedef struct main
     uint32_t pid;
     bool ocupado;
 } t_marco;
-typedef struct
-{
-    int pid;              // PID del proceso que solicita la reserva
-    int cantidad_bloques; // Cantidad de bloques de SWAP solicitados
-} SolicitudReservaSwap;
 
 typedef struct
 {

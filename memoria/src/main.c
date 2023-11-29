@@ -56,8 +56,7 @@ int main(int argc, char *argv[])
 
     // genero conexion a filesystem
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
-    //mensaje prueba 
-    //enviar_mensaje("Hola, soy MEMORIA", conexion_memoria_filesystem);
+    enviar_mensaje("Hola soy MEMORIA", conexion_memoria_filesystem);
 
      // inicio servidor de escucha
     fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha, "MEMORIA");
@@ -67,65 +66,13 @@ int main(int argc, char *argv[])
 	eliminar_paquete(paquete);
     
     // espero clientes kernel,cpu y filesystem
-    //pcbDesalojado contexto;
-    pcb proceso;
+    pcb* proceso;
     int bytes_recibidos = 0;
     int pid;
     Proceso *tabla_proceso;
     t_marco* marcos;
 
     while(server_escuchar(fd_memoria));
-
-    /*while (server_escuchar_memoria(logger_memoria, "MEMORIA", fd_memoria)) {
-        int bytes = recv(cliente_memoria, (char *)&contexto + bytes_recibidos, sizeof(pcbDesalojado) - bytes_recibidos, 0);
-        if (bytes > 0) {
-            bytes_recibidos += bytes;        
-            if (bytes_recibidos == sizeof(int)) {
-                int num_pag;
-                if (recv_int(cliente_memoria, &num_pag) < 0) {
-                    log_error(logger_memoria, "Error al recibir el número de página.");
-                } else {
-                    int num_marco = calcularMarco(proceso.pid, marcos, num_pag);
-                    if (send_int(fd_cpu_dispatch, num_marco) < 0) {
-                        log_error(logger_memoria, "Error al enviar el número de marco a la CPU.");
-                    }
-                }
-            } else if (bytes_recibidos == sizeof(pcbDesalojado)) {
-                if (recv_pcbDesalojado(cliente_memoria, &contexto) < 0) {
-                    log_error(logger_memoria, "Error al recibir el PCB Desalojado.");
-                } else {
-                    manejarConexion(contexto);
-                    // Si es necesario devolver el PCB después de manejarlo
-                }
-            } else if (bytes_recibidos == sizeof(pcb)) {
-                if (recv_pcb(cliente_memoria, &proceso) < 0) {
-                    log_error(logger_memoria, "Error al recibir el PCB.");
-                } else {
-                    int pid_solicitado = proceso.pid;
-                    Proceso *procesoactual = buscarProcesoPorPID(tabla_proceso, pid_solicitado);
-                    if (procesoactual != NULL) {
-                        FILE *archivo = fopen(procesoactual->rutaArchivo, "r");
-                        if (archivo != NULL) {
-                            if (leerYEnviarInstruccion(archivo, fd_cpu_dispatch)) {
-                                fclose(archivo);
-                            } else {
-                                fclose(archivo);
-                                log_error(logger_memoria, "Error al leer y enviar instrucciones para el PID: %d", pid_solicitado);
-                            }
-                        } else {
-                            log_error(logger_memoria, "Error al abrir el archivo de instrucciones para el PID: %d", pid_solicitado);
-                        }
-                    } else {
-                        log_error(logger_memoria, "PID: %d no encontrado en la tabla de procesos", pid_solicitado);
-                    }
-                }
-            }
-        } else {
-            log_error(logger_memoria, "Error al recibir datos desde el cliente de memoria");
-            // Manejo de error: No se pudieron recibir datos del cliente de memoria
-            // Puedes agregar código adicional para manejar este error
-        }
-    }*/
    
     // CIERRO LOG Y CONFIG y libero conexion
     terminar_programa(logger_memoria, config);
@@ -157,15 +104,21 @@ static void procesar_conexion(void *void_args) {
 			pcb* proceso = recv_pcb(cliente_socket);
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             enviar_mensaje("OK inicio proceso", cliente_socket);
-            t_list* tabla_paginas = inicializar_proceso(proceso->pid);
+            t_list* tabla_paginas = inicializar_proceso(proceso);
+            list_add(lista_tablas_de_procesos, tabla_paginas);
+            //aca tiene q enviar reserva de swap y recibir los qbloques asignados del proceso
 		    //send_proceso_inicializado(tabla_paginas, cliente_socket);			
             break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
             enviar_mensaje("OK fin proceso", cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
-			//terminar_proceso(pid_fin);
+			terminar_proceso(pid_fin);
 			break;
+        case ENVIO_INSTRUCCION:
+            //mandar innstruccionn
+            //recv_fetch_instruccion
+            break;
 
 	return;
         } 
@@ -265,38 +218,40 @@ void eliminar_proceso_memoria(int pid) {
     list_destroy(marcos_asignados);
 }
 
-t_list* inicializar_proceso(int pid) {
-    
-    entrada_pagina* tabla_de_paginas = malloc(sizeof(entrada_pagina));
-    tabla_de_paginas->pid = pid;
-    //tabla_de_paginas->paginas = ; a que debo igualarlo?
+
+t_list* inicializar_proceso(pcb* proceso) {
+    int entradas_por_tabla = proceso->size/tam_pagina;
+    t_list* tabla_de_paginas = list_create();
+	for (int i = 0; i < entradas_por_tabla ; i++){
+		entrada_pagina* pagina = malloc(entradas_por_tabla * sizeof(pagina));
+		pagina->nro_marco=-1;
+		pagina->modificado=0;
+		pagina->en_memoria=0;
+        pagina->pid= proceso->pid;
+		list_add(tabla_de_paginas, pagina);
+	}
+	return tabla_de_paginas;
 }
 
-bool notificar_reserva_swap(int fd, int pid, int cantidad_bloques) {
-    
-    SolicitudReservaSwap solicitud;
-    solicitud.pid = pid;
-    solicitud.cantidad_bloques = cantidad_bloques;
-
-    
-    if (send(fd, &solicitud, sizeof(SolicitudReservaSwap), 0) != sizeof(SolicitudReservaSwap)) {
-        perror("Error al enviar la solicitud de reserva de bloques de SWAP");
-        return false;
-    }
-
-    return true;
-}
 void terminar_proceso(int pid){
-    pcb* proceso = encontrar_proceso(pid);
-    liberar_recursos(proceso);
-    eliminar_proceso(pid);
-    free(proceso);
+    //borrar tabla paginas, mandar terminar a fs
+    eliminar_tabla_paginas(pid);
+    //liberar_recursos(proceso); Consultar con ayudante
+    send_liberacion_swap(fd,pid);
 }
-pcb* encontrar_proceso(int pid){
-    //falta implementar
-}
-void eliminar_proceso(int pid){
-    //falta implementar
+void eliminar_tabla_paginas(int pid){
+for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
+		t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
+        entrada_pagina * entrada = list_get(tabla_pagina, 0);//Siempre va a ser el mismo pid
+		if(entrada->pid==pid){
+            for(int j = 0; j < list_size(tabla_pagina); j++){
+                list_remove(tabla_pagina, j);
+                //ver si hace falta free
+            }
+            list_remove_element(lista_tablas_de_procesos, tabla_pagina);
+		}
+	}
+	return;
 }
 void liberar_recursos(pcb* proceso) {
 
@@ -310,28 +265,7 @@ void liberar_recursos(pcb* proceso) {
     }
     list_destroy(proceso->archivos);
 }
-// Función para notificar al módulo FS y liberar páginas en la partición de SWAP
-bool notificarLiberacionSwap(int socket_fd, int pid, int cantidadPaginas, int* paginas) {
-    SolicitudLiberacionSwap solicitud;
-    solicitud.pid = pid;
-    solicitud.cantidad_paginas = cantidadPaginas;
 
-    solicitud.paginas = (int*)malloc(cantidadPaginas * sizeof(int));
-    for (int i = 0; i < cantidadPaginas; i++) {
-        solicitud.paginas[i] = paginas[i];
-    }
-
-    if (send(socket_fd, &solicitud, sizeof(SolicitudLiberacionSwap), 0) != sizeof(SolicitudLiberacionSwap)) {
-        perror("Error al enviar la solicitud de liberación de páginas en SWAP al módulo FS");
-        free(solicitud.paginas);
-        return false;
-    }
-
-   
-    free(solicitud.paginas);
-
-    return true;
-}
 int obtenerCantidadPaginasAsignadas(int pid) {
     t_list* marcos_asignados = obtenerMarcosAsignados(pid);
     int cantidadDePaginasAsignadas = list_size(marcos_asignados);

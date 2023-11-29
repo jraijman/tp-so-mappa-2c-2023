@@ -14,8 +14,9 @@ static void procesar_conexion(void* void_args) {
     	}
         switch (cop) {
             case CONEXION_MEMORIA:
-                sleep(1);
+                sleep(2);
                 conexion_filesystem_memoria = crear_conexion(logger,"MEMORIA",ip_memoria,puerto_memoria);
+                enviar_mensaje("Hola soy FILESYSTEM", conexion_filesystem_memoria);
                 break;
             case MENSAJE:
                 recibir_mensaje(logger, cliente_socket);
