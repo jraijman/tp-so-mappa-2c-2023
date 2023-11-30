@@ -20,6 +20,9 @@ typedef struct {
     int bloque_inicial;
 } FCB;
 typedef struct {
-    uint32_t* entrada_FAT;
+    uint32_t entrada_FAT;
 } FAT;
-#endif 
+typedef struct {
+    char* info;
+} BLOQUE;
+#endif

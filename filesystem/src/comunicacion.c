@@ -26,17 +26,13 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 //list_iterate(paquete_recibido, (void*) iterator);
                 break;
-            case ENVIO_PCB:
+            case RESERVA_SWAP:
             {
-                pcb* proceso=recv_pcb(cliente_socket);
-                int bloqueInicio;
-                int bloqueFin;
-                if (sizeof(proceso)!=sizeof(pcb)) {
-                    log_error(logger, "Fallo recibiendo ENVIO_PCB");
-                    break;
-                }
-                log_info(logger, "recibi pcb id: %d, prioridad: %d", proceso->pid, proceso->prioridad);
-                //reservarBloques(proceso, &bloqueInicio, &bloqueFin);
+                t_list* paquete=recibir_paquete(cliente_socket);
+                int cantidad_bloques=list_get(paquete, 0);
+                int bloques_reservados[cantidad_bloques];
+                for(int i=0; i<)
+                reservar_bloquesSWAP(cantidad_bloques,&bloques_reservados);
                 //send_bloquesReservados;
                 break;
             }
@@ -44,13 +40,11 @@ static void procesar_conexion(void* void_args) {
                 log_error(logger, "Algo anduvo mal en el server de %s", server_name);
                 return;
         }
-
     }
 
     log_warning(logger, "El cliente se desconecto de %s server", server_name);
     return;
 }
-
 
 int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket){
     int cliente_socket = esperar_cliente(logger, server_name, server_socket);
