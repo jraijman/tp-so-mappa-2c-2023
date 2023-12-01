@@ -10,6 +10,7 @@
 #include "../../utils/src/utils/utils.h"
 #include "../../utils/src/sockets/sockets.h"
 #include "../../utils/src/protocolo/protocolo.h"
+#include "main.h"
 
 int conexion_filesystem_memoria;
 
@@ -19,11 +20,11 @@ char* puerto_escucha;
 char* path_fat;
 char* path_bloques;
 char* path_fcb;
-char* cant_bloques_total;
-char* cant_bloques_swap;
-char* tam_bloque;
-char* retardo_acceso_bloque;
-char* retardo_acceso_fat;
+int cant_bloques_total;
+int cant_bloques_swap;
+int tam_bloque;
+int retardo_acceso_bloque;
+int retardo_acceso_fat;
 
 typedef struct {
     t_log* log;

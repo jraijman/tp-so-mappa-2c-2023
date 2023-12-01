@@ -18,6 +18,17 @@ void levantar_config(char* ruta){
 
     log_info(logger_filesystem,"Config cargada");
 }
+
+bool abrir_archivo(char* ruta){
+    config = iniciar_config(ruta);
+    if(config!=NULL){
+    char* nombre=config_get_string_value(config,"NOMBRE_ARCHIVO");
+    log_info(logger_filesystem,"Abierto el archivo %s",nombre);
+    return true;
+    }
+    return false;
+}
+
 bool iniciar_fat(int tamano_fat, char* path_fat){
     FAT entrada;
     FILE* f=fopen(path_fat, "rb+");
@@ -43,7 +54,7 @@ bool iniciar_fat(int tamano_fat, char* path_fat){
 }
 bool iniciar_bloques(int tamano_bloques){
 BLOQUE bloque;
-FILE* f=fopen(path_bloques, 'rb+');
+FILE* f=fopen(path_bloques,"rb+");
 if(f!=NULL){
     swapLibre=0;
     bloqueLibre=0;
@@ -51,22 +62,22 @@ if(f!=NULL){
     {
         sleep(retardo_acceso_bloque);
         fread(&bloque,tam_bloque,1,f);
-        if((strcmp(bloque.info,'0'))){
+        if((strcmp(bloque.info,"0"))){
             swapLibre++;
         }
     }
     for(int i=0;i<(cant_bloques_total-cant_bloques_swap);i++){
         sleep(retardo_acceso_bloque);
         fread(&bloque,tam_bloque,1,f);
-        if(strcmp(bloque.info,'0')){
+        if(strcmp(bloque.info,"0")){
             bloqueLibre++;
         }
     }
     fclose(f);
     return true;
 }else{
-    strcpy(bloque.info,'0')//bloque libre
-    f=fopen(path_fat,'wb');
+    strcpy(bloque.info,"0");//bloque libre
+    f=fopen(path_fat,"wb");
     if(f!=NULL){
         for(int i=0; i<cant_bloques_total; i++){
         fwrite(&bloque,tamano_bloques,1,f);
@@ -81,11 +92,11 @@ if(f!=NULL){
     }
 }
 }
-bool liberar_bloquesSWAP(int[]bloques,int cantidad){
-    FILE* f=fopen(path_bloques, 'rb+');
+bool liberar_bloquesSWAP(int bloques[],int cantidad){
+    FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
         BLOQUE bloque;
-        strcpy(bloque.info,'0');
+        strcpy(bloque.info,"0");
         for(int i=0;i<cantidad;i++){
         fseek(f,tam_bloque*bloques[i],SEEK_SET);
         fwrite(&bloque,tam_bloque,1,f);
@@ -93,9 +104,9 @@ bool liberar_bloquesSWAP(int[]bloques,int cantidad){
         }
     }else{return false;}
 }
-bool reservar_bloquesSWAP(int cant_bloques, int** bloques_reservados){
-    if(swapLibre<cant_bloques){return false};
-    FILE*f=fopen(path_bloques, 'rb+');
+bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[]){
+    if(swapLibre<cant_bloques){return false;};
+    FILE*f=fopen(path_bloques, "rb+");
     BLOQUE bloque;
     if(f!=NULL){
         int j=0;
@@ -103,14 +114,14 @@ bool reservar_bloquesSWAP(int cant_bloques, int** bloques_reservados){
         {
             fread(&bloque,tam_bloque,1,f);
             sleep(retardo_acceso_bloque);
-            if(strcmp(bloque.info,'0')){
+            if(strcmp(bloque.info,"0")){
                 fseek(f,-tam_bloque,SEEK_CUR);
-                strcpy(bloque.info,'\0');
+                strcpy(bloque.info,"\0");
                 swapLibre--;
-                bloques_reservados[j]=(ftell/tam_bloque);
+                bloques_reservados[j]=(ftell(f)/tam_bloque);
                 sleep(retardo_acceso_bloque);
                 fwrite(&bloque,tam_bloque,1,f);
-                j++
+                j++;
             }
         }
         return true;

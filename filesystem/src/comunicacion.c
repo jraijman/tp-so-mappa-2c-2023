@@ -26,12 +26,29 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 //list_iterate(paquete_recibido, (void*) iterator);
                 break;
+            case ABRIR_ARCHIVO:
+            {
+                t_list *paqueteRecibido=recibir_paquete(cliente_socket);
+                char* nombre = list_get(paqueteRecibido, 0);
+                int tamRuta=strlen(path_fcb)+strlen(nombre)+5;
+                char* ruta = (char*)malloc(tamRuta);
+                strcpy(ruta,path_fcb);
+                strcat(ruta,nombre);
+                strcat(ruta,".fcb");
+                if(abrir_archivo(ruta)){
+                    t_paquete* paqueteEnviar=crear_paquete(ABRIR_ARCHIVO);
+                    agregar_a_paquete(paqueteEnviar,nombre,sizeof(nombre));
+                    enviar_paquete(paqueteEnviar,cliente_socket);
+                }else{
+                    enviar_mensaje("El archivo solicitado no existe",cliente_socket);
+                }
+                free(ruta);
+            }
             case INICIALIZAR_PROCESO:
             {
                 t_list* paquete=recibir_paquete(cliente_socket);
-                int cantidad_bloques=list_get(paquete, 0);
+                int cantidad_bloques=*(int*)list_get(paquete, 0);
                 int bloques_reservados[cantidad_bloques];
-                for(int i=0; i<)
                 if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados)){
                     t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
                     for(int i=0; i<cantidad_bloques;i++)
@@ -40,24 +57,24 @@ static void procesar_conexion(void* void_args) {
                     }
                     enviar_paquete(paqueteReserva,cliente_socket);
                 }else{
-                    enviar_mensaje("Error al reservar los bloques SWAP");
+                    enviar_mensaje("Error al reservar los bloques SWAP",cliente_socket);
                     log_error(logger,"Error al reservar los bloques SWAP");
                 }
                 break;
             }
             case FINALIZAR_PROCESO:
             {
-                t_list paquete=recibir_paquete(cliente_socket);
-                int cantidad_bloques=list_get(paquete,0);
+                t_list* paquete=recibir_paquete(cliente_socket);
+                int cantidad_bloques=*(int*)list_get(paquete,0);
                 int bloques_a_liberar [cantidad_bloques];
-                for(int i=1, i<cantidad_bloques, i++){
-                    bloques_a_liberar[i-1]=list_get(paquete,i);
+                for(int i=1; i<cantidad_bloques; i++){
+                    bloques_a_liberar[i-1]=*(int*)list_get(paquete,i);
                 }
                 if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques)){
                     enviar_mensaje("SWAP LIBERADO",cliente_socket);
                 }else{
                     log_error(logger, "Error al liberar los bloques SWAP");
-                    enviar_mensaje("ERROR AL LIBERAR SWAP");
+                    enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
                 }
             }
             default:
