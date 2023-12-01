@@ -81,7 +81,6 @@ static void procesar_conexion_dispatch(void* void_args) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
-                    //send_pcbDesalojado(contexto, "SLEEP", "2", cliente_socket_dispatch, logger_cpu);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
                     
                 } else {
@@ -134,19 +133,18 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1) {
         while (cliente_socket_interrupt != -1) {
-            Instruccion instruccion;
-            fetchInstruccion(conexion_cpu_memoria, contexto, &instruccion, logger);
+            Instruccion * instruccion = malloc(sizeof(Instruccion));
+            fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger);
             contexto->pc++;
-            log_info(logger, "Instrucción recibida");
-            decodeInstruccion(&instruccion,contexto);
-            executeInstruccion(contexto, instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
+            decodeInstruccion(instruccion,contexto);
+            executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
         }
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
         return;
     }
 }
 
-void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd_cpu_dispatch, int fd_memoria) {
+void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd_dispatch, int fd_memoria) {
     log_info(logger_cpu, "Instrucción ejecutada: %s %s %s", instruccion.opcode, instruccion.operando1, instruccion.operando2);
 
     if (strcmp(instruccion.opcode, "SET") == 0) {
@@ -156,13 +154,13 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd
     } else if (strcmp(instruccion.opcode, "SUB") == 0) {
         subInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
-        sleepInstruccion(contexto_ejecucion, instruccion, logger_cpu);
+        sleepInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
-        waitInstruccion(contexto_ejecucion, instruccion, logger_cpu);
+        waitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
-        signalInstruccion(contexto_ejecucion, instruccion, logger_cpu);
+        signalInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
-        exitInstruccion(contexto_ejecucion, instruccion, logger_cpu);
+        exitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode,"MOV_IN")==0){
         movInInstruccion(contexto_ejecucion, instruccion,logger_cpu);
     } else if (strcmp(instruccion.opcode,"MOV_OUT")==0){
@@ -189,23 +187,27 @@ void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
         //traducir(instruccion, &direccion, contexto);
     }
-    log_info(logger_cpu, "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
+    log_info(logger_cpu,ANSI_COLOR_BLUE "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
 }
 
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {
     log_info (logger,ANSI_COLOR_BLUE "Fetch de instruccion");
     Instruccion aux;
     send_fetch_instruccion(contexto->path,contexto->pc, fd); // Envía paquete para pedir instrucciones
+    recibir_operacion(fd);
     aux=recv_instruccion(fd);
+    instruccion->opcode = malloc(sizeof(char) * strlen(aux.opcode) + 1);
+    instruccion->operando1 = malloc(sizeof(char) * strlen(aux.operando1) + 1);
+    instruccion->operando2 = malloc(sizeof(char) * strlen(aux.operando2) + 1);
     strcpy(instruccion->opcode, aux.opcode);
     strcpy(instruccion->operando1, aux.operando1);
     strcpy(instruccion->operando2, aux.operando2);
     if (instruccion!=NULL) {
-        log_info(logger, "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
+        log_info(logger,ANSI_COLOR_BLUE "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto->pid, contexto->pc);
         return true;
     } else {
-        log_error(logger, "Error al recibir la instrucción");
+        perror("Error al recibir la instrucción");
         return false;
     }
 }

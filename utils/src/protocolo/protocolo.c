@@ -203,29 +203,33 @@ void lista_archivos_destroy(t_list* lista) {
 }
 
 void empaquetar_registros(t_paquete* paquete, t_registros* registro){
-	agregar_a_paquete(paquete,&(registro->ax), sizeof(uint32_t));
-	agregar_a_paquete(paquete,&(registro->bx), sizeof(uint32_t));
-	agregar_a_paquete(paquete,&(registro->cx), sizeof(uint32_t));
-	agregar_a_paquete(paquete,&(registro->dx), sizeof(uint32_t));
+	agregar_a_paquete(paquete, registro->ax, sizeof(uint32_t));
+	agregar_a_paquete(paquete, registro->bx, sizeof(uint32_t));
+	agregar_a_paquete(paquete, registro->cx, sizeof(uint32_t));
+	agregar_a_paquete(paquete, registro->dx, sizeof(uint32_t));
 }
 
 t_registros* desempaquetar_registros(t_list * paquete,int posicion){
 	t_registros *registro = malloc(sizeof(t_registros));
 
-	uint32_t* ax = list_get(paquete,posicion);
-	registro->ax = ax;
+	uint32_t* ax = list_get(paquete, posicion);
+	registro->ax = malloc(sizeof(uint32_t));
+	memcpy(registro->ax, ax, sizeof(uint32_t));
 	free(ax);
 
-	uint32_t* bx = list_get(paquete,posicion+1);
-	registro->bx = bx;
+	uint32_t* bx = list_get(paquete, posicion+1);
+	registro->bx = malloc(sizeof(uint32_t));
+	memcpy(registro->bx, bx, sizeof(uint32_t));
 	free(bx);
 
-	uint32_t* cx = list_get(paquete,posicion+2);
-    registro->cx = cx;
+	uint32_t* cx = list_get(paquete, posicion+2);
+	registro->cx = malloc(sizeof(uint32_t));
+    memcpy(registro->cx, cx, sizeof(uint32_t));
 	free(cx);
 
-	uint32_t* dx = list_get(paquete,posicion+3);
-	registro->dx = dx;
+	uint32_t* dx = list_get(paquete, posicion+3);
+	registro->dx = malloc(sizeof(uint32_t));
+	memcpy(registro->dx, dx, sizeof(uint32_t));
 	free(dx);
 
 	return registro;
@@ -414,7 +418,7 @@ Instruccion desempaquetar_instruccion(t_list* paquete) {
 }
 
 void send_instruccion(int socket_cliente, Instruccion instruccion) {
-    printf("Enviando instruccion");
+    printf("Enviando instruccion, opcode :%s, oper1: %s\n",instruccion.opcode, instruccion.operando1);
     t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
     empaquetar_instruccion(paquete, instruccion);
     enviar_paquete(paquete, socket_cliente);
@@ -449,19 +453,13 @@ eliminar_paquete(paquete);
 
 }
 
-int recv_fetch_instruccion(int fd_modulo, char ** path, int** pc) {
+int recv_fetch_instruccion(int fd_modulo, char** path, int** pc) {
     t_list* paquete = recibir_paquete(fd_modulo);
 
 	// Obtener el path del paquete
-	char* path_recv = list_get(paquete, 0);
-	path = malloc(strlen(path_recv) + 1);
-	strcpy(path, path_recv);
-	free(path_recv);
+	*path = (char*) list_get(paquete, 0);
 
-    // Obtener el PC del paquete
-    int* pc_recv = list_get(paquete, 1);
-    pc = *pc_recv;
-    free(pc_recv);
+    *pc = (int*) list_get(paquete, 1);
 
 
     list_destroy(paquete);

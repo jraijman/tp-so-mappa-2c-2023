@@ -18,36 +18,7 @@ void levantar_config(char *ruta)
     retardo_respuesta = config_get_int_value(config, "RETARDO_RESPUESTA");
     algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
 }
-bool leerYEnviarInstruccion(FILE *archivo, int conexion_memoria) {
-    char linea[256];
-    Instruccion instruccion = {0};
-    if (fgets(linea, sizeof(linea), archivo) != NULL) {
-        char **palabras = string_split(linea, " ");
 
-        if (palabras[0] != NULL) {
-            strcpy(instruccion.opcode, palabras[0]);
-
-            if (palabras[1] != NULL) {
-                strcpy(instruccion.operando1, palabras[1]);
-
-                if (palabras[2] != NULL) {
-                    strcpy(instruccion.operando2, palabras[2]);
-                } else {
-                    instruccion.operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
-                }
-            } else {
-                instruccion.operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
-                instruccion.operando2[0] = '\0'; // Vaciar el operando2
-            }
-        } else {
-            log_error(logger_memoria, "Error al cargar la instrucción");
-        }
-
-        /*if (!send_instruccion(conexion_memoria, instruccion)) {
-            log_error(logger_memoria, "Error al enviar la instrucción");
-        }*/
-    }
-}
 int main(int argc, char *argv[])
 {
 
@@ -122,8 +93,9 @@ static void procesar_conexion(void *void_args) {
             printf("Recibí pedido de instrucción\n");
             char* path;
             int* pc;
-            recv_fetch_instruccion(cliente_socket, &path, &pc);
-            leer_instruccion_por_pc(path,pc);
+            usleep(retardo_respuesta);
+            recv_fetch_instruccion(cliente_socket, &path,&pc);
+            leer_instruccion_por_pc_y_enviar(path,*pc, cliente_socket);
             break;
 
 	return;
@@ -309,7 +281,7 @@ t_list* crear_tabla(int pid){
 
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------
 
-void leer_instruccion_por_pc(char *path_instrucciones,int pc) {
+void leer_instruccion_por_pc_y_enviar(char *path_instrucciones,int pc, int fd) {
     FILE *archivo = fopen(path_instrucciones, "r");
     if (archivo == NULL) {
         perror("No se pudo abrir el archivo de instrucciones");
@@ -322,7 +294,8 @@ void leer_instruccion_por_pc(char *path_instrucciones,int pc) {
     while (fgets(instruccion_leida, sizeof(instruccion_leida), archivo) != NULL) {
         if (current_pc == pc) {
             printf("Instrucción %d: %s", pc, instruccion_leida);
-            armar_estructura_instruccion(instruccion_leida);
+            Instruccion *instruccion = armar_estructura_instruccion(instruccion_leida);
+            send_instruccion(fd, *instruccion);
             break;
         }
         current_pc++;
@@ -331,27 +304,39 @@ void leer_instruccion_por_pc(char *path_instrucciones,int pc) {
     fclose(archivo);
 }
 
-armar_estructura_instruccion(char* instruccion_leida){
+Instruccion* armar_estructura_instruccion(char* instruccion_leida){
     char **palabras = string_split(instruccion_leida, " ");
-    Instruccion instruccion;
+    
+    Instruccion *instruccion = malloc(sizeof(Instruccion));
 
     if (palabras[0] != NULL) {
-        strcpy(instruccion.opcode, palabras[0]);
+        instruccion->opcode = malloc(sizeof(char) * strlen(palabras[0]) + 1);
+        strcpy(instruccion->opcode, palabras[0]);
 
         if (palabras[1] != NULL) {
-            strcpy(instruccion.operando1, palabras[1]);
+            instruccion->operando1 = malloc(sizeof(char) * strlen(palabras[1]) + 1);
+            strcpy(instruccion->operando1, palabras[1]);
 
             if (palabras[2] != NULL) {
-                strcpy(instruccion.operando2, palabras[2]);
+                instruccion->operando2 = malloc(sizeof(char) * strlen(palabras[2]) + 1);
+                strcpy(instruccion->operando2, palabras[2]);
+                // Eliminar el salto de línea al final del operando2 si existe
+                if (instruccion->operando2[strlen(instruccion->operando2) - 1] == '\n') {
+                    instruccion->operando2[strlen(instruccion->operando2) - 1] = '\0';
+                }
             } else {
-                instruccion.operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
+                instruccion->operando2 = malloc(sizeof(char) *strlen('\0')+1);
+                instruccion->operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
             }
         } else {
-            instruccion.operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
-            instruccion.operando2[0] = '\0'; // Vaciar el operando2
+            instruccion->operando1 = malloc(1);
+            instruccion->operando2 = malloc(1);
+            instruccion->operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
+            instruccion->operando2[0] = '\0'; // Vaciar el operando2
         }
     } else {
-        log_error(logger_memoria, "Error al cargar la instrucción");
+        perror("Error al cargar la instrucción");
     }
+    return instruccion;
 }
 

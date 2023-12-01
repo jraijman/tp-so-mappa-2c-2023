@@ -16,15 +16,15 @@
 #include "../../utils/src/protocolo/protocolo.h"
 
 int traducir(int direccionLogica, int fd_memoria);
-int* obtener_registro(pcb* contexto, char* nombre_registro);
+uint32_t* obtener_registro(pcb* contexto, char* nombre_registro);
 void setInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
 void sumInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
 void subInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
 void jnzInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
-void sleepInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
-void waitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
-void signalInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
-void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
+void sleepInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_cpu_dispatch);
+void waitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_cpu_dispatch);
+void signalInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_cpu_dispatch);
+void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger , int fd_cpu_dispatch);
 void movInInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
 void movOutInstruccion(pcb* contexto, Instruccion instruccion,int fd_memoria, t_log* logger);
 void fOpenInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch, t_log* logger);

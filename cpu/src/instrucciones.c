@@ -21,11 +21,11 @@ int traducir(int direccion_logica,int fd) {
 }
 
 void setInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
-    log_info(logger, "EJECUTANDO INSTRUCCION SET");
+    log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION SET");
     char* registro = instruccion.operando1;
     char* valor = instruccion.operando2;
 
-    int* registro_destino = obtener_registro(contexto, registro);
+    uint32_t* registro_destino = obtener_registro(contexto, registro);
 
     if (registro_destino != NULL) {
         *registro_destino = atoi(valor);
@@ -39,8 +39,8 @@ void sumInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
     char* destino = instruccion.operando1;
     char* origen = instruccion.operando2;
 
-    int* registro_destino = obtener_registro(contexto, destino);
-    int* registro_origen = obtener_registro(contexto, origen);
+    uint32_t* registro_destino = obtener_registro(contexto, destino);
+    uint32_t* registro_origen = obtener_registro(contexto, origen);
 
     if (registro_destino != NULL && registro_origen != NULL) {
         *registro_destino = *registro_destino + *registro_origen;
@@ -79,31 +79,31 @@ void jnzInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
     }
 }
 
-void sleepInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
+void sleepInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_dispatch) {
     log_info(logger,"EJECUTANDO INSTRUCCION SLEEP");
     // SLEEP (Tiempo): Esta instrucción representa una syscall bloqueante. Se deberá devolver el Contexto de Ejecución actualizado al Kernel junto a la cantidad de segundos que va a bloquearse el proceso.
     char* tiempo = instruccion.operando1;
-    send_pcbDesalojado(contexto, "SLEEP", tiempo, fd_cpu_dispatch, logger);    
+    send_pcbDesalojado(contexto, "SLEEP", tiempo, fd_dispatch, logger);    
 }
 
-void waitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
+void waitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_dispatch) {
     log_info(logger,"EJECUTANDO INSTRUCCION WAIT");
     // WAIT (Recurso): Esta instrucción solicita al Kernel que se asigne una instancia del recurso indicado por parámetro.
     char* recurso = instruccion.operando1;
-    send_pcbDesalojado(contexto, "WAIT", recurso, fd_cpu_dispatch, logger);
+    send_pcbDesalojado(contexto, "WAIT", recurso, fd_dispatch, logger);
 }
 
-void signalInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
+void signalInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_dispatch) {
     log_info(logger,"EJECUTANDO INSTRUCCION SIGNAL");
     // SIGNAL (Recurso): Esta instrucción solicita al Kernel que libere una instancia del recurso indicado por parámetro.
     char* recurso = instruccion.operando1;
-    send_pcbDesalojado(contexto, "SIGNAL", recurso, fd_cpu_dispatch, logger);
+    send_pcbDesalojado(contexto, "SIGNAL", recurso, fd_dispatch, logger);
 }
 
-void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
+void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_dispatch) {
     log_info(logger,"EJECUTANDO INSTRUCCION EXIT");
     // EXIT: Esta instrucción representa la syscall de finalización del proceso. Se deberá devolver el Contexto de Ejecución actualizado al Kernel para su finalización.
-    send_pcbDesalojado(contexto, "EXIT", "", fd_cpu_dispatch, logger);
+    send_pcbDesalojado(contexto, "EXIT", "", fd_dispatch, logger);
 }
 
 void movInInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
@@ -213,7 +213,7 @@ void fTruncateInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_disp
  }
 
 
-int* obtener_registro(pcb* contexto, char* nombre_registro) {
+uint32_t* obtener_registro(pcb* contexto, char* nombre_registro) {
     if (strcmp(nombre_registro, "AX") == 0) {
         return contexto->registros->ax;
     } else if (strcmp(nombre_registro, "BX") == 0) {

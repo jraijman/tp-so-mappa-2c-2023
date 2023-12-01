@@ -7,21 +7,17 @@ int iniciar_servidor(t_log* logger, char* ip, char* puerto, char* nombre)
 	struct addrinfo hints, *servinfo;
 
 	memset(&hints, 0, sizeof(hints));
-	hints.ai_family = AF_UNSPEC;
+	hints.ai_family = AF_INET;
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
 	getaddrinfo(ip, puerto, &hints, &servinfo);
 
-	// Creamos el socket de escucha del servidor
-
 	socket_servidor = socket(servinfo->ai_family, servinfo->ai_socktype, servinfo->ai_protocol);
-
-	// Asociamos el socket a un puerto
+    int yes = 1;
+    setsockopt(socket_servidor, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes);
 
 	bind(socket_servidor, servinfo->ai_addr, servinfo->ai_addrlen);
-
-	// Escuchamos las conexiones entrantes
 
 	listen(socket_servidor, SOMAXCONN);
 

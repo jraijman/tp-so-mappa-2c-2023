@@ -48,6 +48,7 @@ uint32_t get_memory_and_page_size();
 int buscar_marco_libre();
 t_list* obtenerMarcosAsignados( int pid);
 int paginas_necesarias(pcb *proceso);
+Instruccion* armar_estructura_instruccion(char* instruccion_leida);
 
 
 #endif 

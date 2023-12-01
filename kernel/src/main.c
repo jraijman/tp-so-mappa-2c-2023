@@ -548,7 +548,14 @@ void manejar_recibir_cpu(){
                 case PCB_EXIT:
                     printf("\n manejo exit \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
-                    // hacer algo con el proceso recibido
+                    //borrar todo lo que corresponde a ese proceso
+                    sacar_de_exec();
+                    // Mandar a la cola de EXIT;
+                    agregar_a_exit(proceso);
+                    //Liberar recursos asignados del proceso
+
+                    //mandar mensaje a memoria para que libere
+                    send_terminar_proceso(proceso->pid,fd_memoria);
                     break;
                 case PCB_SLEEP:
                     printf("\n manejo sleep \n");
@@ -644,10 +651,14 @@ pcb* crear_pcb(char* nombre_archivo, char* size, char* prioridad) {
     proceso->prioridad = atoi(prioridad);
     proceso->estado = NEW;
     proceso->registros = malloc(sizeof(t_registros));
-    proceso->registros->ax = 0;
-    proceso->registros->bx = 0;
-    proceso->registros->cx = 0;
-    proceso->registros->dx = 0;
+    proceso->registros->ax = malloc(sizeof(uint32_t));
+    *(proceso->registros->ax) = 0;
+    proceso->registros->bx = malloc(sizeof(uint32_t));
+    *(proceso->registros->bx) = 0;
+    proceso->registros->cx = malloc(sizeof(uint32_t));
+    *(proceso->registros->cx) = 0;
+    proceso->registros->dx = malloc(sizeof(uint32_t));
+    *(proceso->registros->dx) = 0;
     proceso->archivos = list_create();
     proceso->path = malloc(sizeof(char) * strlen(nombre_archivo) + 1);
     strcpy(proceso->path, nombre_archivo);
