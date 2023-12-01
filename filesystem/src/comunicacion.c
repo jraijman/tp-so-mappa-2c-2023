@@ -32,8 +32,16 @@ static void procesar_conexion(void* void_args) {
                 int cantidad_bloques=list_get(paquete, 0);
                 int bloques_reservados[cantidad_bloques];
                 for(int i=0; i<)
-                reservar_bloquesSWAP(cantidad_bloques,&bloques_reservados);
-                //send_bloquesReservados;
+                if(reservar_bloquesSWAP(cantidad_bloques,&bloques_reservados)){
+                    t_paquete* paqueteReserva=crear_paquete(RESERVA_SWAP);
+                    for(int i=0; i<cantidad_bloques;i++)
+                    {
+                        agregar_a_paquete(paqueteReserva,&bloques_reservados[i],sizeof(int));
+                    }
+                    enviar_paquete(paqueteReserva,cliente_socket);
+                }else{
+                    log_error(logger,"Error al reservar los bloques SWAP");
+                }
                 break;
             }
             default:

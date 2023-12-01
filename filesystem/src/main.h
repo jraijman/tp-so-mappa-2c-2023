@@ -13,6 +13,8 @@
 
 t_log* logger_filesystem;
 t_config* config;
+int swapLibre;
+int bloqueLibre;
 
 typedef struct {
     char* nombre_archivo;
