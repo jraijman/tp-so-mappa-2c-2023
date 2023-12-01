@@ -13,12 +13,12 @@ int main(int argc, char* argv[]) {
 	if (!generar_conexiones()) {
 		log_error(logger_kernel, "Alguna conexion falló");
 		// libero conexiones, log y config
-        terminar_programa(logger_kernel, config);
+        /*terminar_programa(logger_kernel, config);
         liberar_conexion(fd_cpu_dispatch);
         liberar_conexion(fd_cpu_interrupt);
         liberar_conexion(fd_memoria);
         liberar_conexion(fd_filesystem);
-		exit(1);
+		exit(1);*/
 	}
     
     //mensajes de prueba

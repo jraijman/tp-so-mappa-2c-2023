@@ -439,7 +439,7 @@ void send_fetch_instruccion(char * path, int pc, int fd_modulo) {
 t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
 
 // Agregar el path al paquete
-agregar_a_paquete(paquete, &path, strlen(path) + 1);
+agregar_a_paquete(paquete, path, strlen(path) + 1);
 
 // Agregar el PC al paquete
 agregar_a_paquete(paquete, &pc, sizeof(int));
@@ -449,29 +449,28 @@ eliminar_paquete(paquete);
 
 }
 
-int recv_fetch_instruccion(int fd_modulo, char * path, int* pc) {
+int recv_fetch_instruccion(int fd_modulo, char ** path, int** pc) {
     t_list* paquete = recibir_paquete(fd_modulo);
 
-    // Obtener el path del paquete
-    char* path_recv = list_get(paquete, 0);
-    *path = malloc(strlen(path_recv) + 1);
-	strcpy(path_recv, path);
-	free(path);
+	// Obtener el path del paquete
+	char* path_recv = list_get(paquete, 0);
+	path = malloc(strlen(path_recv) + 1);
+	strcpy(path, path_recv);
+	free(path_recv);
 
     // Obtener el PC del paquete
     int* pc_recv = list_get(paquete, 1);
-    *pc = *pc_recv;
+    pc = *pc_recv;
     free(pc_recv);
+
 
     list_destroy(paquete);
     return 0; // Puedes devolver el valor necesario en tu implementación.
 }
 
 
-void send_reserva_swap(int fd, int pid, int cantidad_bloques) {
+void send_reserva_swap(int fd, int cantidad_bloques) {
 	t_paquete* paquete = crear_paquete(RESERVA_SWAP);
-    // Agregar el PID al paquete
-    agregar_a_paquete(paquete, &pid, sizeof(int));
     // Agregar cant de bloques al paquete
     agregar_a_paquete(paquete, &cantidad_bloques, sizeof(int));
     enviar_paquete(paquete, fd);

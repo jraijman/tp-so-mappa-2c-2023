@@ -81,7 +81,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
-                    send_pcbDesalojado(contexto, "SLEEP", "2", cliente_socket_dispatch, logger_cpu);
+                    //send_pcbDesalojado(contexto, "SLEEP", "2", cliente_socket_dispatch, logger_cpu);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
                     
                 } else {

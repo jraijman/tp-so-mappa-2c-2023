@@ -104,8 +104,11 @@ static void procesar_conexion(void *void_args) {
 			pcb* proceso = recv_pcb(cliente_socket); //void* memoriaFisica = malloc();
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             enviar_mensaje("OK inicio proceso", cliente_socket);
-            //mandar aca a fs para recibir por en swap 
+            int cant_paginas_necesarias = paginas_necesarias(proceso);
+            //mandar aca a fs para recibir pos en swap 
+            send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
             //bloquear con recv hasta recibir la lista de swap 
+            //t_list* bloques_reservados = recv_bloques_reservados(logger_memoria, conexion_memoria_filesystem);
             //t_list* tabla_paginas = inicializar_proceso(proceso);
             //list_add(lista_tablas_de_procesos, tabla_paginas);
             break;
@@ -118,8 +121,8 @@ static void procesar_conexion(void *void_args) {
         case ENVIO_INSTRUCCION:
             printf("Recibí pedido de instrucción\n");
             char* path;
-            int pc;
-            recv_fetch_instruccion(cliente_socket,path,pc);
+            int* pc;
+            recv_fetch_instruccion(cliente_socket, &path, &pc);
             leer_instruccion_por_pc(path,pc);
             break;
 
@@ -243,6 +246,11 @@ void terminar_proceso(int pid){
     //liberar_recursos(proceso); Consultar con ayudante
     send_liberacion_swap(conexion_memoria_filesystem,pid);
 }
+
+int paginas_necesarias(pcb *proceso){
+    return proceso->size / tam_pagina;
+}
+
 void eliminar_tabla_paginas(int pid){
 for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
 		t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
@@ -308,12 +316,13 @@ void leer_instruccion_por_pc(char *path_instrucciones,int pc) {
         return NULL;
     }
 
-    char instruccion[256];
+    char instruccion_leida[256];
     int current_pc = 0;
 
-    while (fgets(instruccion, sizeof(instruccion), archivo) != NULL) {
+    while (fgets(instruccion_leida, sizeof(instruccion_leida), archivo) != NULL) {
         if (current_pc == pc) {
-            printf("Instrucción %d: %s", pc, instruccion);
+            printf("Instrucción %d: %s", pc, instruccion_leida);
+            armar_estructura_instruccion(instruccion_leida);
             break;
         }
         current_pc++;
@@ -321,3 +330,28 @@ void leer_instruccion_por_pc(char *path_instrucciones,int pc) {
 
     fclose(archivo);
 }
+
+armar_estructura_instruccion(char* instruccion_leida){
+    char **palabras = string_split(instruccion_leida, " ");
+    Instruccion instruccion;
+
+    if (palabras[0] != NULL) {
+        strcpy(instruccion.opcode, palabras[0]);
+
+        if (palabras[1] != NULL) {
+            strcpy(instruccion.operando1, palabras[1]);
+
+            if (palabras[2] != NULL) {
+                strcpy(instruccion.operando2, palabras[2]);
+            } else {
+                instruccion.operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
+            }
+        } else {
+            instruccion.operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
+            instruccion.operando2[0] = '\0'; // Vaciar el operando2
+        }
+    } else {
+        log_error(logger_memoria, "Error al cargar la instrucción");
+    }
+}
+

@@ -47,6 +47,7 @@ void escribir_marco_en_memoria(uint32_t nro_marco, void* marco);
 uint32_t get_memory_and_page_size();
 int buscar_marco_libre();
 t_list* obtenerMarcosAsignados( int pid);
+int paginas_necesarias(pcb *proceso);
 
 
 #endif 

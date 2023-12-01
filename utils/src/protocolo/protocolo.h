@@ -244,7 +244,7 @@ int recv_tiempo_io(int fd_modulo);
 char* recv_recurso(int fd_modulo);
 int recv_terminar_proceso(int fd_modulo);
 Instruccion recv_instruccion(int socket_cliente);
-int recv_fetch_instruccion(int fd_modulo, char* path, int* pc);
+int recv_fetch_instruccion(int fd_modulo, char** path, int** pc);
 void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo, int pid);
 
