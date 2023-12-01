@@ -435,26 +435,28 @@ void destroyInstruccion(Instruccion instruccion) {
     free(instruccion.operando2);
 }
 
-void send_fetch_instruccion(int pid, int pc, int fd_modulo) {
-    t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
+void send_fetch_instruccion(char * path, int pc, int fd_modulo) {
+t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
 
-    // Agregar el PID al paquete
-    agregar_a_paquete(paquete, &pid, sizeof(int));
+// Agregar el path al paquete
+agregar_a_paquete(paquete, &path, strlen(path) + 1);
 
-    // Agregar el PC al paquete
-    agregar_a_paquete(paquete, &pc, sizeof(int));
+// Agregar el PC al paquete
+agregar_a_paquete(paquete, &pc, sizeof(int));
 
-    enviar_paquete(paquete, fd_modulo);
-    eliminar_paquete(paquete);
+enviar_paquete(paquete, fd_modulo);
+eliminar_paquete(paquete);
+
 }
 
-int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc) {
+int recv_fetch_instruccion(int fd_modulo, char * path, int* pc) {
     t_list* paquete = recibir_paquete(fd_modulo);
 
-    // Obtener el PID del paquete
-    int* pid_recv = list_get(paquete, 0);
-    *pid = *pid_recv;
-    free(pid_recv);
+    // Obtener el path del paquete
+    char* path_recv = list_get(paquete, 0);
+    *path = malloc(strlen(path_recv) + 1);
+	strcpy(path_recv, path);
+	free(path);
 
     // Obtener el PC del paquete
     int* pc_recv = list_get(paquete, 1);
@@ -522,7 +524,7 @@ t_list* desempaquetar_bloques(t_list* paquete, int* comienzo) {
 		free(bloque_asignado);
 		i++;
 
-		list_add(lista_bloques, archivo);
+		list_add(lista_bloques, bloque);
 	}
 
 	*comienzo = i;

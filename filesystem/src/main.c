@@ -131,12 +131,12 @@ int main(int argc, char* argv[]) {
     levantar_config("filesystem.config");
     int fd_filesystem = iniciar_servidor(logger_filesystem,NULL,puerto_escucha,"FILESYSTEM");
     int tamano_fat=(cant_bloques_total-cant_bloques_swap)*sizeof(uint32_t);
-    if(!iniciar_fat(tamano_fat,path_fat)){
+    /*if(!iniciar_fat(tamano_fat,path_fat)){
         log_error(logger_filesystem, "Error al crear el archivo FAT");
     }
     if(!iniciar_bloques(tam_bloque)){
         log_error(logger_filesystem, "Error al iniciar el archivo de bloques");
-    }
+    }*/
     //espero clientes kernel y memoria
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem));
 

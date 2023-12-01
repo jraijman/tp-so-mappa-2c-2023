@@ -82,7 +82,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                     enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
                     sleep(0.99);
                     send_pcbDesalojado(contexto, "SLEEP", "2", cliente_socket_dispatch, logger_cpu);
-                   //ciclo_instruccion(contexto, cliente_socket_dispatch, cliente_socket_interrupt, logger_cpu);
+                    ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
                     
                 } else {
                     log_error(logger_cpu, "Error al recibir el PCB");
@@ -195,7 +195,7 @@ void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {
     log_info (logger,ANSI_COLOR_BLUE "Fetch de instruccion");
     Instruccion aux;
-    send_fetch_instruccion(contexto->pid,contexto->pc, fd); // Envía paquete para pedir instrucciones
+    send_fetch_instruccion(contexto->path,contexto->pc, fd); // Envía paquete para pedir instrucciones
     aux=recv_instruccion(fd);
     strcpy(instruccion->opcode, aux.opcode);
     strcpy(instruccion->operando1, aux.operando1);

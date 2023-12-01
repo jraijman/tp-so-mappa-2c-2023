@@ -38,7 +38,7 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 int obtenerCantidadPaginasAsignadas(int pid);
 int server_escuchar(int fd_memoria);
 void terminar_proceso(int pid);
-t_list* inicializar_proceso(int pid);
+t_list* inicializar_proceso(pcb* pcb);
 pcb* encontrar_proceso(int pid);
 void* obtener_marco(uint32_t nro_marco); 
 void eliminar_proceso(int pid);

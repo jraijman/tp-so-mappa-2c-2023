@@ -101,13 +101,13 @@ static void procesar_conexion(void *void_args) {
 			//list_iterate(paquete_recibido, (void*) iterator);
 			break;
 		case INICIALIZAR_PROCESO:
-			pcb* proceso = recv_pcb(cliente_socket);
+			pcb* proceso = recv_pcb(cliente_socket); //void* memoriaFisica = malloc();
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             enviar_mensaje("OK inicio proceso", cliente_socket);
-            t_list* tabla_paginas = inicializar_proceso(proceso);
-            list_add(lista_tablas_de_procesos, tabla_paginas);
-            //aca tiene q enviar reserva de swap y recibir los qbloques asignados del proceso
-		    //send_proceso_inicializado(tabla_paginas, cliente_socket);			
+            //mandar aca a fs para recibir por en swap 
+            //bloquear con recv hasta recibir la lista de swap 
+            //t_list* tabla_paginas = inicializar_proceso(proceso);
+            //list_add(lista_tablas_de_procesos, tabla_paginas);
             break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
@@ -116,12 +116,15 @@ static void procesar_conexion(void *void_args) {
 			terminar_proceso(pid_fin);
 			break;
         case ENVIO_INSTRUCCION:
-            //mandar innstruccionn
-            //recv_fetch_instruccion
+            printf("Recibí pedido de instrucción\n");
+            char* path;
+            int pc;
+            recv_fetch_instruccion(cliente_socket,path,pc);
+            leer_instruccion_por_pc(path,pc);
             break;
 
 	return;
-        } 
+        }
     }
 }
 
@@ -224,12 +227,13 @@ t_list* inicializar_proceso(pcb* proceso) {
     t_list* tabla_de_paginas = list_create();
 	for (int i = 0; i < entradas_por_tabla ; i++){
 		entrada_pagina* pagina = malloc(entradas_por_tabla * sizeof(pagina));
-		pagina->nro_marco=-1;
+		pagina->num_marco=-1;
 		pagina->modificado=0;
 		pagina->en_memoria=0;
         pagina->pid= proceso->pid;
 		list_add(tabla_de_paginas, pagina);
 	}
+    
 	return tabla_de_paginas;
 }
 
@@ -237,7 +241,7 @@ void terminar_proceso(int pid){
     //borrar tabla paginas, mandar terminar a fs
     eliminar_tabla_paginas(pid);
     //liberar_recursos(proceso); Consultar con ayudante
-    send_liberacion_swap(fd,pid);
+    send_liberacion_swap(conexion_memoria_filesystem,pid);
 }
 void eliminar_tabla_paginas(int pid){
 for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
@@ -293,7 +297,27 @@ t_list* crear_tabla(int pid){
     }
     return tabla_de_pagina;
 }
-/*
-TODO:
-INSTRUCCIONES SE ENVIA 1 SOLA, LA PETICION ES ITERATIVA DEL LADO CPU POR LO CUAL VAN A IR LLEGANDO PETICIONES DE INSTRUCCION (INDEXAS CON EL PROGRAM COUNTER PARA BAJAR LA LINEA QUE NECESITO)
-*/
+
+
+// ----------------------MEMORIA DE INSTRUCCIONES----------------------------
+
+void leer_instruccion_por_pc(char *path_instrucciones,int pc) {
+    FILE *archivo = fopen(path_instrucciones, "r");
+    if (archivo == NULL) {
+        perror("No se pudo abrir el archivo de instrucciones");
+        return NULL;
+    }
+
+    char instruccion[256];
+    int current_pc = 0;
+
+    while (fgets(instruccion, sizeof(instruccion), archivo) != NULL) {
+        if (current_pc == pc) {
+            printf("Instrucción %d: %s", pc, instruccion);
+            break;
+        }
+        current_pc++;
+    }
+
+    fclose(archivo);
+}

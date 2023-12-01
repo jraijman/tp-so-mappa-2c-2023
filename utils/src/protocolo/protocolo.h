@@ -39,7 +39,10 @@ typedef enum
     INTERRUPCION,
     PCB_PAGEFAULT,
     CONEXION_MEMORIA,
-    ABRIR_ARCHIVO
+    ABRIR_ARCHIVO,
+    RESERVA_SWAP,
+    BLOQUES_RESERVADOS,
+    LIBERACION_SWAP
 } op_code;
 typedef struct
 {
@@ -85,7 +88,7 @@ typedef struct
     bool en_memoria; //bit de presencia
     bool modificado; // bit de modificado
     int pid;
-    //int posicion_swap; 
+    int posicion_swap; 
 } entrada_pagina;
 
 // Definición de estructura para representar un proceso (PCB)
@@ -229,7 +232,7 @@ void send_recurso_signal(char* recurso, int fd_modulo);
 void send_inicializar_proceso(pcb * contexto, int fd_modulo);
 void send_terminar_proceso(int pid, int fd_modulo);
 void send_instruccion(int socket_cliente, Instruccion instruccion);
-void send_fetch_instruccion(int pid, int pc, int fd_modulo);
+void send_fetch_instruccion(char * path, int pc, int fd_modulo);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
@@ -239,7 +242,7 @@ int recv_tiempo_io(int fd_modulo);
 char* recv_recurso(int fd_modulo);
 int recv_terminar_proceso(int fd_modulo);
 Instruccion recv_instruccion(int socket_cliente);
-int recv_fetch_instruccion(int fd_modulo, int* pid, int* pc);
+int recv_fetch_instruccion(int fd_modulo, char* path, int* pc);
 void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo, int pid);
 

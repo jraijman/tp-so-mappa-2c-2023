@@ -530,7 +530,6 @@ void manejar_recibir_cpu(){
         else{
             pcb* proceso = NULL;
             char * extra = NULL;
-            printf("da %d\n",fd_cpu_dispatch);
             op_code cop = recibir_operacion(fd_cpu_dispatch);
             switch (cop) {
                 case MENSAJE:
