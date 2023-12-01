@@ -37,16 +37,18 @@ void crear_archivo(char* nombre) {
     strcpy(ruta, path_fcb);
     strcat(ruta, nombre);
     strcat(ruta, ".fcb");
-    config_save_in_file(NULL, ruta);
-    t_config* nuevoFCB = config_create(ruta);
-    dictionary_put(nuevoFCB->properties,"NOMBRE_ARCHIVO", nombreArchivo);
+    t_config* nuevoFCB;
+    nuevoFCB->properties=dictionary_create();
+    nuevoFCB->path=ruta;
+    config_save_in_file(nuevoFCB,ruta);
+    nuevoFCB=config_create(ruta);
+    dictionary_put(nuevoFCB->properties, "NOMBRE_ARCHIVO", strdup(nombreArchivo));
     dictionary_put(nuevoFCB->properties, "TAMANIO_ARCHIVO", "0");
     dictionary_put(nuevoFCB->properties, "BLOQUE_INICIAL", " ");
-    config_save(nuevoFCB);
-    config_destroy(nuevoFCB);
+    config_save_in_file(nuevoFCB, ruta);
+    
     return;
 }
-
 
 bool iniciar_fat(int tamano_fat, char* path_fat){
     FAT entrada;
