@@ -27,4 +27,7 @@ typedef struct {
 typedef struct {
     char* info;
 } BLOQUE;
+
+bool liberar_bloquesSWAP(int[]bloques,int cantidad);
+bool reservar_bloquesSWAP(int cant_bloques, int** bloques_reservados);
 #endif

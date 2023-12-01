@@ -81,28 +81,40 @@ if(f!=NULL){
     }
 }
 }
-bool reservar_bloquesSWAP(int cant_bloques, int** bloques_reservados)
-{
- if(swapLibre<cant_bloques){return false};
- FILE*f=fopen(path_bloques, 'rb+');
- BLOQUE bloque;
- if(f!=NULL){
-    int j=0;
-    while(j<cant_bloques)
-    {
-        fread(&bloque,tam_bloque,1,f);
-        sleep(retardo_acceso_bloque);
-        if(strcmp(bloque.info,'0')){
-            fseek(f,tam_bloque,-1);
-            strcpy(bloque.info,'\0');
-            bloques_reservados[j]=(ftell/tam_bloque);
-            sleep(retardo_acceso_bloque);
-            fwrite(&bloque,tam_bloque,1,f);
-            j++
+bool liberar_bloquesSWAP(int[]bloques,int cantidad){
+    FILE* f=fopen(path_bloques, 'rb+');
+    if(f!=NULL){
+        BLOQUE bloque;
+        strcpy(bloque.info,'0');
+        for(int i=0;i<cantidad;i++){
+        fseek(f,tam_bloque*bloques[i],SEEK_SET);
+        fwrite(&bloque,tam_bloque,1,f);
+        swapLibre++;
         }
-    }
-    return true;
-}else{return false;}
+    }else{return false;}
+}
+bool reservar_bloquesSWAP(int cant_bloques, int** bloques_reservados){
+    if(swapLibre<cant_bloques){return false};
+    FILE*f=fopen(path_bloques, 'rb+');
+    BLOQUE bloque;
+    if(f!=NULL){
+        int j=0;
+        while(j<cant_bloques)
+        {
+            fread(&bloque,tam_bloque,1,f);
+            sleep(retardo_acceso_bloque);
+            if(strcmp(bloque.info,'0')){
+                fseek(f,-tam_bloque,SEEK_CUR);
+                strcpy(bloque.info,'\0');
+                swapLibre--;
+                bloques_reservados[j]=(ftell/tam_bloque);
+                sleep(retardo_acceso_bloque);
+                fwrite(&bloque,tam_bloque,1,f);
+                j++
+            }
+        }
+        return true;
+    }else{return false;}
 }
 int main(int argc, char* argv[]) {
     levantar_config("filesystem.config");

@@ -26,23 +26,39 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 //list_iterate(paquete_recibido, (void*) iterator);
                 break;
-            case RESERVA_SWAP:
+            case INICIALIZAR_PROCESO:
             {
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int cantidad_bloques=list_get(paquete, 0);
                 int bloques_reservados[cantidad_bloques];
                 for(int i=0; i<)
-                if(reservar_bloquesSWAP(cantidad_bloques,&bloques_reservados)){
-                    t_paquete* paqueteReserva=crear_paquete(RESERVA_SWAP);
+                if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados)){
+                    t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
                     for(int i=0; i<cantidad_bloques;i++)
                     {
                         agregar_a_paquete(paqueteReserva,&bloques_reservados[i],sizeof(int));
                     }
                     enviar_paquete(paqueteReserva,cliente_socket);
                 }else{
+                    enviar_mensaje("Error al reservar los bloques SWAP");
                     log_error(logger,"Error al reservar los bloques SWAP");
                 }
                 break;
+            }
+            case FINALIZAR_PROCESO:
+            {
+                t_list paquete=recibir_paquete(cliente_socket);
+                int cantidad_bloques=list_get(paquete,0);
+                int bloques_a_liberar [cantidad_bloques];
+                for(int i=1, i<cantidad_bloques, i++){
+                    bloques_a_liberar[i-1]=list_get(paquete,i);
+                }
+                if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques)){
+                    enviar_mensaje("SWAP LIBERADO",cliente_socket);
+                }else{
+                    log_error(logger, "Error al liberar los bloques SWAP");
+                    enviar_mensaje("ERROR AL LIBERAR SWAP");
+                }
             }
             default:
                 log_error(logger, "Algo anduvo mal en el server de %s", server_name);

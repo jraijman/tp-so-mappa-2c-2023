@@ -38,8 +38,7 @@ typedef enum
     PCB_EXIT,
     INTERRUPCION,
     PCB_PAGEFAULT,
-    CONEXION_MEMORIA,
-    RESERVA_SWAP
+    CONEXION_MEMORIA
 } op_code;
 typedef struct
 {
