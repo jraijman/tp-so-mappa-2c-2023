@@ -42,7 +42,9 @@ typedef enum
     ABRIR_ARCHIVO,
     RESERVA_SWAP,
     BLOQUES_RESERVADOS,
-    LIBERACION_SWAP
+    LIBERACION_SWAP,
+    CREAR_ARCHIVO
+
 } op_code;
 typedef struct
 {

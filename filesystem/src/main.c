@@ -19,14 +19,29 @@ void levantar_config(char* ruta){
     log_info(logger_filesystem,"Config cargada");
 }
 
-bool abrir_archivo(char* ruta){
+int abrir_archivo(char* ruta){
     config = iniciar_config(ruta);
     if(config!=NULL){
-    char* nombre=config_get_string_value(config,"NOMBRE_ARCHIVO");
-    log_info(logger_filesystem,"Abierto el archivo %s",nombre);
-    return true;
+    int tamano=config_get_int_value(config,"TAMANO");
+    log_info(logger_filesystem,"Abierto el archivo %s",ruta);
+    return tamano;
     }
-    return false;
+    return -1;
+}
+bool crear_archivo(char* nombre){
+    int tam=(strlen(path_fcb)+strlen(nombre)+5);
+    char ruta[tam];
+    strcpy(ruta,path_fcb);
+    strcat(ruta,nombre);
+    strcat(ruta,".fcb");
+    t_config* nuevoFCB;
+    nuevoFCB->path=ruta;
+    int tamano=0;
+    int bloque=-1;
+    dictionary_put(nuevoFCB->properties, "NOMBRE_ARCHIVO",nombre);
+    dictionary_put(nuevoFCB->properties, "TAMANIO_ARCHIVO",&tamano);
+    dictionary_put(nuevoFCB->properties, "BLOQUE_INICIAL",&bloque);
+    config_save_in_file(nuevoFCB, ruta);
 }
 
 bool iniciar_fat(int tamano_fat, char* path_fat){
@@ -54,39 +69,48 @@ bool iniciar_fat(int tamano_fat, char* path_fat){
 }
 bool iniciar_bloques(int tamano_bloques){
 BLOQUE bloque;
+bloque.info=malloc(tam_bloque);
+strcpy(bloque.info,"0");
 FILE* f=fopen(path_bloques,"rb+");
 if(f!=NULL){
     swapLibre=0;
     bloqueLibre=0;
     for(int i=0; i<cant_bloques_swap; i++)
     {
-        sleep(retardo_acceso_bloque);
-        fread(&bloque,tam_bloque,1,f);
-        if((strcmp(bloque.info,"0"))){
+        fread(bloque.info,sizeof(bloque.info),1,f);
+        fseek(f,-(sizeof(bloque.info)),SEEK_CUR);
+        fseek(f,tam_bloque,SEEK_CUR);
+        if(strcmp(bloque.info,"0")==0){
             swapLibre++;
         }
     }
     for(int i=0;i<(cant_bloques_total-cant_bloques_swap);i++){
-        sleep(retardo_acceso_bloque);
-        fread(&bloque,tam_bloque,1,f);
-        if(strcmp(bloque.info,"0")){
+        fread(bloque.info,sizeof(bloque.info),1,f); 
+        fseek(f,-(sizeof(bloque.info)),SEEK_CUR);
+        fseek(f,tam_bloque,SEEK_CUR);
+        if(strcmp(bloque.info,"0")==0){
             bloqueLibre++;
         }
     }
+    bloqueLibre--;
+    free(bloque.info);
     fclose(f);
     return true;
 }else{
-    strcpy(bloque.info,"0");//bloque libre
-    f=fopen(path_fat,"wb");
+    f=fopen(path_bloques,"wb");
     if(f!=NULL){
         for(int i=0; i<cant_bloques_total; i++){
-        fwrite(&bloque,tamano_bloques,1,f);
+        fwrite(bloque.info,sizeof(bloque.info),1,f);
+        fseek(f,-(sizeof(bloque.info)),SEEK_CUR);
+        fseek(f,tam_bloque,SEEK_CUR);
         }
         swapLibre=cant_bloques_swap;
         bloqueLibre=(cant_bloques_total-cant_bloques_swap-1);
+        free(bloque.info);
         fclose(f);
         return true;
     }else{
+        free(bloque.info);
         fclose(f);
         return false;
     }
@@ -96,13 +120,17 @@ bool liberar_bloquesSWAP(int bloques[],int cantidad){
     FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
         BLOQUE bloque;
+        bloque.info=malloc(tam_bloque);
         strcpy(bloque.info,"0");
         for(int i=0;i<cantidad;i++){
-        fseek(f,tam_bloque*bloques[i],SEEK_SET);
-        fwrite(&bloque,tam_bloque,1,f);
-        swapLibre++;
+            fseek(f,tam_bloque*bloques[i],SEEK_SET);
+            fwrite(bloque.info,sizeof(bloque.info),1,f);
+            swapLibre++;
         }
-    }else{return false;}
+        fclose(f);
+        free(bloque.info);
+        return true;
+    }else{fclose(f);return false;}
 }
 bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[]){
     if(swapLibre<cant_bloques){return false;};
@@ -131,12 +159,15 @@ int main(int argc, char* argv[]) {
     levantar_config("filesystem.config");
     int fd_filesystem = iniciar_servidor(logger_filesystem,NULL,puerto_escucha,"FILESYSTEM");
     int tamano_fat=(cant_bloques_total-cant_bloques_swap)*sizeof(uint32_t);
-    /*if(!iniciar_fat(tamano_fat,path_fat)){
+    if(!iniciar_fat(tamano_fat,path_fat)){
         log_error(logger_filesystem, "Error al crear el archivo FAT");
-    }
+    }else{log_info(logger_filesystem,"FAT iniciada correctamente");}
     if(!iniciar_bloques(tam_bloque)){
         log_error(logger_filesystem, "Error al iniciar el archivo de bloques");
-    }*/
+    }else{
+        log_info(logger_filesystem,"Archivo de bloques iniciado correctamente: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibre,bloqueLibre);
+    }
+    crear_archivo("ARCHIVOPIOLA");
     //espero clientes kernel y memoria
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem));
 

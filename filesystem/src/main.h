@@ -30,5 +30,6 @@ typedef struct {
 
 bool liberar_bloquesSWAP(int bloques[],int cantidad);
 bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[]);
-bool abrir_archivo(char* ruta);
+int abrir_archivo(char* ruta);
+bool crear_archivo(char* nombre);
 #endif
