@@ -26,6 +26,8 @@ typedef struct{
 bool cpu_disponible = true;
 bool hay_interrupcion=false;
 
+bool planificacion_activa = true;
+
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;
 int fd_memoria;
@@ -67,6 +69,8 @@ sem_t cantidad_block;
 sem_t puedo_ejecutar_proceso;
 sem_t control_interrupciones_prioridades;
 sem_t control_interrupciones_rr;
+sem_t sem_plan_largo;
+sem_t sem_plan_corto;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;

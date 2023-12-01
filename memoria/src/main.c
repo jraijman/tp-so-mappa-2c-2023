@@ -87,10 +87,9 @@ static void procesar_conexion(void *void_args) {
 			int pid_fin = recv_terminar_proceso(cliente_socket);
             enviar_mensaje("OK fin proceso", cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
-			terminar_proceso(pid_fin);
+			//terminar_proceso(pid_fin);
 			break;
         case ENVIO_INSTRUCCION:
-            printf("Recibí pedido de instrucción\n");
             char* path;
             int* pc;
             usleep(retardo_respuesta);

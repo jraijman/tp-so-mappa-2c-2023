@@ -139,8 +139,8 @@ void iniciar_hilos(){
     pthread_create(&hilo_respuestas_memoria, NULL, (void*)manejar_recibir_memoria, NULL);
 
     pthread_detach(hilo_consola);
-    pthread_detach(hilo_plan_largo);
-    pthread_detach(hilo_plan_corto);
+    //pthread_detach(hilo_plan_largo);
+    //pthread_detach(hilo_plan_corto);
     //pthread_detach(hilo_cpu_exit);
     pthread_detach(hilo_respuestas_cpu);   
     pthread_detach(hilo_respuestas_fs);
@@ -206,14 +206,19 @@ void finalizar_proceso(char * pid){
         }
  
 }
+void* fun_vacia(void* args){}
 void detener_planificacion(){
     // Código para pausar la planificación de corto y largo plazo
-    // y pausar el manejo de los motivos de desalojo de los procesos
+    planificacion_activa = false;
+    pthread_create(&hilo_plan_largo, NULL, fun_vacia, NULL);
+    pthread_create(&hilo_plan_corto, NULL, fun_vacia, NULL);
     printf("detengo planificacion \n");
 }
 void iniciar_planificacion(){
     // Código para retomar la planificación de corto y largo plazo
-    // en caso de que se encuentre pausada
+    planificacion_activa = true;
+    pthread_create(&hilo_plan_largo, NULL, planif_largo_plazo, NULL);
+    pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
     printf("inicio planificacion \n");
 }
 void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
@@ -310,6 +315,7 @@ void* planif_largo_plazo(void* args){
     //falta agregar lo de finalizar cuando recibe un exit
     while(1){
         sem_wait(&cantidad_multiprogramacion);
+        //sacar de new y agregar a ready
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
     }
@@ -552,6 +558,8 @@ void manejar_recibir_cpu(){
                     sacar_de_exec();
                     // Mandar a la cola de EXIT;
                     agregar_a_exit(proceso);
+                    sem_post(&cantidad_multiprogramacion);
+                    sem_post(&puedo_ejecutar_proceso);
                     //Liberar recursos asignados del proceso
 
                     //mandar mensaje a memoria para que libere
@@ -629,6 +637,8 @@ void iniciar_semaforos(){
     sem_init(&puedo_ejecutar_proceso,0,1);
     sem_init(&control_interrupciones_rr,0,0);
     sem_init(&control_interrupciones_prioridades,0,0);
+    sem_init(&sem_plan_largo, 0, 1);
+    sem_init(&sem_plan_corto, 0, 1);
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);

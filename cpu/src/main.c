@@ -138,6 +138,9 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             contexto->pc++;
             decodeInstruccion(instruccion,contexto);
             executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
+            if (strcmp(instruccion->opcode, "EXIT") == 0) {
+                return;
+            }
         }
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
         return;
