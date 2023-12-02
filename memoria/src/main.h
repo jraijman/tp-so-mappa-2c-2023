@@ -49,6 +49,7 @@ int buscar_marco_libre();
 t_list* obtenerMarcosAsignados( int pid);
 int paginas_necesarias(pcb *proceso);
 Instruccion* armar_estructura_instruccion(char* instruccion_leida);
+char *armar_path_instruccion(char *path_consola);
 uint32_t algoritmo_fifo(int pid_actual);
 uint32_t algoritmo_lru(int pid_actual);
 

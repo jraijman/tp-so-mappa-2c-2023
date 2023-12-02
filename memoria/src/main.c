@@ -373,8 +373,18 @@ uint32_t tratar_page_fault(uint32_t num_segmento, uint32_t num_pagina, uint16_t 
 */
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------
 
-void leer_instruccion_por_pc_y_enviar(char *path_instrucciones,int pc, int fd) {
-    FILE *archivo = fopen(path_instrucciones, "r");
+char *armar_path_instruccion(char *path_consola) {
+    char *path_completo = string_new();
+    string_append(&path_completo, path_instrucciones);
+    string_append(&path_completo, "/");
+    string_append(&path_completo, path_consola);
+    return path_completo;
+}
+
+void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd) {
+    char *path_completa_instruccion = armar_path_instruccion(path_consola);
+
+    FILE *archivo = fopen(path_completa_instruccion, "r");
     if (archivo == NULL) {
         perror("No se pudo abrir el archivo de instrucciones");
         return NULL;
@@ -394,6 +404,7 @@ void leer_instruccion_por_pc_y_enviar(char *path_instrucciones,int pc, int fd) {
     }
 
     fclose(archivo);
+    free(path_completa_instruccion);
 }
 
 Instruccion* armar_estructura_instruccion(char* instruccion_leida){
