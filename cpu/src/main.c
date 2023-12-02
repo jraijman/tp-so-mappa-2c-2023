@@ -62,6 +62,7 @@ static void procesar_conexion_dispatch(void* void_args) {
 
     op_code cop;
 	while (cliente_socket_dispatch != -1 && !recibio_interrupcion) {
+        recibio_interrupcion=false;
 		if (recv(cliente_socket_dispatch, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
 			log_info(logger_cpu, ANSI_COLOR_BLUE"El cliente se desconecto de DISPATCH");
 			return;
@@ -80,7 +81,6 @@ static void procesar_conexion_dispatch(void* void_args) {
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
-                    log_info(logger_cpu, "SALI DEL CICLO DE INSTRUCCION");
                     break;    
                 } else {
                     log_error(logger_cpu, "Error al recibir el PCB");
@@ -99,7 +99,7 @@ static void procesar_conexion_dispatch(void* void_args) {
 
 int server_escuchar(int fd_cpu_interrupt, int fd_cpu_dispatch) {
 	int socket_cliente_interrupt = esperar_cliente(logger_cpu, "CPU INTERRUPT", fd_cpu_interrupt);
-    char * server_name = "Cpu Dispatch";
+    char * server_name = "CPU DISPATCH";
     int socket_cliente_dispatch = esperar_cliente(logger_cpu, server_name, fd_cpu_dispatch);
 	
     if (socket_cliente_interrupt != -1 && socket_cliente_dispatch != -1) {
@@ -137,7 +137,6 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
                 contexto->pc++;
                 decodeInstruccion(instruccion,contexto);
                 executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
-                log_info(logger,"EL PC DESPUES DE LA EJECUCION %d", contexto->pc);
                 if (strcmp(instruccion->opcode, "EXIT") == 0) {
                     send_pcbDesalojado(contexto, "EXIT","", cliente_socket_dispatch, logger);
                     return;
@@ -146,7 +145,6 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     }
     if(recibio_interrupcion){
         recibio_interrupcion=false;
-        log_info(logger_cpu,"Salí por interrupcion");
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
         return;
     }

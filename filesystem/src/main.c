@@ -19,10 +19,17 @@ void levantar_config(char* ruta){
     log_info(logger_filesystem,"Config cargada");
 }
 
-int abrir_archivo(char* ruta){
+int abrir_archivo(char* nombre, int &bloque){
+    int tamRuta=strlen(path_fcb)+strlen(nombre)+5;
+    char* ruta = (char*)malloc(tamRuta);
+    strcpy(ruta,path_fcb);
+    strcat(ruta,nombre);
+    strcat(ruta,".fcb");
+    
     config = iniciar_config(ruta);
     if(config!=NULL){
-    int tamano=config_get_int_value(config,"TAMANO");
+    int tamano=config_get_int_value(config,"TAMANIO_ARCHIVO");
+    bloque=config_get_int_value(config,"BLOQUE_INICIAL");
     log_info(logger_filesystem,"Abierto el archivo %s",ruta);
     return tamano;
     }
@@ -72,6 +79,51 @@ bool iniciar_fat(int tamano_fat, char* path_fat){
         return true;
     }
 }
+void ampliarArchivo(int bloqueInicio,int tamanoActual, int ampliacion){
+    FILE* f=fopen(path_bloques, "rb");
+    int bloquesOcupar=ampliacion/tam_bloque;
+    BLOQUE bloque;
+    strcpy(bloque.info,"\0");
+    if(f!=NULL){
+    fseek(f,tam_bloque*(cant_bloques_swap+bloqueInicio),SEEK_SET);
+    for(int i=0; i<bloquesOcupar, i++){
+    fwrite(bloque.info,sizeof(bloque.info),1,f);
+    fseek(f,-sizeof(bloque.info),SEEK_CUR);
+    fseek(f,tam_bloque,SEEK_CUR);
+    }
+    }else{
+        log_error(logger_filesystem,"ERROR AL AMPLIAR EL ARCHIVO");
+    }
+    fclose(f);
+}
+void achicarArchivo(int bloqueInicio, int tamanoActual, int reduccion)){
+    FILE* f=fopen(path_bloques, "rb");
+    int bloquesLiberar=reduccion/tam_bloque;
+    BLOQUE bloque;
+    strcpy(bloque.info,"0");
+    if(f!=NULL){
+    fseek(f,tam_bloque*(cant_bloques_swap+bloqueInicio+(tamanoActual/tam_bloque)-bloquesLiberar),SEEK_SET);
+    for(int i=0; i<bloquesLiberar, i++){
+    fwrite(bloque.info,sizeof(bloque.info),1,f);
+    fseek(f,-sizeof(bloque.info),SEEK_CUR);
+    fseek(f,tam_bloque,SEEK_CUR);
+    }
+    }else{
+        log_error(logger_filesystem,"ERROR AL ACHICAR EL ARCHIVO");
+    }
+    fclose(f);
+}
+
+truncarArchivo(char* nombre, int tamano){
+    int bloqueInicio;
+    int tamanoActual=abrir_archivo(nombre,&bloqueInicio);
+    if(tamanoActual<tamano){
+        ampliarArchivo(bloqueInicio,tamanoActual ,tamano-tamanoActual);
+    }else{
+        achicarArchivo(bloqueInicio,tamanoActual, tamanoActual-tamano);
+    }
+}
+
 bool iniciar_bloques(int tamano_bloques){
 BLOQUE bloque;
 bloque.info=malloc(tam_bloque);

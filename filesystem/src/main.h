@@ -32,4 +32,5 @@ bool liberar_bloquesSWAP(int bloques[],int cantidad);
 bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[]);
 int abrir_archivo(char* ruta);
 void crear_archivo(char* nombre);
+truncarArchivo(char* nombre, int tamano);
 #endif

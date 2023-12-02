@@ -29,12 +29,7 @@ static void procesar_conexion(void* void_args) {
             case ABRIR_ARCHIVO:
             {    t_list *paqueteRecibido=recibir_paquete(cliente_socket);
                 char* nombre = list_get(paqueteRecibido, 0);
-                int tamRuta=strlen(path_fcb)+strlen(nombre)+5;
-                char* ruta = (char*)malloc(tamRuta);
-                strcpy(ruta,path_fcb);
-                strcat(ruta,nombre);
-                strcat(ruta,".fcb");
-                int tamano=abrir_archivo(ruta);
+                int tamano=abrir_archivo(nombre);
                 if(tamano!=-1){
                     t_paquete* paqueteEnviar=crear_paquete(ABRIR_ARCHIVO);
                     agregar_a_paquete(paqueteEnviar,&tamano,sizeof(int));
@@ -79,7 +74,15 @@ static void procesar_conexion(void* void_args) {
                 char* nombre=list_get(paquete,0);
                 crear_archivo(nombre);
                 break;
-            }default:
+            }
+            case TRUNCAR_ARCHIVO:
+            {
+                t_list* paquete=recibir_paquete(cliente_socket);
+                char* nombre=list_get(paquete,0);
+                int tamano=list_get(paquete,1);
+                truncarArchivo(nombre, tamano);
+            }
+            default:
                 log_error(logger, "Algo anduvo mal en el server de %s", server_name);
                 return;
         }
