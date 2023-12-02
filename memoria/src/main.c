@@ -89,6 +89,32 @@ static void procesar_conexion(void *void_args) {
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
 			//terminar_proceso(pid_fin);
 			break;
+        case PEDIDO_LECTURA_FS:
+            // Recibir parámetros de lectura desde el cliente File System
+            t_list* parametros_lectura_fs = recibir_paquete(cliente_socket);
+        
+            // Simular retardo de memoria
+            usleep(RETARDO_RESPUESTA* 1000);
+
+            // Copiar el contenido de la dirección de memoria al valor leído
+            //memcpy(contenido_leido_fs, espacio_usuario + *direccion_lectura_fs, *tamanio_lectura_fs);
+
+            // Enviar el valor leído al cliente File System
+        
+            break;
+        case PEDIDO_ESCRITURA_FS:
+            // Recibir parámetros de escritura desde el cliente File System
+            t_list* parametros_escritura_fs = recibir_paquete(cliente_socket);
+
+            // Simular retardo de memoria
+            usleep(RETARDO_RESPUESTA* 1000);
+
+            // Copiar el valor a escribir en la dirección de memoria
+            //memcpy(espacio_usuario + *direccion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
+
+            // Enviar confirmación de fin de escritura al cliente File System
+        
+        break;
         case ENVIO_INSTRUCCION:
             char* path;
             int* pc;
@@ -277,7 +303,73 @@ t_list* crear_tabla(int pid){
     return tabla_de_pagina;
 }
 
+/* ----------------------PAGE FAULT----------------------------
+// Función para tratar un fallo de página
+uint32_t tratar_page_fault(uint32_t num_segmento, uint32_t num_pagina, uint16_t pid_actual) {
+    // Crear y obtener listas para el proceso y la tabla de marcos
+    t_list* tabla_de_proceso = list_create();
+    tabla_de_proceso = list_get(lista_tablas_de_procesos, pid_actual);
+    t_list* tabla_de_marcos = list_create();
+    tabla_de_marcos = list_get(tabla_de_proceso, num_segmento);
+    
+    // Obtener información de la página que causó el fallo
+    entrada_pagina* pagina = list_get(tabla_de_marcos, num_pagina);
 
+    // Log: Page fault detectado
+    log_info(logger, "[CPU][ACCESO A DISCO] PAGE FAULT!!!");
+
+    // Obtener el número de marco en el swap
+    //Lo obtenemos desde filesystem
+
+    // Leer el contenido de la página desde el swap
+    void* marco = leer_marco_en_swap(fd, nro_marco_en_swap, tam_pagina);
+
+    int32_t nro_marco;
+
+    // Si el proceso ya tiene todos sus marcos en memoria
+    if (marcos_en_memoria(pid_actual) == marcos_por_proceso) {
+        // Utilizar LRU O FIFO  para seleccionar un marco a reemplazar
+        nro_marco = usar_algoritmo(pid_actual);
+
+        // Log: Información sobre el reemplazo
+        log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <SEGMENTO %d>|<PAGINA %d>",
+                 pid_actual, nro_marco, num_segmento, num_pagina);
+    } else {
+        // Si el proceso aún tiene marcos disponibles, buscar un marco libre en memoria
+        nro_marco = buscar_marco_libre();
+
+        // Log: El proceso tiene marcos disponibles
+        log_info(logger, "[CPU] El proceso tiene marcos disponibles :)");
+
+        // Si no hay marcos libres, logear un error y terminar el programa
+        if (nro_marco == -1) {
+            log_error(logger, "ERROR!!!!! NO HAY MARCOS LIBRES EN MEMORIA!!!");
+            exit(EXIT_FAILURE);
+        }
+    }
+
+    // Marcar el nuevo marco como ocupado
+    
+
+    // Actualizar la información de la página
+    pagina->nro_marco = nro_marco;
+    pagina->en_memoria = 1;
+
+
+    // Escribir el contenido del marco en memoria
+    escribir_marco_en_memoria(pagina->nro_marco, marco);
+
+    // Liberar la memoria utilizada para almacenar el contenido leído desde el swap
+    free(marco);
+
+    // Log: SWAP IN
+    log_info(logger, "[CPU] LECTURA EN SWAP: SWAP IN - PID: <%d> - Marco: <%d> - Page In: <SEGMENTO %d>|<PÁGINA %d>",
+             pid_actual, nro_marco, num_segmento, num_pagina);
+
+    // Devolver el número de marco utilizado
+    return nro_marco;
+}
+*/
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------
 
 void leer_instruccion_por_pc_y_enviar(char *path_instrucciones,int pc, int fd) {
@@ -339,3 +431,18 @@ Instruccion* armar_estructura_instruccion(char* instruccion_leida){
     return instruccion;
 }
 
+/*ALGORITMOS
+uint32_t usar_algoritmo(int pid){
+	if (strcmp(algoritmo, "FIFO") == 0){
+		log_info(logger, "[CPU] Reemplazo por FIFO");
+		return algoritmo_fifo(pid);
+	}
+	else if (strcmp(algoritmo, "LRU") == 0){
+		log_info(logger, "[CPU] Reemplazo por LRU");
+		return algoritmo_lru(pid);
+	}
+	else{
+		exit(-1);
+	}
+}
+*/

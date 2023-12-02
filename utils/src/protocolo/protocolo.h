@@ -43,7 +43,9 @@ typedef enum
     RESERVA_SWAP,
     BLOQUES_RESERVADOS,
     LIBERACION_SWAP,
-    CREAR_ARCHIVO
+    CREAR_ARCHIVO,
+    PEDIDO_LECTURA_FS,
+    PEDIDO_ESCRITURA_FS
 
 } op_code;
 typedef struct
