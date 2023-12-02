@@ -25,6 +25,7 @@ typedef struct{
 
 bool cpu_disponible = true;
 bool hay_interrupcion=false;
+bool hay_exit = false;
 
 bool planificacion_activa = false;
 
@@ -77,6 +78,8 @@ pthread_mutex_t mutex_ready;
 pthread_mutex_t mutex_exec;
 pthread_mutex_t mutex_block;
 pthread_mutex_t mutex_exit;
+pthread_mutex_t mutex_plani_corta;
+pthread_mutex_t mutex_plani_larga;
 
 // hilos
 pthread_t hilo_consola;

@@ -418,7 +418,7 @@ Instruccion desempaquetar_instruccion(t_list* paquete) {
 }
 
 void send_instruccion(int socket_cliente, Instruccion instruccion) {
-    printf("Enviando instruccion, opcode :%s, oper1: %s\n",instruccion.opcode, instruccion.operando1);
+    //printf("Enviando instruccion, opcode :%s, oper1: %s\n",instruccion.opcode, instruccion.operando1);
     t_paquete* paquete = crear_paquete(ENVIO_INSTRUCCION);
     empaquetar_instruccion(paquete, instruccion);
     enviar_paquete(paquete, socket_cliente);

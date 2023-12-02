@@ -206,16 +206,23 @@ void finalizar_proceso(char * pid){
         }
  
 }
-void* fun_vacia(void* args){}
 void detener_planificacion(){
     // Código para pausar la planificación de corto y largo plazo
     planificacion_activa = false;
-    send_interrupcion(0 ,fd_cpu_interrupt);
+    pthread_mutex_lock(&mutex_plani_larga);
+        sem_wait(&sem_plan_largo);
+    pthread_mutex_unlock(&mutex_plani_larga);
+    pthread_mutex_lock(&mutex_plani_corta); 
+        sem_wait(&sem_plan_corto);
+    pthread_mutex_unlock(&mutex_plani_corta);
+    //send_interrupcion(0 ,fd_cpu_interrupt);
     printf("detengo planificacion \n");
 }
 void iniciar_planificacion(){
     // Código para retomar la planificación de corto y largo plazo
     planificacion_activa = true;
+        sem_post(&sem_plan_largo);
+        sem_post(&sem_plan_corto);
     printf("inicio planificacion \n");
 }
 void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
@@ -246,7 +253,7 @@ void agregar_a_new(pcb* proceso) {
 }
 
 pcb* sacar_de_new(){
-	sem_wait(&cantidad_new);
+	//sem_wait(&cantidad_new);
 	pthread_mutex_lock(&mutex_new);
 	pcb *proceso = queue_pop(cola_new);
 	pthread_mutex_unlock(&mutex_new);
@@ -311,48 +318,57 @@ pcb* sacar_de_block(){
 void* planif_largo_plazo(void* args){
     //falta agregar lo de finalizar cuando recibe un exit
     while(1){
-        if(planificacion_activa){
-            sem_wait(&cantidad_multiprogramacion);
-            //sacar de new y agregar a ready
-            pcb* proceso = sacar_de_new();
-            agregar_a_ready(proceso);
-        }
+        sem_wait(&cantidad_new);
+        sem_wait(&cantidad_multiprogramacion);
+        pthread_mutex_lock(&mutex_plani_larga);
+        sem_wait(&sem_plan_largo);
+        //sacar de new y agregar a ready
+        pcb* proceso = sacar_de_new();
+        agregar_a_ready(proceso);
+        sem_post(&sem_plan_largo);
+        pthread_mutex_unlock(&mutex_plani_larga);
     }
 }
 void* planif_corto_plazo(void* args){
     pthread_t hilo_interrupciones;
     while(1){
-        if(planificacion_activa){
-            //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
-            sem_wait(&puedo_ejecutar_proceso);
-            if(strcmp(algoritmo_planificacion,"FIFO")==0){
-                pcb* procesoAEjecutar = obtenerSiguienteFIFO();
-                if(procesoAEjecutar != NULL) {
-                    agregar_a_exec(procesoAEjecutar);
-                    send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                    }
-            }
-            else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
-                //TIENE DESALOJO
-                pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
-                if(procesoAEjecutar != NULL) {
-                    //hilo que controla si hay que mandar interrupcion
-                    pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
-                    agregar_a_exec(procesoAEjecutar);
-                    send_pcb(procesoAEjecutar, fd_cpu_dispatch);
+        //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
+        sem_wait(&puedo_ejecutar_proceso);
+        sem_wait(&cantidad_ready);
+        pthread_mutex_lock(&mutex_plani_corta);
+        sem_wait(&sem_plan_corto);
+        if(strcmp(algoritmo_planificacion,"FIFO")==0){
+            pcb* procesoAEjecutar = obtenerSiguienteFIFO();
+            if(procesoAEjecutar != NULL) {
+                agregar_a_exec(procesoAEjecutar);
+                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 }
-
+                sem_post(&sem_plan_corto);
+                pthread_mutex_unlock(&mutex_plani_corta);
+        }
+        else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
+            //TIENE DESALOJO
+            pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
+            if(procesoAEjecutar != NULL) {
+                //hilo que controla si hay que mandar interrupcion
+                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
+                agregar_a_exec(procesoAEjecutar);
+                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
             }
-            else if(strcmp(algoritmo_planificacion,"RR")==0){
-                //TIENE DESALOJO
-                pcb *procesoAEjecutar = obtenerSiguienteRR();
-                if(procesoAEjecutar != NULL) {
-                    //hilo que controla si hay que mandar interrupcion
-                    pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
-                    agregar_a_exec(procesoAEjecutar);
-                    send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                }
+            sem_post(&sem_plan_corto);
+            pthread_mutex_unlock(&mutex_plani_corta);
+        }
+        else if(strcmp(algoritmo_planificacion,"RR")==0){
+            //TIENE DESALOJO
+            pcb *procesoAEjecutar = obtenerSiguienteRR();
+            if(procesoAEjecutar != NULL) {
+                //hilo que controla si hay que mandar interrupcion
+                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
+                agregar_a_exec(procesoAEjecutar);
+                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
             }
+            sem_post(&sem_plan_corto);
+            pthread_mutex_unlock(&mutex_plani_corta);
         }
     }
 }
@@ -364,11 +380,15 @@ void controlar_interrupcion_rr(){
         usleep(quantum*1000);
 		if(!cpu_disponible){
             if(list_size(cola_exec->elements) > 0){
-                pcb * proceso = queue_peek(cola_exec);
-                log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
-                hay_interrupcion=true;
-                send_interrupcion(proceso->pid,fd_cpu_interrupt);
-                // VER TEMA DE CUANDO CORTAR LA EJECUCION
+                if(hay_exit == false){
+                    pcb * proceso = queue_peek(cola_exec);
+                    log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
+                    hay_interrupcion=true;
+                    send_interrupcion(proceso->pid,fd_cpu_interrupt);
+                    // VER TEMA DE CUANDO CORTAR LA EJECUCION
+                }else{
+                    hay_exit = false;
+                }
             }else{
                 printf("No hay procesos en ejecucion\n");
             }
@@ -378,26 +398,31 @@ void controlar_interrupcion_rr(){
 }
 void controlar_interrupcion_prioridades(){
     sem_wait(&control_interrupciones_prioridades);
-     printf("\n controlo interrupt prioridad \n");
     while(1){
         cpu_disponible=false;
 		//controlar si en ready hay un proceso con mayor prioridad
         if(list_size(cola_exec->elements) > 0 && list_size(cola_ready->elements) > 0){
+            pthread_mutex_lock(&mutex_exec);
+            pcb * proceso = queue_peek(cola_exec);
+            pthread_mutex_unlock(&mutex_exec);
             t_list* lista_ordenada = list_sorted(cola_ready->elements,cmp);
             int prioridadAComparar = ((pcb*)list_get(lista_ordenada,0))->prioridad;
-            pcb * proceso = queue_peek(cola_exec);
-            if(prioridadAComparar < proceso->prioridad){
-                log_info(logger_kernel,"PID: %d - Desalojado por prioridad", proceso->pid);
-                hay_interrupcion=true;
-                send_interrupcion(proceso->pid,fd_cpu_interrupt);
-                // VER TEMA DE CUANDO CORTAR LA EJECUCION
+            if(hay_exit == false){
+                if(prioridadAComparar < proceso->prioridad){
+                    log_info(logger_kernel,"PID: %d - Desalojado por prioridad", proceso->pid);
+                    hay_interrupcion=true;
+                    send_interrupcion(proceso->pid,fd_cpu_interrupt);
+                    // VER TEMA DE CUANDO CORTAR LA EJECUCION
+                }
+            }else{
+                hay_exit = false;
             }
         }
     }
 }
 
 pcb* obtenerSiguienteFIFO(){
-    sem_wait(&cantidad_ready);
+    //sem_wait(&cantidad_ready);
 	pcb* procesoPlanificado = NULL;
 	pthread_mutex_lock(&mutex_ready);
 	procesoPlanificado = queue_pop(cola_ready);
@@ -406,7 +431,7 @@ pcb* obtenerSiguienteFIFO(){
 }
 
 pcb* obtenerSiguienteRR(){
-	sem_wait(&cantidad_ready);
+	//sem_wait(&cantidad_ready);
 	pcb* procesoPlanificado = NULL;
 	pthread_mutex_lock(&mutex_ready);
 	procesoPlanificado = queue_pop(cola_ready);
@@ -423,7 +448,7 @@ bool cmp(void *a, void *b) {
 }
 
 pcb* obtenerSiguientePRIORIDADES(){
-    sem_wait(&cantidad_ready);
+    //sem_wait(&cantidad_ready);
 	pcb* procesoPlanificado = NULL;
     pthread_mutex_lock(&mutex_ready);
     t_list* lista_ordenada = list_sorted(cola_ready->elements,cmp);
@@ -553,6 +578,7 @@ void manejar_recibir_cpu(){
                     manejar_signal(proceso, extra);
                     break;
                 case PCB_EXIT:
+                    hay_exit = true;
                     printf("\n manejo exit \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     //borrar todo lo que corresponde a ese proceso
@@ -648,6 +674,10 @@ void iniciar_semaforos(){
 	pthread_mutex_init(&mutex_exec, NULL);
     pthread_mutex_init(&mutex_block, NULL);
 	pthread_mutex_init(&mutex_exit, NULL);
+
+    //mutex para pausar planificacion
+    pthread_mutex_init(&mutex_plani_corta, NULL);
+    pthread_mutex_init(&mutex_plani_larga, NULL);
 }
 
 

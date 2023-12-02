@@ -188,17 +188,17 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd
 }
 
 void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
-    log_info(logger_cpu,ANSI_COLOR_BLUE "Decoding instruccion");
+    //log_info(logger_cpu,ANSI_COLOR_BLUE "Decoding instruccion");
     Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
         //traducir(instruccion, &direccion, contexto);
     }
-    log_info(logger_cpu,ANSI_COLOR_BLUE "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
+    //log_info(logger_cpu,ANSI_COLOR_BLUE "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
 }
 
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {
-    log_info (logger,ANSI_COLOR_BLUE "Fetch de instruccion");
+    //log_info (logger,ANSI_COLOR_BLUE "Fetch de instruccion");
     Instruccion aux;
     send_fetch_instruccion(contexto->path,contexto->pc, fd); // Envía paquete para pedir instrucciones
     recibir_operacion(fd);
