@@ -548,7 +548,6 @@ t_list* recv_bloques_reservados(t_log* logger, int fd_modulo) {
 
 //----------------------------------PCBDESALOJADO-----------------------------------------
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger){
-	printf("Enviando pcb desalojado");
 	t_paquete* paquete;
 	if(strcmp(instruccion,"SIGNAL")==0){
 		paquete=crear_paquete(PCB_SIGNAL);
@@ -594,9 +593,9 @@ void send_interrupcion(int pid, int fd_modulo){
 	eliminar_paquete(paquete);
 }
 
-int recv_interrupcion(int fd_modulo, int pid){
+int recv_interrupcion(int fd_modulo, int *pid){
 	t_list* paquete = recibir_paquete(fd_modulo);
-	memcpy(&pid, list_get(paquete, 0), sizeof(int));
+	memcpy(pid, list_get(paquete, 0), sizeof(int));
 	list_destroy(paquete);
 	return 0; // Puedes devolver el valor necesario en tu implementación.
 }

@@ -43,10 +43,12 @@ static void procesar_conexion_interrupt(void* void_args) {
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
             case INTERRUPCION:
-                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion");
                 int pid_recibido;
-                recv_interrupcion(cliente_socket_interrupt,pid_recibido );
+                recv_interrupcion(cliente_socket_interrupt,&pid_recibido);
+                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion al proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
+                if(contexto->pid==pid_recibido){
                 recibio_interrupcion = true;
+                }
                 break;
             default: {
                 log_error(logger_cpu, "Código de operación no reconocido en Interrupt: %d", cop);
@@ -62,8 +64,7 @@ static void procesar_conexion_dispatch(void* void_args) {
 
     op_code cop;
 	while (cliente_socket_dispatch != -1 && !recibio_interrupcion) {
-        recibio_interrupcion=false;
-		if (recv(cliente_socket_dispatch, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
+        if (recv(cliente_socket_dispatch, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
 			log_info(logger_cpu, ANSI_COLOR_BLUE"El cliente se desconecto de DISPATCH");
 			return;
 		}
@@ -77,7 +78,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
             case ENVIO_PCB: {
-                pcb* contexto=recv_pcb(cliente_socket_dispatch);
+                contexto=recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);

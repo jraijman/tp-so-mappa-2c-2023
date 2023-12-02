@@ -249,6 +249,6 @@ int recv_terminar_proceso(int fd_modulo);
 Instruccion recv_instruccion(int socket_cliente);
 int recv_fetch_instruccion(int fd_modulo, char** path, int** pc);
 void send_interrupcion(int pid, int fd_modulo);
-int recv_interrupcion(int fd_modulo, int pid);
+int recv_interrupcion(int fd_modulo, int *pid);
 
 #endif
