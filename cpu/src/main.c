@@ -19,7 +19,6 @@ int main(int argc, char* argv[]){
     // Espero msjs
     while(server_escuchar(fd_cpu_interrupt, fd_cpu_dispatch));
 
-
     // Cerrar LOG y CONFIG y liberar conexión
     terminar_programa(logger_cpu, config);
     liberar_conexion(conexion_cpu_memoria);
@@ -62,7 +61,7 @@ static void procesar_conexion_dispatch(void* void_args) {
 	int cliente_socket_dispatch = *args;
 
     op_code cop;
-	while (cliente_socket_dispatch != -1) {
+	while (cliente_socket_dispatch != -1 && !recibio_interrupcion) {
 		if (recv(cliente_socket_dispatch, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
 			log_info(logger_cpu, ANSI_COLOR_BLUE"El cliente se desconecto de DISPATCH");
 			return;
@@ -80,13 +79,10 @@ static void procesar_conexion_dispatch(void* void_args) {
                 pcb* contexto=recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
-                    enviar_mensaje("deberia mandar pcb desalojado", cliente_socket_dispatch);
-                    sleep(0.99);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
-                    
+                    break;    
                 } else {
                     log_error(logger_cpu, "Error al recibir el PCB");
-                    
                 }
                 break;
             }
@@ -96,6 +92,7 @@ static void procesar_conexion_dispatch(void* void_args) {
             }
         }
     }
+    return;
 }
 
 int server_escuchar(int fd_cpu_interrupt, int fd_cpu_dispatch) {
@@ -110,14 +107,12 @@ int server_escuchar(int fd_cpu_interrupt, int fd_cpu_dispatch) {
 		args = &socket_cliente_dispatch;
 		pthread_create(&hilo_dispatch, NULL, (void*) procesar_conexion_dispatch, (void*) args);
 		pthread_detach(hilo_dispatch);
-
         //hilo para servidor interrupt
         pthread_t hilo_interrupt;
 		args = &socket_cliente_interrupt;
 		pthread_create(&hilo_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) args);
 		pthread_detach(hilo_interrupt);
-        return 1;
- 	}
+    }
     return 0;
 }
 
@@ -132,20 +127,22 @@ void levantar_config(char* ruta){
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
-    while (cliente_socket_dispatch != -1) {
+    while (cliente_socket_dispatch != -1 && !recibio_interrupcion) {
+            sleep(1);
             Instruccion * instruccion = malloc(sizeof(Instruccion));
-            fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger);
-            contexto->pc++;
-            decodeInstruccion(instruccion,contexto);
-            executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
-            if (strcmp(instruccion->opcode, "EXIT") == 0) {
-                return;
+            if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
+                contexto->pc++;
+                decodeInstruccion(instruccion,contexto);
+                executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
+                if (strcmp(instruccion->opcode, "EXIT") == 0) {
+                    send_pcbDesalojado(contexto, "EXIT", "", logger);
+                    return;
+                }
             }
-            if(recibio_interrupcion){
-                recibio_interrupcion=false;
-                send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
-                return;
-            }
+    }
+    if(recibio_interrupcion){
+        recibio_interrupcion=false;
+        send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
         return;
     }
 }
@@ -208,12 +205,13 @@ bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* lo
     strcpy(instruccion->opcode, aux.opcode);
     strcpy(instruccion->operando1, aux.operando1);
     strcpy(instruccion->operando2, aux.operando2);
-    if (instruccion!=NULL) {
+    if(instruccion!=NULL) {
         log_info(logger,ANSI_COLOR_BLUE "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto->pid, contexto->pc);
         return true;
     } else {
-        perror("Error al recibir la instrucción");
+        log_error(logger,"Error al recibir la instrucción");
         return false;
     }
+    return false;
 }

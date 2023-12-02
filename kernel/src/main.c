@@ -210,6 +210,7 @@ void* fun_vacia(void* args){}
 void detener_planificacion(){
     // Código para pausar la planificación de corto y largo plazo
     planificacion_activa = false;
+    send_interrupcion(0 ,fd_cpu_interrupt);
     printf("detengo planificacion \n");
 }
 void iniciar_planificacion(){
@@ -310,8 +311,7 @@ pcb* sacar_de_block(){
 void* planif_largo_plazo(void* args){
     //falta agregar lo de finalizar cuando recibe un exit
     while(1){
-        if (planificacion_activa)
-        {
+        if(planificacion_activa){
             sem_wait(&cantidad_multiprogramacion);
             //sacar de new y agregar a ready
             pcb* proceso = sacar_de_new();
@@ -322,8 +322,7 @@ void* planif_largo_plazo(void* args){
 void* planif_corto_plazo(void* args){
     pthread_t hilo_interrupciones;
     while(1){
-        if (planificacion_activa)
-        {
+        if(planificacion_activa){
             //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
             sem_wait(&puedo_ejecutar_proceso);
             if(strcmp(algoritmo_planificacion,"FIFO")==0){
@@ -576,8 +575,9 @@ void manejar_recibir_cpu(){
                     printf("\n manejo interrupcion \n");
                     //ver bien coom hacer el interupt
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
                     pcb* pcb_interrumpido = sacar_de_exec();
-                    agregar_a_ready(pcb_interrumpido);
+                    agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
                     break;
                 default:

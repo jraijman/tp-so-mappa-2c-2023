@@ -24,7 +24,6 @@ char* puerto_interrupt;
 t_log* logger_cpu;
 t_config* config;
 
-
 void levantar_config(char*);
 void ciclo_instruccion(pcb* contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);
 void decodeInstruccion(Instruccion* instruccion, pcb* contexto);

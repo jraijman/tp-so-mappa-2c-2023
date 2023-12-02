@@ -46,7 +46,6 @@ void crear_archivo(char* nombre) {
     dictionary_put(nuevoFCB->properties, "TAMANIO_ARCHIVO", "0");
     dictionary_put(nuevoFCB->properties, "BLOQUE_INICIAL", " ");
     config_save_in_file(nuevoFCB, ruta);
-    
     return;
 }
 
