@@ -80,9 +80,11 @@ static void procesar_conexion_dispatch(void* void_args) {
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
+                    log_info(logger_cpu, "SALI DEL CICLO DE INSTRUCCION");
                     break;    
                 } else {
                     log_error(logger_cpu, "Error al recibir el PCB");
+                    
                 }
                 break;
             }
@@ -112,7 +114,8 @@ int server_escuchar(int fd_cpu_interrupt, int fd_cpu_dispatch) {
 		args = &socket_cliente_interrupt;
 		pthread_create(&hilo_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) args);
 		pthread_detach(hilo_interrupt);
-    }
+        return 1;
+ 	}
     return 0;
 }
 
@@ -134,14 +137,16 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
                 contexto->pc++;
                 decodeInstruccion(instruccion,contexto);
                 executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
+                log_info(logger,"EL PC DESPUES DE LA EJECUCION %d", contexto->pc);
                 if (strcmp(instruccion->opcode, "EXIT") == 0) {
-                    send_pcbDesalojado(contexto, "EXIT", "", logger);
+                    send_pcbDesalojado(contexto, "EXIT","", cliente_socket_dispatch, logger);
                     return;
                 }
             }
     }
     if(recibio_interrupcion){
         recibio_interrupcion=false;
+        log_info(logger_cpu,"Salí por interrupcion");
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
         return;
     }
