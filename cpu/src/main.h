@@ -12,6 +12,7 @@
 #include "../../utils/src/protocolo/protocolo.h"
 #include "instrucciones.h"
 
+bool recibio_interrupcion;
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;
@@ -22,6 +23,7 @@ char* puerto_dispatch;
 char* puerto_interrupt;
 t_log* logger_cpu;
 t_config* config;
+
 
 void levantar_config(char*);
 void ciclo_instruccion(pcb* contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);

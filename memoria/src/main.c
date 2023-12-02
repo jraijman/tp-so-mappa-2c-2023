@@ -1,3 +1,4 @@
+
 #include "main.h"
 
 pthread_mutex_t mx_memoria = PTHREAD_MUTEX_INITIALIZER;
@@ -94,7 +95,7 @@ static void procesar_conexion(void *void_args) {
             t_list* parametros_lectura_fs = recibir_paquete(cliente_socket);
         
             // Simular retardo de memoria
-            usleep(RETARDO_RESPUESTA* 1000);
+            usleep(retardo_respuesta* 1000);
 
             // Copiar el contenido de la dirección de memoria al valor leído
             //memcpy(contenido_leido_fs, espacio_usuario + *direccion_lectura_fs, *tamanio_lectura_fs);
@@ -107,7 +108,7 @@ static void procesar_conexion(void *void_args) {
             t_list* parametros_escritura_fs = recibir_paquete(cliente_socket);
 
             // Simular retardo de memoria
-            usleep(RETARDO_RESPUESTA* 1000);
+            usleep(retardo_respuesta* 1000);
 
             // Copiar el valor a escribir en la dirección de memoria
             //memcpy(espacio_usuario + *direccion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);

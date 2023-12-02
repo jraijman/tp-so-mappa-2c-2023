@@ -139,8 +139,8 @@ void iniciar_hilos(){
     pthread_create(&hilo_respuestas_memoria, NULL, (void*)manejar_recibir_memoria, NULL);
 
     pthread_detach(hilo_consola);
-    //pthread_detach(hilo_plan_largo);
-    //pthread_detach(hilo_plan_corto);
+    pthread_detach(hilo_plan_largo);
+    pthread_detach(hilo_plan_corto);
     //pthread_detach(hilo_cpu_exit);
     pthread_detach(hilo_respuestas_cpu);   
     pthread_detach(hilo_respuestas_fs);
@@ -210,15 +210,11 @@ void* fun_vacia(void* args){}
 void detener_planificacion(){
     // Código para pausar la planificación de corto y largo plazo
     planificacion_activa = false;
-    pthread_create(&hilo_plan_largo, NULL, fun_vacia, NULL);
-    pthread_create(&hilo_plan_corto, NULL, fun_vacia, NULL);
     printf("detengo planificacion \n");
 }
 void iniciar_planificacion(){
     // Código para retomar la planificación de corto y largo plazo
     planificacion_activa = true;
-    pthread_create(&hilo_plan_largo, NULL, planif_largo_plazo, NULL);
-    pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
     printf("inicio planificacion \n");
 }
 void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
@@ -314,45 +310,51 @@ pcb* sacar_de_block(){
 void* planif_largo_plazo(void* args){
     //falta agregar lo de finalizar cuando recibe un exit
     while(1){
-        sem_wait(&cantidad_multiprogramacion);
-        //sacar de new y agregar a ready
-        pcb* proceso = sacar_de_new();
-        agregar_a_ready(proceso);
+        if (planificacion_activa)
+        {
+            sem_wait(&cantidad_multiprogramacion);
+            //sacar de new y agregar a ready
+            pcb* proceso = sacar_de_new();
+            agregar_a_ready(proceso);
+        }
     }
 }
 void* planif_corto_plazo(void* args){
     pthread_t hilo_interrupciones;
     while(1){
-        //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
-        sem_wait(&puedo_ejecutar_proceso);
-        if(strcmp(algoritmo_planificacion,"FIFO")==0){
-            pcb* procesoAEjecutar = obtenerSiguienteFIFO();
-            if(procesoAEjecutar != NULL) {
-                agregar_a_exec(procesoAEjecutar);
-                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                }
+        if (planificacion_activa)
+        {
+            //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
+            sem_wait(&puedo_ejecutar_proceso);
+            if(strcmp(algoritmo_planificacion,"FIFO")==0){
+                pcb* procesoAEjecutar = obtenerSiguienteFIFO();
+                if(procesoAEjecutar != NULL) {
+                    agregar_a_exec(procesoAEjecutar);
+                    send_pcb(procesoAEjecutar, fd_cpu_dispatch);
+                    }
             }
-        else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
-            //TIENE DESALOJO
-            pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
-            if(procesoAEjecutar != NULL) {
-                //hilo que controla si hay que mandar interrupcion
-                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
-                agregar_a_exec(procesoAEjecutar);
-                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
+            else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
+                //TIENE DESALOJO
+                pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
+                if(procesoAEjecutar != NULL) {
+                    //hilo que controla si hay que mandar interrupcion
+                    pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
+                    agregar_a_exec(procesoAEjecutar);
+                    send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 }
 
             }
-        else if(strcmp(algoritmo_planificacion,"RR")==0){
-            //TIENE DESALOJO
-            pcb *procesoAEjecutar = obtenerSiguienteRR();
-            if(procesoAEjecutar != NULL) {
-                //hilo que controla si hay que mandar interrupcion
-                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
-                agregar_a_exec(procesoAEjecutar);
-                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
+            else if(strcmp(algoritmo_planificacion,"RR")==0){
+                //TIENE DESALOJO
+                pcb *procesoAEjecutar = obtenerSiguienteRR();
+                if(procesoAEjecutar != NULL) {
+                    //hilo que controla si hay que mandar interrupcion
+                    pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
+                    agregar_a_exec(procesoAEjecutar);
+                    send_pcb(procesoAEjecutar, fd_cpu_dispatch);
                 }
             }
+        }
     }
 }
 

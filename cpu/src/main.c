@@ -47,6 +47,7 @@ static void procesar_conexion_interrupt(void* void_args) {
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion");
                 int pid_recibido;
                 recv_interrupcion(cliente_socket_interrupt,pid_recibido );
+                recibio_interrupcion = true;
                 break;
             default: {
                 log_error(logger_cpu, "Código de operación no reconocido en Interrupt: %d", cop);
@@ -132,7 +133,6 @@ void levantar_config(char* ruta){
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1) {
-        while (cliente_socket_interrupt != -1) {
             Instruccion * instruccion = malloc(sizeof(Instruccion));
             fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger);
             contexto->pc++;
@@ -141,8 +141,11 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             if (strcmp(instruccion->opcode, "EXIT") == 0) {
                 return;
             }
-        }
-        send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
+            if(recibio_interrupcion){
+                recibio_interrupcion=false;
+                send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
+                return;
+            }
         return;
     }
 }
