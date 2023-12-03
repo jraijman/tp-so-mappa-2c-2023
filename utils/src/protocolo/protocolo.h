@@ -46,7 +46,8 @@ typedef enum
     CREAR_ARCHIVO,
     TRUNCAR_ARCHIVO,
     PEDIDO_LECTURA_FS,
-    PEDIDO_ESCRITURA_FS
+    PEDIDO_ESCRITURA_FS,
+    FIN_ESCRITURA
 
 } op_code;
 typedef struct
@@ -90,6 +91,7 @@ t_list* lista_tablas_de_procesos;
 typedef struct 
 {
     int num_marco;
+    int tiempo_uso;
     bool en_memoria; //bit de presencia
     bool modificado; // bit de modificado
     int pid;
@@ -239,6 +241,8 @@ void send_terminar_proceso(int pid, int fd_modulo);
 void send_instruccion(int socket_cliente, Instruccion instruccion);
 void send_fetch_instruccion(char * path, int pc, int fd_modulo);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
+void send_valor_leido_fs(char* valor, int tamanio, int fd_modulo);
+void send_escribir_valor_fs(char* valor, int dir_fisica, int tamanio, int pid, int fd_modulo);
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
 pcb* recv_pcb(int fd_modulo);

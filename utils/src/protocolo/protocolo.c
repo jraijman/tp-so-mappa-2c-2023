@@ -645,3 +645,24 @@ void recv_direccion(int socket_cliente,Direccion* direccion) {
 	direccion->pageFault=direccionaux.pageFault;
     list_destroy(paquete);
 }
+void send_valor_leido_fs(char* valor, int tamanio, int fd_modulo){
+	t_paquete* paquete = crear_paquete(PEDIDO_LECTURA_FS);
+	agregar_a_paquete(paquete, valor, tamanio);
+	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
+}
+void send_escribir_valor_fs(char* valor, int dir_fisica, int tamanio, int pid, int fd_modulo){
+	t_paquete* paquete = crear_paquete(PEDIDO_ESCRITURA_FS);
+	agregar_a_paquete(paquete, valor, tamanio);
+	agregar_a_paquete(paquete, &(dir_fisica), sizeof(int));
+	agregar_a_paquete(paquete, &(tamanio), sizeof(int));
+	agregar_a_paquete(paquete, &(pid), sizeof(int));
+	enviar_paquete(paquete, fd_modulo);
+}
+void send_fin_escritura(int fd_modulo){
+	t_paquete* paquete = crear_paquete(FIN_ESCRITURA);
+	op_code cop = FIN_ESCRITURA;
+	agregar_a_paquete(paquete, &cop, sizeof(op_code));
+	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
+}

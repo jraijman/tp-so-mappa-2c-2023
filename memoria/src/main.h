@@ -23,9 +23,11 @@ char* puerto_filesystem;
 int tam_memoria;
 int tam_pagina;
 char* path_instrucciones;
-int retardo_respuesta;
+int RETARDO_REPUESTA;
 char* algoritmo_reemplazo;
+void *espacio_usuario;
 
+t_log* logger_obligatorio;
 t_log* logger_memoria;
 t_config* config;
 t_list* l_marco;
@@ -51,6 +53,6 @@ int paginas_necesarias(pcb *proceso);
 Instruccion* armar_estructura_instruccion(char* instruccion_leida);
 char *armar_path_instruccion(char *path_consola);
 uint32_t algoritmo_fifo(int pid_actual);
-uint32_t algoritmo_lru(int pid_actual);
+void algoritmo_lru(t_list* tabla_De_Paginas)
 
 #endif 

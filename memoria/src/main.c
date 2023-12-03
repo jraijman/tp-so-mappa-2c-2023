@@ -16,7 +16,7 @@ void levantar_config(char *ruta)
     puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
     tam_pagina = config_get_int_value(config, "TAM_PAGINA");
     path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
-    retardo_respuesta = config_get_int_value(config, "RETARDO_RESPUESTA");
+    RETARDO_REPUESTA = config_get_int_value(config, "RETARDO_RESPUESTA");
     algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
 }
 
@@ -91,35 +91,53 @@ static void procesar_conexion(void *void_args) {
 			//terminar_proceso(pid_fin);
 			break;
         case PEDIDO_LECTURA_FS:
-            // Recibir parámetros de lectura desde el cliente File System
-            t_list* parametros_lectura_fs = recibir_paquete(cliente_socket);
+           // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
+            t_list* parametros_escritura_fs = recibir_paquete(cliente_socket);
         
+            char* valor_a_escribir_fs = list_get(parametros_escritura_fs, 0);
+            int* posicion_escritura_fs = list_get(parametros_escritura_fs, 1);
+            int* tam_esc_fs = list_get(parametros_escritura_fs, 2);
+            int* pid_escritura_fs = list_get(parametros_escritura_fs, 3);
+
+            // info sobre el tamaño del valor a escribir en el logger.
+            log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
+
             // Simular retardo de memoria
-            usleep(retardo_respuesta* 1000);
+            usleep(RETARDO_REPUESTA* 1000);
 
-            // Copiar el contenido de la dirección de memoria al valor leído
-            //memcpy(contenido_leido_fs, espacio_usuario + *direccion_lectura_fs, *tamanio_lectura_fs);
+             // Escribe el valor en el espacio de usuario en la posición especificada.
+            memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
+            
+            // Registra información sobre la escritura en el logger y envía un mensaje indicando el fin de la operación de escritura al módulo cliente (FS).
+            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);
 
-            // Enviar el valor leído al cliente File System
-        
             break;
         case PEDIDO_ESCRITURA_FS:
-            // Recibir parámetros de escritura desde el cliente File System
+            // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
             t_list* parametros_escritura_fs = recibir_paquete(cliente_socket);
+            
+            char* valor_a_escribir_fs = list_get(parametros_escritura_fs, 0);
+            int* posicion_escritura_fs = list_get(parametros_escritura_fs, 1);
+            int* tam_esc_fs = list_get(parametros_escritura_fs, 2);
+            int* pid_escritura_fs = list_get(parametros_escritura_fs, 3);
 
-            // Simular retardo de memoria
-            usleep(retardo_respuesta* 1000);
+            // Registra información sobre el tamaño del valor a escribir en el logger.
+            log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
 
-            // Copiar el valor a escribir en la dirección de memoria
-            //memcpy(espacio_usuario + *direccion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
+            // Simula un retardo en el acceso a memoria según la configuración.
+            usleep(RETARDO_REPUESTA * 1000);
 
-            // Enviar confirmación de fin de escritura al cliente File System
-        
+            // Escribe el valor en el espacio de usuario en la posición especificada.
+            memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
+
+            // Registra información sobre la escritura en el logger y envía un mensaje indicando el fin de la operación de escritura al módulo cliente (FS).
+            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);
+
         break;
         case ENVIO_INSTRUCCION:
             char* path;
             int* pc;
-            usleep(retardo_respuesta);
+            usleep(RETARDO_REPUESTA);
             recv_fetch_instruccion(cliente_socket, &path,&pc);
             leer_instruccion_por_pc_y_enviar(path,*pc, cliente_socket);
             break;
@@ -442,19 +460,66 @@ Instruccion* armar_estructura_instruccion(char* instruccion_leida){
     }
     return instruccion;
 }
-
-/*ALGORITMOS
-uint32_t usar_algoritmo(int pid){
-	if (strcmp(algoritmo, "FIFO") == 0){
-		log_info(logger, "[CPU] Reemplazo por FIFO");
-		return algoritmo_fifo(pid);
-	}
-	else if (strcmp(algoritmo, "LRU") == 0){
-		log_info(logger, "[CPU] Reemplazo por LRU");
-		return algoritmo_lru(pid);
-	}
-	else{
-		exit(-1);
-	}
+// Función para loguear el valor leído y enviarlo de vuelta al módulo cliente (FS)
+void log_valor_espacio_usuario_y_enviar(char* valor, int tamanio, int cliente_socket) {
+    log_valor_espacio_usuario(valor, tamanio);
+    send_valor_leido_fs(valor, tamanio, cliente_socket);
 }
-*/
+
+// Función para loguear información y enviar el mensaje de fin de escritura al módulo cliente (FS)
+void log_info_y_enviar_fin_escritura(t_log* logger, int pid, int posicion, int tam, char* valor, int cliente_socket) {
+    log_info(logger_memoria, "PID: %d - Acción: ESCRIBIR - Dirección física: %d - Tamaño: %d - Origen: FS", pid, posicion, tam);
+    log_valor_espacio_usuario(valor, tam);
+    send_fin_escritura(cliente_socket);
+}
+void log_valor_espacio_usuario(char* valor, int tamanio){
+	char* valor_log = malloc(tamanio);
+	memcpy(valor_log, valor, tamanio);
+	memcpy(valor_log + tamanio, "\0", 1);
+	int tamanio_valor = strlen(valor_log);
+	log_info(logger_memoria, "se leyo/escribio %s de tamaño %d en el espacio de usuario", valor_log, tamanio_valor);
+}
+
+//LRU
+// Función para reemplazar una página utilizando el algoritmo LRU
+void algoritmo_lru(t_list* tabla_De_Paginas) {
+    if (list_is_empty(tabla_De_Paginas)) {
+        log_info(logger_memoria, "No hay páginas para reemplazar.");
+        return;
+    }
+
+    // Filtrar y ordenar de más vieja a más nueva
+    list_sort(tabla_De_Paginas, (void*)masVieja);
+
+    // Obtener la página más antigua
+    entrada_pagina* paginaReemplazo = list_get(tabla_De_Paginas, 0);
+    log_info(logger_memoria, "Voy a reemplazar la página %d que estaba en el frame %d", paginaReemplazo->pid, paginaReemplazo->num_marco);
+
+    // Guardar en memoria virtual si está modificada
+    if (paginaReemplazo->modificado == 1) {
+        //guardarMemoriaVirtual(paginaReemplazo);
+    }
+
+    // Desocupar el frame en el bitmap
+    //desocuparFrameEnBitmap(paginaReemplazo->num_marco);
+
+    // Actualizar el bit de presencia
+    paginaReemplazo->en_memoria = 0;
+
+    // Liberar memoria de la página reemplazada
+    free(paginaReemplazo);
+
+    // Actualizar el tiempo de uso de las demás páginas
+    actualizarTiempoDeUso(tabla_De_Paginas);
+}
+int masVieja(entrada_pagina* unaPag, entrada_pagina* otraPag){
+		
+	return (otraPag->tiempo_uso > unaPag->tiempo_uso); //LA QUE ESTA HACE MAS TIEMPO
+}
+// Función para actualizar el tiempo de uso de todas las páginas
+void actualizarTiempoDeUso(t_list* tabla_De_Paginas) {
+    for (int i = 0; i < list_size(tabla_De_Paginas); ++i) {
+        entrada_pagina* pagina = list_get(tabla_De_Paginas, i);
+        pagina->tiempo_uso++;
+    }
+}
