@@ -53,6 +53,6 @@ int paginas_necesarias(pcb *proceso);
 Instruccion* armar_estructura_instruccion(char* instruccion_leida);
 char *armar_path_instruccion(char *path_consola);
 uint32_t algoritmo_fifo(int pid_actual);
-void algoritmo_lru(t_list* tabla_De_Paginas)
+void algoritmo_lru(t_list* tabla_De_Paginas);
 
 #endif 

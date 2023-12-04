@@ -50,6 +50,10 @@ static void procesar_conexion_interrupt(void* void_args) {
                 recibio_interrupcion = true;
                 }
                 break;
+            case INTERRUPCION_FINALIZAR:
+                int pid_recibido_finalizar;
+                //ACA LE LLEGA UNA INTERRUPCION CUANDO FIANLIZO PROCESO POR CONSOLA Y ESTA EJECUTANDO
+                break;
             default: {
                 log_error(logger_cpu, "Código de operación no reconocido en Interrupt: %d", cop);
                 break;
@@ -69,7 +73,6 @@ static void procesar_conexion_dispatch(void* void_args) {
 			return;
 		}
         switch (cop) {
-            
             case MENSAJE:
                 recibir_mensaje(logger_cpu, cliente_socket_dispatch);
                 break;
@@ -77,7 +80,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                 t_list *paquete_recibido = recibir_paquete(cliente_socket_dispatch);
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
-            case ENVIO_PCB: {
+            case ENVIO_PCB: 
                 contexto=recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
@@ -88,7 +91,6 @@ static void procesar_conexion_dispatch(void* void_args) {
                     
                 }
                 break;
-            }
             default: {
                 log_error(logger_cpu, "Código de operación no reconocido en Dispatch: %d", cop);
                 break;

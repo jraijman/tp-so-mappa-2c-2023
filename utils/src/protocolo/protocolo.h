@@ -15,9 +15,11 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include<commons/collections/queue.h>
 
 typedef enum
 {
+    //OPCODES
     ENVIO_PCB,
     ENVIO_INSTRUCCION,
     ENVIO_PCB_DESALOJADO,
@@ -47,8 +49,30 @@ typedef enum
     TRUNCAR_ARCHIVO,
     PEDIDO_LECTURA_FS,
     PEDIDO_ESCRITURA_FS,
-    FIN_ESCRITURA
-
+    FIN_ESCRITURA,
+    INTERRUPCION_FINALIZAR,
+    ARCHIVO_NO_EXISTE,
+    ARCHIVO_CREADO,
+    //INSTRUCCIONES
+    SET,
+    ADD,
+    MOV_IN,
+    MOV_OUT,
+    IO,
+    SIGNAL,
+    EXIT,
+    UNKNOWN_OP,
+    ERROR_MEMORIA,
+    WAIT,
+    F_OPEN,
+    YIELD,
+    F_TRUNCATE,
+    F_SEEK,
+    CREATE_SEGMENT,
+    F_WRITE,
+    F_READ,
+    DELETE_SEGMENT,
+    F_CLOSE
 } op_code;
 typedef struct
 {
@@ -80,9 +104,15 @@ typedef struct
 } t_registros;
 
 typedef struct {
-    char *path;
-    int* puntero;
-} t_archivos;
+    char* nombre_archivo;
+	int puntero;
+	t_queue* bloqueados_archivo;
+	//pthread_mutex_t mutex_w;
+    //pthread_mutex_t mutex_r;
+    //pthread_rwlock_t rwlock;
+    int abierto_w;
+    int cant_abierto_r;
+} t_archivo;
 
 
 
@@ -100,28 +130,7 @@ typedef struct
 
 // Definición de estructura para representar un proceso (PCB)
 
-typedef enum
-{
-    SET,
-    ADD,
-    MOV_IN,
-    MOV_OUT,
-    IO,
-    SIGNAL,
-    EXIT,
-    UNKNOWN_OP,
-    ERROR_MEMORIA,
-    WAIT,
-    F_OPEN,
-    YIELD,
-    F_TRUNCATE,
-    F_SEEK,
-    CREATE_SEGMENT,
-    F_WRITE,
-    F_READ,
-    DELETE_SEGMENT,
-    F_CLOSE
-} cod_instruccion;
+
 
 typedef struct
 {
@@ -193,7 +202,7 @@ typedef struct
     char *path;
     estado_proceso estado;
     t_registros *registros;
-    t_list *archivos; // lista de archivos abiertos del proceso con la posición del puntero de cada uno de ellos
+    t_list *archivos; 
 } pcb;
 
 void pcb_destroyer(pcb* contexto);
@@ -243,6 +252,9 @@ void send_fetch_instruccion(char * path, int pc, int fd_modulo);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 void send_valor_leido_fs(char* valor, int tamanio, int fd_modulo);
 void send_escribir_valor_fs(char* valor, int dir_fisica, int tamanio, int pid, int fd_modulo);
+void send_abrir_archivo(char* nombre_archivo, int fd_modulo);
+void send_crear_archivo(char* nombre_archivo, int fd_modulo);
+
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
 pcb* recv_pcb(int fd_modulo);
@@ -254,5 +266,6 @@ Instruccion recv_instruccion(int socket_cliente);
 int recv_fetch_instruccion(int fd_modulo, char** path, int** pc);
 void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo, int *pid);
-
+void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
+void recv_f_close(int fd,char** nombre_archivo);
 #endif

@@ -127,8 +127,7 @@ void * leer_consola(void * arg)
 void iniciar_hilos(){
     //creo hilo para la consola
     pthread_create(&hilo_consola, NULL, leer_consola, NULL);
-
-     //creo hilo para pasar a cola de ready
+    //creo hilo para pasar a cola de ready
     pthread_create(&hilo_plan_largo, NULL, planif_largo_plazo, NULL);
     //creo hilo para la planificacion a corto plazo
     pthread_create(&hilo_plan_corto, NULL, planif_corto_plazo, NULL);
@@ -141,7 +140,6 @@ void iniciar_hilos(){
     pthread_detach(hilo_consola);
     pthread_detach(hilo_plan_largo);
     pthread_detach(hilo_plan_corto);
-    //pthread_detach(hilo_cpu_exit);
     pthread_detach(hilo_respuestas_cpu);   
     pthread_detach(hilo_respuestas_fs);
     pthread_detach(hilo_respuestas_memoria);
@@ -156,6 +154,7 @@ void iniciar_listas(){
 	cola_exit = queue_create();
 
     lista_recursos = inicializar_recursos();
+    archivos_abiertos = list_create();
 }
 
 //-------------------------------OPERACIONES DE CONSOLA-------------------------------------------
@@ -179,6 +178,11 @@ void finalizar_proceso(char * pid){
     }
     if(procesoAEliminar == NULL){
         procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int, cantidad_exec, mutex_exec);
+        //TENGO QUE MANDAR UN INTERRUPT A CPU PARA FINALIZAR EL PROCESO 
+        t_paquete* paquete = crear_paquete(INTERRUPCION_FINALIZAR);
+        agregar_a_paquete(paquete, &pid, sizeof(int));
+        enviar_paquete(paquete, fd_cpu_interrupt);
+        eliminar_paquete(paquete);
     }
     if(procesoAEliminar == NULL){
         procesoAEliminar = buscar_y_remover_pcb_cola(cola_block, pid_int, cantidad_block, mutex_block);
@@ -201,6 +205,7 @@ void finalizar_proceso(char * pid){
         //borrar todo lo que corresponde a ese proceso
         // Mandar a la cola de EXIT;
         agregar_a_exit(procesoAEliminar);
+        liberar_recursos_proceso(procesoAEliminar);
         //mandar mensaje a memoria para que libere
         send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
         }
@@ -216,20 +221,23 @@ void detener_planificacion(){
         sem_wait(&sem_plan_corto);
     pthread_mutex_unlock(&mutex_plani_corta);
     //send_interrupcion(0 ,fd_cpu_interrupt);
-    printf("detengo planificacion \n");
+    log_info(logger_kernel, "PAUSA DE PLANIFICACIÓN");
 }
 void iniciar_planificacion(){
     // Código para retomar la planificación de corto y largo plazo
-    planificacion_activa = true;
+    if (planificacion_activa == false){
         sem_post(&sem_plan_largo);
         sem_post(&sem_plan_corto);
-    printf("inicio planificacion \n");
+        log_info(logger_kernel, "INICIO DE PLANIFICACIÓN");
+    }
+    planificacion_activa = true;
 }
 void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
     // Código para actualizar el grado de multiprogramación configurado inicialmente
     // por archivo de configuración y desalojar o finalizar los procesos si es necesario
     log_info(logger_kernel, "Grado Anterior: %d - Grado Actual: %d", grado_multiprogramacion, atoi(nuevo_grado_multiprogramacion));
     grado_multiprogramacion = atoi(nuevo_grado_multiprogramacion);
+    
 }
 void proceso_estado(){
     // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
@@ -551,6 +559,110 @@ t_recurso* buscar_recurso(char* recurso){
 	return recursobuscado;
 }
 
+//---------------------------------------------------------------
+//              MANEJO DE FILESYSTEM
+
+t_archivo* buscar_archivo_global(char* nombre_archivo){
+	for(int i = 0; i < list_size(archivos_abiertos); i++){
+		t_archivo* archivo = list_get(archivos_abiertos, i);
+		if(strcmp(archivo->nombre_archivo, nombre_archivo) == 0){
+			return archivo;
+		}
+	}
+	return NULL;
+}
+
+t_archivo* buscar_archivo_en_pcb(char* nombre_archivo, pcb* pcb){
+	for(int i = 0; i < list_size(pcb->archivos); i++){
+		t_archivo* archivo = list_get(pcb->archivos, i);
+		if(strcmp(archivo->nombre_archivo, nombre_archivo) == 0){
+			return archivo;
+		}
+	}
+	return NULL;
+}
+
+t_archivo* crear_archivo(char* nombre_archivo){
+	t_archivo* archivo = malloc(sizeof(t_archivo));
+	archivo->nombre_archivo = nombre_archivo;
+	archivo->puntero = 0;
+	archivo->bloqueados_archivo = queue_create();
+    archivo->abierto_w = 0;
+    archivo->cant_abierto_r = 0;
+	//pthread_mutex_init(&archivo->mutex_w, NULL);
+    //pthread_mutex_init(&archivo->mutex_r, NULL);
+    //pthread_rwlock_init(&archivo->rwlock, NULL);
+	return archivo;
+}
+
+t_archivo* quitar_archivo_de_proceso(char* nombre_archivo,pcb* pcb){
+	t_archivo* archivo = buscar_archivo_en_pcb(nombre_archivo, pcb);
+	list_remove_element(pcb->archivos, archivo);
+	log_info(logger_kernel, ANSI_COLOR_YELLOW "al proceso %d le quedan %d archivos abiertos", pcb->pid, list_size(pcb->archivos));
+	return archivo;
+}
+
+void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
+    //depende de si esta en modo lectura o escritura
+    //VER TEMA LOCKS
+    t_archivo* archivo = buscar_archivo_global(nombre_archivo);
+
+    if(strcmp(modo_apertura, "R") == 0){
+        //validar si hay lock de escritura activo
+        if(archivo->abierto_w == 1){
+            //bloquea proceso y lo agrega a la cola de bloqueados del archivo
+            agregar_a_block(proceso);
+            queue_push(archivo->bloqueados_archivo, proceso->pid);
+            sacar_de_exec();
+            sem_post(&puedo_ejecutar_proceso);
+        }else{
+            if(archivo == NULL){
+                //crear archivo y agregarlo a la lista de archivos abiertos
+                archivo = crear_archivo(nombre_archivo);
+                send_abrir_archivo(nombre_archivo,fd_filesystem);
+                //necesito esperar a respuesta de fs si existe o no el archivo
+                if(archivo_no_existe){
+                    send_crear_archivo(nombre_archivo,fd_filesystem);   
+                }
+                sem_wait(&archivo_abierto);
+                list_add(archivos_abiertos, archivo);
+                list_add(proceso->archivos, archivo);   
+            }else{
+                list_add(proceso->archivos, archivo);  
+            }
+            send_pcb(proceso,fd_cpu_dispatch);
+            archivo->cant_abierto_r ++;
+        }
+    }
+    else if(strcmp(modo_apertura, "W") == 0){
+        if(archivo->abierto_w == 1 || archivo->cant_abierto_r > 0){
+            //bloquea proceso y lo agrega a la cola de bloqueados del archivo
+            agregar_a_block(proceso);
+            queue_push(archivo->bloqueados_archivo, proceso->pid);
+            sacar_de_exec();
+            sem_post(&puedo_ejecutar_proceso);
+        }else{
+            if(archivo == NULL){
+                //crear archivo y agregarlo a la lista de archivos abiertos
+                archivo = crear_archivo(nombre_archivo);
+                send_abrir_archivo(nombre_archivo,fd_filesystem);
+                //necesito esperar a respuesta de fs si existe o no el archivo
+                if(archivo_no_existe){
+                    send_crear_archivo(nombre_archivo,fd_filesystem);   
+                }
+                sem_wait(&archivo_abierto);
+                list_add(archivos_abiertos, archivo);
+                list_add(proceso->archivos, archivo);   
+            }else{
+                list_add(proceso->archivos, archivo);  
+            }
+            send_pcb(proceso,fd_cpu_dispatch);
+            archivo->abierto_w = 1;
+        }
+    }
+}
+
+
 //--------------FUNCIONES DE RECIBIR MENSAJES-----------------
 
 void manejar_recibir_cpu(){
@@ -562,6 +674,7 @@ void manejar_recibir_cpu(){
         else{
             pcb* proceso = NULL;
             char * extra = NULL;
+            char *nombre_archivo;
             op_code cop = recibir_operacion(fd_cpu_dispatch);
             switch (cop) {
                 case MENSAJE:
@@ -588,7 +701,7 @@ void manejar_recibir_cpu(){
                     sem_post(&cantidad_multiprogramacion);
                     sem_post(&puedo_ejecutar_proceso);
                     //Liberar recursos asignados del proceso
-
+                    liberar_recursos_proceso(proceso);
                     //mandar mensaje a memoria para que libere
                     send_terminar_proceso(proceso->pid,fd_memoria);
                     break;
@@ -605,6 +718,28 @@ void manejar_recibir_cpu(){
                     pcb* pcb_interrumpido = sacar_de_exec();
                     agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
+                    break;
+                case F_OPEN:
+                    char* modo_apertura;
+                    //NECESITO PCB PARA EL ARCIVO
+                    recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura);
+                    //NO SE SI SE PUEDE ASI??????
+                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
+                    ejecutar_f_open(nombre_archivo,modo_apertura,proceso);
+                    log_info(logger_kernel, "PID: %d - Abrir Archivo: %s", proceso->pid, nombre_archivo);
+                    break;
+                case F_CLOSE:
+                    recv_f_close(fd_cpu_dispatch, &nombre_archivo);
+                    
+                    break;
+                case F_SEEK:
+                    
+                    break;
+                case F_TRUNCATE:
+                    break;
+                case F_READ:
+                    break;
+                case F_WRITE:
                     break;
                 default:
                     printf("Error al recibir mensaje\n");
@@ -646,6 +781,20 @@ void manejar_recibir_fs(){
                 case MENSAJE:
                     recibir_mensaje(logger_kernel, fd_filesystem);
                     break;
+                case ABRIR_ARCHIVO:
+                    //no se para que me sirve el tamanio
+                    log_info(logger_kernel, ANSI_COLOR_YELLOW "SE ABRIO UN ARCHIVO");
+                    sem_post(&archivo_abierto);
+                    break;
+                case ARCHIVO_NO_EXISTE:
+                    //le tengo que mandar que cree el archivo
+                    log_info(logger_kernel, ANSI_COLOR_YELLOW "NO EXISTE EL ARCHIVO");
+                    archivo_no_existe = true;
+                    break;
+                case ARCHIVO_CREADO:
+                    log_info(logger_kernel, ANSI_COLOR_YELLOW "SE CREO UN ARCHIVO");
+                    sem_post(&archivo_abierto);
+                    break;
                 default:
                     printf("Error al recibir mensaje\n");
                     break;
@@ -667,6 +816,7 @@ void iniciar_semaforos(){
     sem_init(&control_interrupciones_prioridades,0,0);
     sem_init(&sem_plan_largo, 0, 1);
     sem_init(&sem_plan_corto, 0, 1);
+    sem_init(&archivo_abierto, 0, 0);
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);
@@ -704,9 +854,12 @@ pcb* crear_pcb(char* nombre_archivo, char* size, char* prioridad) {
     proceso->archivos = list_create();
     proceso->path = malloc(sizeof(char) * strlen(nombre_archivo) + 1);
     strcpy(proceso->path, nombre_archivo);
+    proceso->archivos = list_create();
     contador_pid++;
     return proceso;
 }
+
+
 
 t_list* config_list_to_t_list(t_config* config, char* nombre){
     t_list* lista = list_create();
@@ -740,13 +893,46 @@ t_list* inicializar_recursos(){
 	return lista;
 }
 
+void buescar_proceso_asignado_recurso_y_eliminar(pcb* proceso, t_recurso* recurso_actual) {
+    int largo_bloqueados = list_size(recurso_actual->bloqueados->elements);
+    int largo_procesos = list_size(recurso_actual->procesos->elements);
+	for(int i = 0; i < largo_bloqueados; i++){
+        pcb* proceso_bloqueado = list_get(recurso_actual->bloqueados->elements, i);
+        if (proceso_bloqueado->pid == proceso->pid) {
+            //aca hay q ver como hacer para hacer bien el free
+            //free(proceso_bloqueado);
+            list_remove(recurso_actual->bloqueados->elements, i);
+            break;
+        }
+    }
+    for(int i = 0; i < largo_procesos; i++){
+        pcb* proceso_encontrado = list_get(recurso_actual->procesos->elements, i);
+        if (proceso_encontrado->pid == proceso->pid) {
+            //aca hay q ver como hacer para hacer bien el free
+            //free(proceso_encontrado);
+            list_remove(recurso_actual->procesos->elements, i);
+            break;
+        }
+    }
+    return;
+}
+
+
+void liberar_recursos_proceso(pcb* proceso) {
+    int largo = list_size(lista_recursos);
+	for(int i = 0; i < largo; i++){
+        t_recurso* recurso_actual = list_get(lista_recursos, i);
+        buescar_proceso_asignado_recurso_y_eliminar(proceso, recurso_actual);
+    }
+}
+
+
 pcb* buscar_y_remover_pcb_cola(t_queue* cola, int id, sem_t semaforo, pthread_mutex_t mutex){
     // Función para verificar si un PCB tiene el PID especificado
     bool tiene_pid(pcb* proceso) {
         return proceso->pid == id;
     }
-     // Buscar el PCB en la cola y revover si existe
-     //hay que meter semaforo
+     // Buscar el PCB en la cola y devolver si existe
     pcb * proceso = NULL;
     pthread_mutex_lock(&mutex);
     proceso = list_remove_by_condition(cola->elements, (void *) tiene_pid);
@@ -819,3 +1005,5 @@ bool lista_contiene_id(t_list* lista, pcb * proceso) {
     }
     return contiene_id;
 }
+
+

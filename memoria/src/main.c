@@ -58,6 +58,9 @@ static void procesar_conexion(void *void_args) {
 	int cliente_socket = *args;
 
 	op_code cop;
+    t_list* parametros_escritura_fs;
+    int* pid_escritura_fs;
+    int* tam_esc_fs;
 	while (cliente_socket != -1) {
 		if (recv(cliente_socket, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
 			log_info(logger_memoria, ANSI_COLOR_BLUE"El cliente se desconecto de %s server", server_name);
@@ -92,12 +95,12 @@ static void procesar_conexion(void *void_args) {
 			break;
         case PEDIDO_LECTURA_FS:
            // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
-            t_list* parametros_escritura_fs = recibir_paquete(cliente_socket);
+            /*parametros_escritura_fs = recibir_paquete(cliente_socket);
         
             char* valor_a_escribir_fs = list_get(parametros_escritura_fs, 0);
             int* posicion_escritura_fs = list_get(parametros_escritura_fs, 1);
-            int* tam_esc_fs = list_get(parametros_escritura_fs, 2);
-            int* pid_escritura_fs = list_get(parametros_escritura_fs, 3);
+            tam_esc_fs = list_get(parametros_escritura_fs, 2);
+            pid_escritura_fs = list_get(parametros_escritura_fs, 3);
 
             // info sobre el tamaño del valor a escribir en el logger.
             log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
@@ -109,17 +112,17 @@ static void procesar_conexion(void *void_args) {
             memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
             
             // Registra información sobre la escritura en el logger y envía un mensaje indicando el fin de la operación de escritura al módulo cliente (FS).
-            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);
+            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);*/
 
             break;
         case PEDIDO_ESCRITURA_FS:
             // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
-            t_list* parametros_escritura_fs = recibir_paquete(cliente_socket);
+            /*parametros_escritura_fs = recibir_paquete(cliente_socket);
             
             char* valor_a_escribir_fs = list_get(parametros_escritura_fs, 0);
             int* posicion_escritura_fs = list_get(parametros_escritura_fs, 1);
-            int* tam_esc_fs = list_get(parametros_escritura_fs, 2);
-            int* pid_escritura_fs = list_get(parametros_escritura_fs, 3);
+            tam_esc_fs = list_get(parametros_escritura_fs, 2);
+            pid_escritura_fs = list_get(parametros_escritura_fs, 3);
 
             // Registra información sobre el tamaño del valor a escribir en el logger.
             log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
@@ -131,7 +134,7 @@ static void procesar_conexion(void *void_args) {
             memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
 
             // Registra información sobre la escritura en el logger y envía un mensaje indicando el fin de la operación de escritura al módulo cliente (FS).
-            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);
+            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);*/
 
         break;
         case ENVIO_INSTRUCCION:
@@ -287,8 +290,8 @@ void liberar_recursos(pcb* proceso) {
         free(proceso->registros);
     }
     for (int i = 0; i < list_size(proceso->archivos); i++) {
-        t_archivos* archivo = list_get(proceso->archivos, i);
-        fclose((FILE*) archivo->path);
+        t_archivo* archivo = list_get(proceso->archivos, i);
+        fclose((FILE*) archivo->nombre_archivo);
         free(archivo);
     }
     list_destroy(proceso->archivos);
@@ -482,7 +485,7 @@ void log_valor_espacio_usuario(char* valor, int tamanio){
 
 //LRU
 // Función para reemplazar una página utilizando el algoritmo LRU
-void algoritmo_lru(t_list* tabla_De_Paginas) {
+/*void algoritmo_lru(t_list* tabla_De_Paginas) {
     if (list_is_empty(tabla_De_Paginas)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
         return;
@@ -511,7 +514,7 @@ void algoritmo_lru(t_list* tabla_De_Paginas) {
 
     // Actualizar el tiempo de uso de las demás páginas
     actualizarTiempoDeUso(tabla_De_Paginas);
-}
+}*/
 int masVieja(entrada_pagina* unaPag, entrada_pagina* otraPag){
 		
 	return (otraPag->tiempo_uso > unaPag->tiempo_uso); //LA QUE ESTA HACE MAS TIEMPO

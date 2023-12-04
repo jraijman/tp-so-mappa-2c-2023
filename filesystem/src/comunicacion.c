@@ -36,6 +36,8 @@ static void procesar_conexion(void* void_args) {
                     enviar_paquete(paqueteEnviar,cliente_socket);
                 }else{
                     enviar_mensaje("El archivo solicitado no existe",cliente_socket);
+                    t_paquete* paqueteEnviar=crear_paquete(ARCHIVO_NO_EXISTE);
+                    enviar_paquete(paqueteEnviar,cliente_socket);
                 }
                 free(ruta);
                 break;
@@ -73,6 +75,9 @@ static void procesar_conexion(void* void_args) {
             {    t_list* paquete=recibir_paquete(cliente_socket);
                 char* nombre=list_get(paquete,0);
                 crear_archivo(nombre);
+                enviar_mensaje("OK crear archivo",cliente_socket);
+                t_paquete* paqueteEnviar=crear_paquete(ARCHIVO_CREADO);
+                enviar_paquete(paqueteEnviar,cliente_socket);
                 break;
             }
             case TRUNCAR_ARCHIVO:

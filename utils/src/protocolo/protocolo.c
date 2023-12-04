@@ -15,18 +15,13 @@ void* serializar_paquete(t_paquete* paquete, int bytes) {
 	offset += sizeof(int);
 	memcpy(paquete_serializado + offset, paquete->buffer->stream, paquete->buffer->size);
 
-	return paquete_serializado;
+	return paquete_serializado; 
 	}
 
 
 void eliminar_paquete(t_paquete* paquete) {
-    // Liberar memoria de los datos en el paquete
     free(paquete->buffer->stream);
-
-    // Liberar memoria del buffer
     free(paquete->buffer);
-
-    // Liberar memoria del paquete
     free(paquete);
 }
 
@@ -136,14 +131,40 @@ void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos) {
     agregar_a_paquete(paquete_archivos, &cantidad_archivos, sizeof(int));
 
     for (int i = 0; i < cantidad_archivos; i++) {
-        t_archivos* archivo = list_get(lista_archivos, i);
+        t_archivo* archivo = list_get(lista_archivos, i);
 
-        // Agregar la ruta del archivo al paquete
-        agregar_a_paquete(paquete_archivos, archivo->path, strlen(archivo->path) + 1);
+        agregar_a_paquete(paquete_archivos, archivo->nombre_archivo, strlen(archivo->nombre_archivo) + 1);
+        agregar_a_paquete(paquete_archivos, archivo->puntero, sizeof(int));
 
-        // Agregar el puntero al paquete
-        agregar_a_paquete(paquete_archivos, &(archivo->puntero), sizeof(int));
+		// Agregar la lista de Procesos bloqueados
+		int cantidad_procesos_bloqueados = queue_size(archivo->bloqueados_archivo);
+		agregar_a_paquete(paquete_archivos, &cantidad_procesos_bloqueados, sizeof(int));
+		for (int j = 0; j < cantidad_procesos_bloqueados; j++) {
+			int* pid_bloqueado = list_get(archivo->bloqueados_archivo->elements, j);
+			agregar_a_paquete(paquete_archivos, pid_bloqueado, sizeof(int));
+		}
+		// Agregar booleano de si esta abierto para escritura
+		agregar_a_paquete(paquete_archivos, archivo->abierto_w, sizeof(int));
+
+		// Agregar int de cantidad de veces abierto para lectura
+        agregar_a_paquete(paquete_archivos, archivo->cant_abierto_r, sizeof(int));
     }
+}
+t_queue* desempaquetar_procesos_bloqueados(t_list* paquete, int* comienzo) {
+		t_queue* procesos_bloqueados = queue_create();
+		int* cantidad_procesos = list_get(paquete, *comienzo);
+		int i = *comienzo + 1;
+
+		while (i - *comienzo - 1 < *cantidad_procesos) {
+			int* pid_bloqueado = malloc(sizeof(int));
+			*pid_bloqueado = *(int*)list_get(paquete, i);
+			queue_push(procesos_bloqueados, pid_bloqueado);
+			i++;
+		}
+
+	*comienzo = i;
+	free(cantidad_procesos);
+	return procesos_bloqueados;
 }
 
 t_list* desempaquetar_archivos(t_list* paquete, int* comienzo) {
@@ -152,22 +173,38 @@ t_list* desempaquetar_archivos(t_list* paquete, int* comienzo) {
 	int i = *comienzo + 1;
 
 	while (i - *comienzo - 1 < (*cantidad_archivos * 2)) {
-		t_archivos* archivo = malloc(sizeof(t_archivos));
+		t_archivo* archivo = malloc(sizeof(t_archivo));
 
 		// Desempaquetar la ruta del archivo
 		char* path = (char*)list_get(paquete, i);
-		archivo->path = strdup(path);
+		archivo->nombre_archivo = strdup(path);
 		free(path);
 		i++;
 
 		// Desempaquetar el puntero
 		int* puntero = list_get(paquete, i);
-		archivo->puntero = (int*) puntero;
+		archivo->puntero = *puntero;
 		free(puntero);
+		i++;
+
+		// Desempaquetar la lista de Procesos bloqueados
+		archivo->bloqueados_archivo = desempaquetar_procesos_bloqueados(paquete, &i);
+		
+		// Desempaquetar booleano de si esta abierto para escritura
+		int * abierto_w = list_get(paquete, i);
+		archivo->abierto_w = *abierto_w;
+		free(abierto_w);
+		i++;
+
+		// Desempaquetar int de cantidad de veces abierto para lectura
+		int *cant_abierto_r = list_get(paquete, i);
+		archivo->cant_abierto_r = *cant_abierto_r;
+		free(cant_abierto_r);
 		i++;
 
 		list_add(lista_archivos, archivo);
 	}
+
 	*comienzo = i;
 	free(cantidad_archivos);
 	return lista_archivos;
@@ -188,15 +225,15 @@ t_list* recv_archivos(t_log* logger, int fd_modulo) {
     return lista_archivos;
 }
 
-void archivo_destroyer(t_archivos* archivo) {
-    free(archivo->path);
+void archivo_destroyer(t_archivo* archivo) {
+    free(archivo->nombre_archivo);
     free(archivo);
     archivo = NULL;
 }
 
 void lista_archivos_destroy(t_list* lista) {
     while (!list_is_empty(lista)) {
-        t_archivos* archivo = list_remove(lista, 0);
+        t_archivo* archivo = list_remove(lista, 0);
         archivo_destroyer(archivo);
     }
     list_destroy(lista);
@@ -319,8 +356,8 @@ void registros_destroy(t_registros* registros){
 }
 
 void pcb_destroyer(pcb* contexto){
+	//list_destroy(pcb->archivos);
 	lista_archivos_destroy(contexto->archivos);
-	//list_destroy_and_destroy_elements(contexto->tabla_de_segmentos, (void*) segmento_destroy);
 	registros_destroy(contexto->registros);
 	free(contexto);
 	contexto = NULL;
@@ -666,3 +703,29 @@ void send_fin_escritura(int fd_modulo){
 	enviar_paquete(paquete, fd_modulo);
 	eliminar_paquete(paquete);
 }
+
+void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura){
+	t_list* paquete = recibir_paquete(fd);
+	*nombre_archivo = (char*) list_get(paquete, 0);
+	*modo_apertura = (char*) list_get(paquete, 1);
+	list_destroy(paquete);
+}
+
+void recv_f_close(int fd,char** nombre_archivo){
+	t_list* paquete = recibir_paquete(fd);
+	*nombre_archivo = (char*) list_get(paquete, 0);
+	list_destroy(paquete);
+}
+
+void send_abrir_archivo(char* nombre_archivo, int fd_modulo){
+	t_paquete* paquete = crear_paquete(ABRIR_ARCHIVO);
+	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
+	enviar_paquete(paquete, fd_modulo);
+}
+
+void send_crear_archivo(char* nombre_archivo, int fd_modulo){
+	t_paquete* paquete = crear_paquete(CREAR_ARCHIVO);
+	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
+	enviar_paquete(paquete, fd_modulo);
+}
+

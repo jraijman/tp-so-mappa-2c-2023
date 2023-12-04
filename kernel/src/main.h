@@ -28,6 +28,7 @@ bool hay_interrupcion=false;
 bool hay_exit = false;
 
 bool planificacion_activa = false;
+bool archivo_no_existe = false;
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;
@@ -60,6 +61,9 @@ t_queue* cola_exit;
 //lista recursos
 t_list *lista_recursos;
 
+//lista archivos
+t_list* archivos_abiertos;
+
 //semaforos
 sem_t cantidad_multiprogramacion;
 sem_t cantidad_new;
@@ -72,6 +76,7 @@ sem_t control_interrupciones_prioridades;
 sem_t control_interrupciones_rr;
 sem_t sem_plan_largo;
 sem_t sem_plan_corto;
+sem_t archivo_abierto;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
@@ -141,5 +146,6 @@ int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);
 bool lista_contiene_id(t_list* lista, pcb * proceso);
 bool cmp(void *a, void *b);
+void liberar_recursos_proceso(pcb* proceso);
 
 #endif 
