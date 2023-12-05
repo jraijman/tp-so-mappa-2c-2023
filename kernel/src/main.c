@@ -193,7 +193,7 @@ void finalizar_proceso(char * pid){
     }
     else{
         // hacer log de fin de proceso
-        log_info(logger_kernel, "Finaliza el proceso %d - Motivo: CONSOLA", procesoAEliminar->pid);
+        log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso %d - Motivo: SUCCESS", procesoAEliminar->pid);
         // Incrementar el semáforo cantidad_multiprogramacion para indicar que hay un lugar libre en el grado de multiprogramación
         if (procesoAEliminar->estado != NEW) {
             sem_post(&cantidad_multiprogramacion);
@@ -206,6 +206,7 @@ void finalizar_proceso(char * pid){
         // Mandar a la cola de EXIT;
         agregar_a_exit(procesoAEliminar);
         liberar_recursos_proceso(procesoAEliminar);
+        //liberar_archivos(procesoAEliminar);
         //mandar mensaje a memoria para que libere
         send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
         }
@@ -256,7 +257,7 @@ void agregar_a_new(pcb* proceso) {
     pthread_mutex_lock(&mutex_new);
 	queue_push(cola_new, proceso);
     pthread_mutex_unlock(&mutex_new);
-    log_info(logger_kernel, "Se crea el proceso %d en NEW", proceso->pid);
+    log_info(logger_kernel,"Se crea el proceso %d en NEW", proceso->pid);
     sem_post(&cantidad_new);
 }
 
@@ -397,7 +398,7 @@ void controlar_interrupcion_rr(){
         cpu_disponible=false;
         usleep(quantum*1000);
 		if(!cpu_disponible){
-            if(list_size(cola_exec->elements) > 0){
+            if(list_size(cola_exec->elements) > 0 & list_size(cola_ready->elements) > 0){
                 if(hay_exit == false){
                     pcb * proceso = queue_peek(cola_exec);
                     log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
@@ -407,8 +408,6 @@ void controlar_interrupcion_rr(){
                 }else{
                     hay_exit = false;
                 }
-            }else{
-                printf("No hay procesos en ejecucion\n");
             }
 		}
     }
@@ -486,7 +485,7 @@ void manejar_wait(pcb* proceso, char* recurso){
     pcb_destroyer(pcb_a_borrar);
 	if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
-		log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
+		log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso: %d - Motivo: INVALID_RESOURCE",proceso->pid);
         agregar_a_exit(proceso);
         sem_post(&puedo_ejecutar_proceso);
         //mando a memoria que finalizo proceso
@@ -499,7 +498,7 @@ void manejar_wait(pcb* proceso, char* recurso){
 		log_info(logger_kernel,"PID: %d - Wait: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
 		if(recursobuscado->instancias < 0){
             // No hay instancias disponibles, bloquear proceso
-			log_info(logger_kernel,"PID: %d - Bloqueado por: %s", proceso->pid,recurso);
+			log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,recurso);
             //agregar a la cola de bloqueados del recurso
             pthread_mutex_lock(&recursobuscado->mutex);
             queue_push(recursobuscado->bloqueados,proceso);
@@ -520,15 +519,15 @@ void manejar_wait(pcb* proceso, char* recurso){
 }
 
 void manejar_signal(pcb* proceso, char* recurso){
-    t_recurso* recursobuscado= buscar_recurso(recurso);
+    t_recurso* recursobuscado = buscar_recurso(recurso);
     pcb * pcb_a_borrar = sacar_de_exec();
     pcb_destroyer(pcb_a_borrar);
     if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
-        log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
+        log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso: %d - Motivo: INVALID_RESOURCE",proceso->pid);
         agregar_a_exit(proceso);
         sem_post(&puedo_ejecutar_proceso);
-        send_terminar_proceso(proceso->pid,fd_memoria);  
+        send_terminar_proceso(proceso->pid, fd_memoria);  
     }
     else{
         if(lista_contiene_id(recursobuscado->procesos->elements, proceso) == false){
@@ -536,18 +535,23 @@ void manejar_signal(pcb* proceso, char* recurso){
             log_info(logger_kernel, "No hay instancias del recurso: %s asignadas al proceso", recurso);
             agregar_a_exit(proceso);
             sem_post(&puedo_ejecutar_proceso);
-            send_terminar_proceso(proceso->pid,fd_memoria);  
+            send_terminar_proceso(proceso->pid, fd_memoria);  
         }
         else{
             pthread_mutex_lock(&recursobuscado->mutex);
             recursobuscado->instancias ++;
             pthread_mutex_unlock(&recursobuscado->mutex);
-            log_info(logger_kernel,"PID: %d - Signal: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
+            buscar_y_remover_pcb_cola(recursobuscado->procesos, proceso->pid, sem_no_usamos, recursobuscado->mutex);
+            
+            //pcb_destroyer(procesoQuitado);
+
+            log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Signal: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
             if(recursobuscado->instancias <= 0){
                 //tengo q desbloquear los bloqueados por el recurso
                 //saco de la cola de bloqueados del recurso
                 pthread_mutex_lock(&recursobuscado->mutex);
                 pcb * procesoQuitadoBloqueados = queue_pop(recursobuscado->bloqueados);
+                queue_push(recursobuscado->procesos, procesoQuitadoBloqueados);
                 pthread_mutex_unlock(&recursobuscado->mutex);
                 //sacar de block y mover a ready
                 buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
@@ -559,15 +563,18 @@ void manejar_signal(pcb* proceso, char* recurso){
         }
     }
 }
+
 t_recurso* buscar_recurso(char* recurso){
 	int largo = list_size(lista_recursos);
 	t_recurso* recursobuscado;
 	for(int i = 0; i < largo; i++){
 		recursobuscado = list_get(lista_recursos, i);
 		if (strcmp(recursobuscado->recurso, recurso) == 0){
+            recursobuscado->encontrado = 0;
 			return recursobuscado;
 		}
 	}
+    recursobuscado->encontrado = -1;
 	return recursobuscado;
 }
 
@@ -693,18 +700,18 @@ void manejar_recibir_cpu(){
                     recibir_mensaje(logger_kernel, fd_cpu_dispatch);
                     break;
                 case PCB_WAIT:
-                    printf("\n manejo wait \n");
+                    //printf("\n manejo wait \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_wait(proceso, extra);
                     break;
                 case PCB_SIGNAL:
-                    printf("\n manejo signal \n");
+                    //printf("\n manejo signal \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_signal(proceso, extra);
                     break;
                 case PCB_EXIT:
                     hay_exit = true;
-                    printf("\n manejo exit \n");
+                    //printf("\n manejo exit \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     //borrar todo lo que corresponde a ese proceso
                     pcb_a_borrar = sacar_de_exec();
@@ -715,11 +722,12 @@ void manejar_recibir_cpu(){
                     sem_post(&puedo_ejecutar_proceso);
                     //Liberar recursos asignados del proceso
                     liberar_recursos_proceso(proceso);
+                    //liberar_archivos(proceso );
                     //mandar mensaje a memoria para que libere
                     send_terminar_proceso(proceso->pid,fd_memoria);
                     break;
                 case PCB_SLEEP:
-                    printf("\n manejo sleep \n");
+                    //printf("\n manejo sleep \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     pcb_a_borrar = sacar_de_exec();
                     //pcb_destroyer(pcb_a_borrar);
@@ -732,7 +740,7 @@ void manejar_recibir_cpu(){
                     pthread_detach(hilo_consola);
                     break;
                 case PCB_INTERRUPCION:
-                    printf("\n manejo interrupcion \n");
+                    //printf("\n manejo interrupcion \n");
                     //ver bien coom hacer el interupt
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
@@ -766,6 +774,8 @@ void manejar_recibir_cpu(){
                 default:
                     printf("Error al recibir mensaje\n");
                     break;
+            free(extra);
+            free(nombre_archivo);
             }
         }   
     }    
@@ -840,6 +850,8 @@ void iniciar_semaforos(){
     sem_init(&sem_plan_corto, 0, 1);
     sem_init(&archivo_abierto, 0, 0);
     sem_init(&sem_sleep, 0, 0);
+    sem_init(&sem_no_usamos, 0, 500);
+    
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);
@@ -915,24 +927,34 @@ t_list* inicializar_recursos(){
 	return lista;
 }
 
-void buescar_proceso_asignado_recurso_y_eliminar(pcb* proceso, t_recurso* recurso_actual) {
+void buscar_proceso_asignado_recurso_y_eliminar(pcb* proceso, t_recurso* recurso_actual) {
     int largo_bloqueados = list_size(recurso_actual->bloqueados->elements);
     int largo_procesos = list_size(recurso_actual->procesos->elements);
 	for(int i = 0; i < largo_bloqueados; i++){
         pcb* proceso_bloqueado = list_get(recurso_actual->bloqueados->elements, i);
         if (proceso_bloqueado->pid == proceso->pid) {
-            //aca hay q ver como hacer para hacer bien el free
-            //free(proceso_bloqueado);
             list_remove(recurso_actual->bloqueados->elements, i);
+            recurso_actual->instancias++;
             break;
         }
+        //pcb_destroyer(proceso_bloqueado);
     }
     for(int i = 0; i < largo_procesos; i++){
         pcb* proceso_encontrado = list_get(recurso_actual->procesos->elements, i);
         if (proceso_encontrado->pid == proceso->pid) {
-            //aca hay q ver como hacer para hacer bien el free
-            //free(proceso_encontrado);
+            if(recurso_actual->instancias <= 0){
+                //tengo q desbloquear los bloqueados por el recurso
+                //saco de la cola de bloqueados del recurso
+                pthread_mutex_lock(&recurso_actual->mutex);
+                pcb * procesoQuitadoBloqueados = queue_pop(recurso_actual->bloqueados);
+                queue_push(recurso_actual->procesos, procesoQuitadoBloqueados);
+                pthread_mutex_unlock(&recurso_actual->mutex);
+                //sacar de block y mover a ready
+                buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
+                agregar_a_ready(procesoQuitadoBloqueados);
+            }
             list_remove(recurso_actual->procesos->elements, i);
+            recurso_actual->instancias++;
             break;
         }
     }
@@ -944,7 +966,7 @@ void liberar_recursos_proceso(pcb* proceso) {
     int largo = list_size(lista_recursos);
 	for(int i = 0; i < largo; i++){
         t_recurso* recurso_actual = list_get(lista_recursos, i);
-        buescar_proceso_asignado_recurso_y_eliminar(proceso, recurso_actual);
+        buscar_proceso_asignado_recurso_y_eliminar(proceso, recurso_actual);
     }
 }
 
@@ -1026,7 +1048,19 @@ bool lista_contiene_id(t_list* lista, pcb * proceso) {
         }
     }
     return contiene_id;
-}                  
+}       
+
+/*void detectar_deadlock_recursos() {
+    int largo_bloqueados = list_size(cola_block->elements);
+    for (int i = 0; i < largo_bloqueados; i++) {
+        pcb* proceso_actual = list_get(cola_block->elements, i);
+        if (existe_interdependencia_ciclica(proceso_actual)) {
+            // Hay un deadlock
+
+            log_info(logger_kernel, "PID: %d - HAY Deadlock", proceso_actual->pid);
+        }
+    }
+}*/
 
 void* manejar_sleep(void * args){
     HiloArgs* hiloArgs = args;
@@ -1034,7 +1068,7 @@ void* manejar_sleep(void * args){
     char* extra = hiloArgs->extra;
 
     int tiempo = atoi(extra);
-    log_info(logger_kernel,"PID: %d - Bloqueado por: SLEEP %d", proceso->pid,tiempo);
+    log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: SLEEP %d", proceso->pid,tiempo);
     agregar_a_block(proceso);
 
     sem_post(&puedo_ejecutar_proceso);

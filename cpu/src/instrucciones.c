@@ -103,6 +103,7 @@ void signalInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, in
 void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_dispatch) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION EXIT");
     // EXIT: Esta instrucción representa la syscall de finalización del proceso. Se deberá devolver el Contexto de Ejecución actualizado al Kernel para su finalización.    
+    send_pcbDesalojado(contexto, "EXIT","", fd_dispatch, logger);
 }
 
 void movInInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {

@@ -441,6 +441,10 @@ Instruccion* armar_estructura_instruccion(char* instruccion_leida){
             instruccion->operando1 = malloc(sizeof(char) * strlen(palabras[1]) + 1);
             strcpy(instruccion->operando1, palabras[1]);
 
+             if (instruccion->operando1[strlen(instruccion->operando1) - 1] == '\n') {
+                    instruccion->operando1[strlen(instruccion->operando1) - 1] = '\0';
+                }
+
             if (palabras[2] != NULL) {
                 instruccion->operando2 = malloc(sizeof(char) * strlen(palabras[2]) + 1);
                 strcpy(instruccion->operando2, palabras[2]);

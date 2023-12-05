@@ -52,7 +52,11 @@ static void procesar_conexion_interrupt(void* void_args) {
                 break;
             case INTERRUPCION_FINALIZAR:
                 int pid_recibido_finalizar;
-                //ACA LE LLEGA UNA INTERRUPCION CUANDO FIANLIZO PROCESO POR CONSOLA Y ESTA EJECUTANDO
+                recv_interrupcion(cliente_socket_interrupt,&pid_recibido);
+                log_info(logger_cpu, ANSI_COLOR_YELLOW "se finaliza el proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
+                if(contexto->pid==pid_recibido){
+                recibio_interrupcion = true;
+                }
                 break;
             default: {
                 log_error(logger_cpu, "Código de operación no reconocido en Interrupt: %d", cop);
@@ -81,6 +85,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
             case ENVIO_PCB: 
+                flag_ciclo = true;
                 contexto=recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
@@ -133,21 +138,14 @@ void levantar_config(char* ruta){
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
-    while (cliente_socket_dispatch != -1 && !recibio_interrupcion) {
-            sleep(1);
-            Instruccion * instruccion = malloc(sizeof(Instruccion));
-            if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
-                contexto->pc++;
-                decodeInstruccion(instruccion,contexto);
-                executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
-                if (strcmp(instruccion->opcode, "EXIT") == 0) {
-                    send_pcbDesalojado(contexto, "EXIT","", cliente_socket_dispatch, logger);
-                    return;
-                }
-                if (strcmp(instruccion->opcode, "SLEEP") == 0) {
-                    return;
-                }
-            }
+    while (cliente_socket_dispatch != -1 && !recibio_interrupcion && flag_ciclo) {
+        sleep(1);
+        Instruccion * instruccion = malloc(sizeof(Instruccion));
+        if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
+            contexto->pc++;
+            decodeInstruccion(instruccion,contexto);
+            executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
+        }
     }
     if(recibio_interrupcion){
         recibio_interrupcion=false;
@@ -166,28 +164,38 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd
     } else if (strcmp(instruccion.opcode, "SUB") == 0) {
         subInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
+        flag_ciclo = false;
         sleepInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
+        flag_ciclo = false;
         waitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
+        flag_ciclo = false;
         signalInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
+        flag_ciclo = false;
         exitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode,"MOV_IN")==0){
         movInInstruccion(contexto_ejecucion, instruccion,logger_cpu);
     } else if (strcmp(instruccion.opcode,"MOV_OUT")==0){
         movOutInstruccion(contexto_ejecucion,instruccion,fd_memoria,logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_OPEN") == 0) {
+        flag_ciclo = false;
         fOpenInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_CLOSE") == 0) {
+        flag_ciclo = false;
         fCloseInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_SEEK") == 0) {
+        flag_ciclo = false;
         fSeekInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_READ") == 0) {
+        flag_ciclo = false;
         fReadInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_WRITE") == 0) {
+        flag_ciclo = false;
         fWriteInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_TRUNCATE") == 0) {
+        flag_ciclo = false;
         fTruncateInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     }
 }

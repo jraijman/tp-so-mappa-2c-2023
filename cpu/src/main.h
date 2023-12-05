@@ -13,6 +13,7 @@
 #include "instrucciones.h"
 
 bool recibio_interrupcion;
+bool flag_ciclo;
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;

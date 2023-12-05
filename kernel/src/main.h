@@ -18,8 +18,8 @@ typedef struct{
 	char* recurso;
 	int instancias;
     int encontrado;
-	t_queue* procesos;
-	t_queue* bloqueados;
+	t_queue* procesos;		// procesos que estan utilizando el recurso
+	t_queue* bloqueados;	// procesos que estan bloqueados esperando el recurso
 	pthread_mutex_t mutex;
 }t_recurso;
 
@@ -82,6 +82,8 @@ sem_t sem_plan_largo;
 sem_t sem_plan_corto;
 sem_t archivo_abierto;
 sem_t sem_sleep;
+
+sem_t sem_no_usamos;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
