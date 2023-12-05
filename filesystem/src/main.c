@@ -171,7 +171,7 @@ void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap) {
     fwrite(bloque.info, tam_bloque, 1, f);
     log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
     bitmap[bloqueLib] = 0;
-    bloquesLibres++
+    bloquesLibres++;
     free(bloque.info);
 }
 

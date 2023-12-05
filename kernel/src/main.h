@@ -57,6 +57,10 @@ t_queue* cola_exec;
 t_queue* cola_block;
 t_queue* cola_exit;
 
+typedef struct {
+	pcb* proceso;
+	char* extra;
+} HiloArgs;
 
 //lista recursos
 t_list *lista_recursos;
@@ -77,6 +81,7 @@ sem_t control_interrupciones_rr;
 sem_t sem_plan_largo;
 sem_t sem_plan_corto;
 sem_t archivo_abierto;
+sem_t sem_sleep;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
@@ -149,5 +154,6 @@ t_recurso* buscar_recurso(char* recurso);
 bool lista_contiene_id(t_list* lista, pcb * proceso);
 bool cmp(void *a, void *b);
 void liberar_recursos_proceso(pcb* proceso);
+void* manejar_sleep(void * args);
 
 #endif 

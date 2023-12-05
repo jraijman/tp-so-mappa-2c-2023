@@ -449,7 +449,7 @@ Instruccion* armar_estructura_instruccion(char* instruccion_leida){
                     instruccion->operando2[strlen(instruccion->operando2) - 1] = '\0';
                 }
             } else {
-                instruccion->operando2 = malloc(sizeof(char) *strlen('\0')+1);
+                instruccion->operando2 = malloc(sizeof(char) * (strlen("") + 1));
                 instruccion->operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
             }
         } else {

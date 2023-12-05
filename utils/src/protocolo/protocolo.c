@@ -228,7 +228,6 @@ t_list* recv_archivos(t_log* logger, int fd_modulo) {
 void archivo_destroyer(t_archivo* archivo) {
     free(archivo->nombre_archivo);
     free(archivo);
-    archivo = NULL;
 }
 
 void lista_archivos_destroy(t_list* lista) {
@@ -336,6 +335,7 @@ void send_pcb(pcb* contexto, int fd_modulo){
 	empaquetar_pcb(paquete, contexto);
 	enviar_paquete(paquete, fd_modulo);
 	eliminar_paquete(paquete);
+	//pcb_destroyer(contexto);
 }
 
 pcb* recv_pcb(int fd_modulo){
@@ -356,11 +356,14 @@ void registros_destroy(t_registros* registros){
 }
 
 void pcb_destroyer(pcb* contexto){
-	//list_destroy(pcb->archivos);
+	// Liberar la memoria de la lista de archivos
 	lista_archivos_destroy(contexto->archivos);
+	// Liberar la memoria de los registros
 	registros_destroy(contexto->registros);
+	// Liberar la memoria del path
+	free(contexto->path);
+	// Liberar la memoria del PCB
 	free(contexto);
-	contexto = NULL;
 }
 
 void send_cambiar_estado(estado_proceso estado, int fd_modulo){
@@ -621,6 +624,7 @@ void recv_pcbDesalojado(int fd, pcb** contexto, char** extra) {
     int counter;
     *contexto = desempaquetar_pcb(paquete, &counter);
     *extra = (char*) list_get(paquete, counter);
+	list_destroy(paquete);
 }
 
 void send_interrupcion(int pid, int fd_modulo){

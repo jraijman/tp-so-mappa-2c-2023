@@ -68,8 +68,8 @@ void levantar_config(char* ruta){
     char** instancias = string_array_new();
 	instancias = config_get_array_value(config, "INSTANCIAS_RECURSOS");
 	instancia_recursos = string_to_int_array(instancias);
-	string_array_destroy(instancias);
     grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
+    string_array_destroy(instancias);
 }
 
 void * leer_consola(void * arg)
@@ -242,11 +242,11 @@ void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
 void proceso_estado(){
     // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
     printf("Procesos por estado:\n");
-    printf("Procesos NEW: %s\n",list_to_string(pid_lista_ready(cola_new->elements)));
-    printf("Procesos READY: %s\n",list_to_string(pid_lista_ready(cola_ready->elements)));
-    printf("Procesos EXEC: %s\n",list_to_string(pid_lista_ready(cola_exec->elements)));
-    printf("Procesos BLOCKED: %s\n",list_to_string(pid_lista_ready(cola_block->elements)));
-    printf("Procesos EXIT: %s\n",list_to_string(pid_lista_ready(cola_exit->elements)));
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado NEW - PROCESOS: %s",list_to_string(pid_lista_ready(cola_new->elements)));
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado READY - PROCESOS: %s", list_to_string(pid_lista_ready(cola_ready->elements)));
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado EXEC - PROCESOS: %s", list_to_string(pid_lista_ready(cola_exec->elements)));
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado BLOCKED - PROCESOS: %s", list_to_string(pid_lista_ready(cola_block->elements)));
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado EXIT - PROCESOS: %s", list_to_string(pid_lista_ready(cola_exit->elements)));
     printf("\n");
 }
 
@@ -274,8 +274,12 @@ void agregar_a_ready(pcb* proceso){
     pthread_mutex_lock(&mutex_ready);
     queue_push(cola_ready, proceso);
 	pthread_mutex_unlock(&mutex_ready);
-	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion, list_to_string(pid_lista_ready(cola_ready->elements)));
-	sem_post(&cantidad_ready);
+    t_list *lista_a_loguear = pid_lista_ready(cola_ready->elements);
+	char *lista = list_to_string(lista_a_loguear);
+	log_info(logger_kernel, "Cola Ready %s: %s",algoritmo_planificacion, lista);
+	list_destroy(lista_a_loguear);
+    free(lista);
+    sem_post(&cantidad_ready);
 }
 
 void agregar_a_exec(pcb* proceso){
@@ -478,7 +482,8 @@ pcb* obtenerSiguientePRIORIDADES(){
 
 void manejar_wait(pcb* proceso, char* recurso){
 	t_recurso* recursobuscado= buscar_recurso(recurso);
-    sacar_de_exec();
+    pcb * pcb_a_borrar = sacar_de_exec();
+    pcb_destroyer(pcb_a_borrar);
 	if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
 		log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
@@ -516,7 +521,8 @@ void manejar_wait(pcb* proceso, char* recurso){
 
 void manejar_signal(pcb* proceso, char* recurso){
     t_recurso* recursobuscado= buscar_recurso(recurso);
-    sacar_de_exec();
+    pcb * pcb_a_borrar = sacar_de_exec();
+    pcb_destroyer(pcb_a_borrar);
     if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
         log_info(logger_kernel, "No existe el recurso solicitado: %s", recurso);
@@ -668,7 +674,6 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
     }
 }
 
-
 //--------------FUNCIONES DE RECIBIR MENSAJES-----------------
 
 void manejar_recibir_cpu(){
@@ -679,6 +684,7 @@ void manejar_recibir_cpu(){
         }
         else{
             pcb* proceso = NULL;
+            pcb* pcb_a_borrar = NULL;
             char * extra = NULL;
             char *nombre_archivo;
             op_code cop = recibir_operacion(fd_cpu_dispatch);
@@ -701,7 +707,8 @@ void manejar_recibir_cpu(){
                     printf("\n manejo exit \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     //borrar todo lo que corresponde a ese proceso
-                    sacar_de_exec();
+                    pcb_a_borrar = sacar_de_exec();
+                    pcb_destroyer(pcb_a_borrar);
                     // Mandar a la cola de EXIT;
                     agregar_a_exit(proceso);
                     sem_post(&cantidad_multiprogramacion);
@@ -714,14 +721,23 @@ void manejar_recibir_cpu(){
                 case PCB_SLEEP:
                     printf("\n manejo sleep \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
-                    // hacer algo con el proceso recibido
+                    pcb_a_borrar = sacar_de_exec();
+                    //pcb_destroyer(pcb_a_borrar);
+                    pthread_t hilo_sleep;
+                    // Crear la estructura de argumentos
+                    HiloArgs* args = malloc(sizeof(HiloArgs));
+                    args->proceso = proceso;
+                    args->extra = extra;
+                    pthread_create(&hilo_sleep, NULL, manejar_sleep, args);
+                    pthread_detach(hilo_consola);
                     break;
                 case PCB_INTERRUPCION:
                     printf("\n manejo interrupcion \n");
                     //ver bien coom hacer el interupt
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
-                    pcb* pcb_interrumpido = sacar_de_exec();
+                    pcb_a_borrar = sacar_de_exec();
+                    pcb_destroyer(pcb_a_borrar);
                     agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
                     break;
@@ -823,6 +839,7 @@ void iniciar_semaforos(){
     sem_init(&sem_plan_largo, 0, 1);
     sem_init(&sem_plan_corto, 0, 1);
     sem_init(&archivo_abierto, 0, 0);
+    sem_init(&sem_sleep, 0, 0);
 
     //mutex de colas de planificacion
     pthread_mutex_init(&mutex_new, NULL);
@@ -860,7 +877,6 @@ pcb* crear_pcb(char* nombre_archivo, char* size, char* prioridad) {
     proceso->archivos = list_create();
     proceso->path = malloc(sizeof(char) * strlen(nombre_archivo) + 1);
     strcpy(proceso->path, nombre_archivo);
-    proceso->archivos = list_create();
     contador_pid++;
     return proceso;
 }
@@ -1010,6 +1026,26 @@ bool lista_contiene_id(t_list* lista, pcb * proceso) {
         }
     }
     return contiene_id;
+}                  
+
+void* manejar_sleep(void * args){
+    HiloArgs* hiloArgs = args;
+    pcb* proceso = hiloArgs->proceso;
+    char* extra = hiloArgs->extra;
+
+    int tiempo = atoi(extra);
+    log_info(logger_kernel,"PID: %d - Bloqueado por: SLEEP %d", proceso->pid,tiempo);
+    agregar_a_block(proceso);
+
+    sem_post(&puedo_ejecutar_proceso);
+    sem_post(&sem_sleep);
+
+    sleep(tiempo);
+    proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
+    agregar_a_ready(proceso);
+
+    // Libera la memoria de la estructura de argumentos
+    free(hiloArgs);
+    // Termina el hilo
+    pthread_exit(NULL);
 }
-
-

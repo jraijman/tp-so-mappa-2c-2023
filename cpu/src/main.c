@@ -144,6 +144,9 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
                     send_pcbDesalojado(contexto, "EXIT","", cliente_socket_dispatch, logger);
                     return;
                 }
+                if (strcmp(instruccion->opcode, "SLEEP") == 0) {
+                    return;
+                }
             }
     }
     if(recibio_interrupcion){
