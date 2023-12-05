@@ -337,6 +337,7 @@ void* planif_largo_plazo(void* args){
         pthread_mutex_unlock(&mutex_plani_larga);
     }
 }
+
 void* planif_corto_plazo(void* args){
     pthread_t hilo_interrupciones;
     while(1){
@@ -345,39 +346,44 @@ void* planif_corto_plazo(void* args){
         sem_wait(&cantidad_ready);
         pthread_mutex_lock(&mutex_plani_corta);
         sem_wait(&sem_plan_corto);
-        if(strcmp(algoritmo_planificacion,"FIFO")==0){
-            pcb* procesoAEjecutar = obtenerSiguienteFIFO();
-            if(procesoAEjecutar != NULL) {
-                agregar_a_exec(procesoAEjecutar);
-                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-                }
-                sem_post(&sem_plan_corto);
-                pthread_mutex_unlock(&mutex_plani_corta);
+
+        pcb *proceso_a_ejecutar = obtener_siguiente_proceso(algoritmo_planificacion);
+        
+        if (proceso_a_ejecutar != NULL) {
+            agregar_a_exec(proceso_a_ejecutar);
+            send_pcb(proceso_a_ejecutar, fd_cpu_dispatch);
         }
-        else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
-            //TIENE DESALOJO
-            pcb *procesoAEjecutar = obtenerSiguientePRIORIDADES();
-            if(procesoAEjecutar != NULL) {
-                //hilo que controla si hay que mandar interrupcion
-                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
-                agregar_a_exec(procesoAEjecutar);
-                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-            }
-            sem_post(&sem_plan_corto);
-            pthread_mutex_unlock(&mutex_plani_corta);
-        }
-        else if(strcmp(algoritmo_planificacion,"RR")==0){
-            //TIENE DESALOJO
-            pcb *procesoAEjecutar = obtenerSiguienteRR();
-            if(procesoAEjecutar != NULL) {
-                //hilo que controla si hay que mandar interrupcion
-                pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
-                agregar_a_exec(procesoAEjecutar);
-                send_pcb(procesoAEjecutar, fd_cpu_dispatch);
-            }
-            sem_post(&sem_plan_corto);
-            pthread_mutex_unlock(&mutex_plani_corta);
-        }
+
+        sem_post(&sem_plan_corto);
+        pthread_mutex_unlock(&mutex_plani_corta);
+
+        crear_hilo_interrupcion(algoritmo_planificacion, hilo_interrupciones);
+    }
+}
+
+pcb *obtener_siguiente_proceso(char* algoritmo_planificacion) {
+    if (strcmp(algoritmo_planificacion, "FIFO") == 0) {
+        return obtenerSiguienteFIFO();
+    } else if (strcmp(algoritmo_planificacion, "RR") == 0) {
+        return obtenerSiguienteRR();
+    } else if (strcmp(algoritmo_planificacion, "PRIORIDADES") == 0) {
+        return obtenerSiguientePRIORIDADES();
+    } else {
+        return NULL;
+    }
+}
+
+void crear_hilo_interrupcion(char* algoritmo_planificacion, pthread_t hilo_interrupciones){
+    if(strcmp(algoritmo_planificacion,"FIFO")==0){
+        return;
+    }
+    else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
+        pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
+        return;
+    }
+    else if(strcmp(algoritmo_planificacion,"RR")==0){
+        pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
+        return;
     }
 }
 
@@ -405,8 +411,8 @@ void controlar_interrupcion_rr(){
 
 }
 void controlar_interrupcion_prioridades(){
-    sem_wait(&control_interrupciones_prioridades);
     while(1){
+        sem_wait(&control_interrupciones_prioridades);
         cpu_disponible=false;
 		//controlar si en ready hay un proceso con mayor prioridad
         if(list_size(cola_exec->elements) > 0 && list_size(cola_ready->elements) > 0){

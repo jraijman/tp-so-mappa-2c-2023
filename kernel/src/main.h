@@ -132,6 +132,8 @@ void * pasar_new_a_ready(void * args);
 void * planif_corto_plazo(void* args);
 void * planif_largo_plazo(void* args);
 void manejar_recibir(int socket_fd);
+void crear_hilo_interrupcion(char* algoritmo_planificacion, pthread_t hilo_interrupciones);
+pcb *obtener_siguiente_proceso(char* algoritmo_planificacion);
 pcb* obtenerSiguienteFIFO();
 pcb* obtenerSiguientePRIORIDADES();
 pcb* obtenerSiguienteRR();
