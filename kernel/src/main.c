@@ -496,7 +496,7 @@ void manejar_wait(pcb* proceso, char* recurso){
 		recursobuscado->instancias --;
         pthread_mutex_unlock(&recursobuscado->mutex);
 		log_info(logger_kernel,"PID: %d - Wait: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
-		if(recursobuscado->instancias < 0){
+		if(recursobuscado->instancias < 0){   
             // No hay instancias disponibles, bloquear proceso
 			log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,recurso);
             //agregar a la cola de bloqueados del recurso
@@ -505,6 +505,7 @@ void manejar_wait(pcb* proceso, char* recurso){
             pthread_mutex_unlock(&recursobuscado->mutex);
             //agregar a la cola de block
             agregar_a_block(proceso);
+            detectar_deadlock_recurso(proceso, recursobuscado);
             sem_post(&puedo_ejecutar_proceso);
 		}
         else{
@@ -1050,18 +1051,6 @@ bool lista_contiene_id(t_list* lista, pcb * proceso) {
     return contiene_id;
 }       
 
-/*void detectar_deadlock_recursos() {
-    int largo_bloqueados = list_size(cola_block->elements);
-    for (int i = 0; i < largo_bloqueados; i++) {
-        pcb* proceso_actual = list_get(cola_block->elements, i);
-        if (existe_interdependencia_ciclica(proceso_actual)) {
-            // Hay un deadlock
-
-            log_info(logger_kernel, "PID: %d - HAY Deadlock", proceso_actual->pid);
-        }
-    }
-}*/
-
 void* manejar_sleep(void * args){
     HiloArgs* hiloArgs = args;
     pcb* proceso = hiloArgs->proceso;
@@ -1082,4 +1071,35 @@ void* manejar_sleep(void * args){
     free(hiloArgs);
     // Termina el hilo
     pthread_exit(NULL);
+}
+
+//-------------------DETECCION DE DEADLOCK---------------------------
+void detectar_deadlock_recurso(pcb * proceso, t_recurso * recurso){
+    //el proceso q entra como parametro es el que va a ingresar a la cola block 
+    //esta esperando que se libere el recurso
+    //tengo que ver si el recurso que esta esperando esta siendo usado por otro proceso
+    //si es asi, tengo que ver si ese proceso esta esperando otro recurso bloqueado por el proceso que esta esperando
+ 
+    // Check if the resource is being used by another process
+    
+    for (int i = 0; i < queue_size(cola_block); i++) {
+        pcb* otro_proceso = list_get(cola_block->elements, i);
+        if (otro_proceso->pid != proceso->pid  && lista_contiene_id(recurso->procesos->elements, otro_proceso)) {
+            if(deadlock_entre(otro_proceso,proceso)){
+                log_info(logger_kernel, ANSI_COLOR_GRAY "DEADLOCK ENTRE PROCESOS %d y %d", proceso->pid, otro_proceso->pid);
+            }
+        }
+    }
+}
+
+void deadlock_entre(pcb* otro_proceso,pcb* proceso){
+    for (int i = 0; i < list_size(lista_recursos); i++) {
+      t_recurso* rec= list_get(lista_recursos, i);
+        if(lista_contiene_id(rec->bloqueados->elements, proceso)){
+            if(lista_contiene_id(rec->procesos->elements, proceso)){
+                return true;
+            }
+        }
+        
+    }
 }
