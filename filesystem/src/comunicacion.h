@@ -12,8 +12,10 @@
 #include "../../utils/src/protocolo/protocolo.h"
 #include "main.h"
 
-int conexion_filesystem_memoria;
-
+t_log* logger_filesystem;
+t_config* config;
+int swapLibres;
+int bloquesLibres;
 char* ip_memoria;
 char* puerto_memoria;
 char* puerto_escucha;
@@ -26,12 +28,17 @@ int tam_bloque;
 int retardo_acceso_bloque;
 int retardo_acceso_fat;
 
+int conexion_filesystem_memoria;
+
+
 typedef struct {
     t_log* log;
     int fd;
     char* server_name;
+    bool* bitmapBloques;
+    bool* bitmapSwap;
 } t_procesar_conexion_args;
 
-int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket);
+int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket,bool* bitmapBloques, bool* bitmapSwap);
 
 #endif 

@@ -11,11 +11,6 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
 
-t_log* logger_filesystem;
-t_config* config;
-int swapLibre;
-int bloqueLibre;
-
 typedef struct {
     char* nombre_archivo;
     int tamanio_archivo;
@@ -28,9 +23,17 @@ typedef struct {
     char* info;
 } BLOQUE;
 
-bool liberar_bloquesSWAP(int bloques[],int cantidad);
-bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[]);
+bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap);
+bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[],bool* bitmap);
 int abrir_archivo(char* ruta);
-void crear_archivo(char* nombre);
-truncarArchivo(char* nombre, int tamano);
+bool crear_archivo(char* nombre);
+bool truncarArchivo(char* nombre, int tamano, bool* bitmap);
+void achicarArchivo(int bloqueInicio, int tamanoActual, int reduccion, bool* bitmap);
+void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap);
+void ampliarArchivo(int bloqueInicio,int tamanoActual, int ampliacion,bool* bitmap);
+void actualizarFAT(FILE* f, uint32_t ultimoBloque, uint32_t nuevoBloque);
+void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap);
+uint32_t buscarBloqueLibre(bool* bitmap);
+uint32_t buscarUltimoBloque(FILE* fat, int inicio, uint32_t* anteultimo);
+void actualizarFcb(char* nombre, int tamano, int bloque);
 #endif
