@@ -132,7 +132,7 @@ bool iniciar_bloques(int tamano_bloques, bool* bitmapBloques, bool* bitmapSwap) 
             return true;
         } else {
             free(bloque.info);
-            //fclose(f);
+            fclose(f);
             return false;
         }
     }
@@ -186,14 +186,13 @@ bool crear_archivo(char* nombre) {
     strcat(ruta, ".fcb");
     t_config* nuevoFCB=config_create(ruta);
     if(nuevoFCB!=NULL){
-        config_destroy(nuevoFCB);
         return false;
     }else{
-        t_config* nuevoFCB = malloc(sizeof(t_config));
+        nuevoFCB=(t_config*)malloc(sizeof(t_config));
         nuevoFCB->properties=dictionary_create();
         nuevoFCB->path=ruta;
         config_save_in_file(nuevoFCB,ruta);
-        //nuevoFCB=config_create(ruta);
+        nuevoFCB=config_create(ruta);
         config_set_value(nuevoFCB,"NOMBRE_ARCHIVO", strdup(nombreArchivo));
         config_set_value(nuevoFCB,"TAMANIO_ARCHIVO", "0");
         config_set_value(nuevoFCB, "BLOQUE_INICIAL", " ");
@@ -261,7 +260,7 @@ uint32_t buscarBloqueLibre(bool* bitmap){
     return i;
 }
 //--------------------------------GESTION FAT---------------------------------
-uint32_t buscarUltimoBloque(FILE* fat, int inicio, uint32_t* anteultimo){
+uint32_t buscarUltimoBloque(FILE* fat, int inicio, uint32_t* anteultimo, uint32_t* antepenultimo){
     fseek(fat,sizeof(uint32_t)*inicio, SEEK_SET);
     uint32_t siguiente;
     uint32_t bloqueSig;
@@ -270,13 +269,14 @@ uint32_t buscarUltimoBloque(FILE* fat, int inicio, uint32_t* anteultimo){
     log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",((ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t)));
     bloqueSig=((ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t));
     while(siguiente!=__UINT32_MAX__){
+        *antepenultimo=*anteultimo;
         bloqueSig=(ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t);
         fseek(fat,siguiente,SEEK_SET);
         sleep(retardo_acceso_fat/1000);
         fread(&siguiente,sizeof(uint32_t),1,fat);
         if(siguiente==__UINT32_MAX__){
-            anteultimo=bloqueSig;
-            log_info(logger_filesystem,"ANTEULTIMO %d",anteultimo);
+            *anteultimo=bloqueSig;
+            log_info(logger_filesystem,"ANTEULTIMO %d",*anteultimo);
             bloqueSig=((ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t));    
             log_info(logger_filesystem,"ULTIMO %d",bloqueSig);}
             log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",((ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t)));
@@ -301,12 +301,16 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
         FILE* bloques=fopen(path_bloques, "rb+");
         FILE* fat=fopen(path_fat,"rb+");
         uint32_t anteultimo;
-        uint32_t ultimoBloque=buscarUltimoBloque(fat, bloqueInicio,&anteultimo);
+        uint32_t antepenultimo;
+        uint32_t ultimoBloque=buscarUltimoBloque(fat, bloqueInicio,&anteultimo, &antepenultimo);
         uint32_t bloqueLibre=buscarBloqueLibre(bitmap);
         for(int i=0;i<bloquesAmpliar;i++){
             reservarBloque(bloques,bloqueLibre,bitmap);
             actualizarFAT(fat,ultimoBloque,bloqueLibre);
-            ultimoBloque=buscarUltimoBloque(fat,bloqueInicio,&anteultimo);
+            if(anteultimo>cant_bloques_total-cant_bloques_swap){
+            anteultimo=bloqueInicio;    
+            }
+            ultimoBloque=buscarUltimoBloque(fat,anteultimo,&anteultimo,&antepenultimo);
             bloqueLibre=buscarBloqueLibre(bitmap);
         }
         fclose(fat);
@@ -317,15 +321,13 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
 void achicarArchivo(int bloqueInicio, int tamanoActual, int tamanoNuevo, bool* bitmap){
     FILE* bloques = fopen(path_bloques, "rb+");
     FILE* fat = fopen(path_fat, "rb+");
-    
-    int bloquesLiberar = (tamanoActual - tamanoNuevo) / tam_bloque;
-    log_info(logger_filesystem,"Debo liberar %d bloques",bloquesLiberar);
+    int bloquesLiberar=(tamanoActual-tamanoNuevo)/tam_bloque;
     uint32_t anteultimo;
-    uint32_t libre = 0;
-    uint32_t eof = __UINT32_MAX__;
-    uint32_t ultimo;
+    uint32_t libre=0;
+    uint32_t eof=__UINT32_MAX__;
+    uint32_t antepenultimo;
+    uint32_t ultimo = buscarUltimoBloque(fat, bloqueInicio, &anteultimo,&antepenultimo);
     for(int i = 0; i < bloquesLiberar; i++){
-        ultimo = buscarUltimoBloque(fat, bloqueInicio, &anteultimo);
         liberarBloque(bloques, ultimo, bitmap);
         fseek(fat, ultimo*sizeof(uint32_t), SEEK_SET);
         fwrite(&libre, sizeof(uint32_t), 1, fat);
@@ -334,6 +336,7 @@ void achicarArchivo(int bloqueInicio, int tamanoActual, int tamanoNuevo, bool* b
         fwrite(&eof,sizeof(uint32_t), 1, fat);
         log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", (ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t));
         log_info(logger_filesystem, "liberando bloque %d", ultimo);
+        ultimo = buscarUltimoBloque(fat, antepenultimo, &anteultimo,&antepenultimo);
     }
     
     fclose(fat);
@@ -383,17 +386,17 @@ bool iniciar_fat(int tamano_fat, char* path_fat){
         entrada.entrada_FAT=0;
         f=fopen(path_fat,"wb");
         if(f!=NULL){
-            for(int i=0; i<entradas; i++){
-                fwrite(&entrada,sizeof(uint32_t),1,f);
-                //log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",(ftell(f)-sizeof(uint32_t))/sizeof(uint32_t));
-            }
+        for(int i=0; i<entradas; i++){
+        fwrite(&entrada,sizeof(uint32_t),1,f);
+        //log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",(ftell(f)-sizeof(uint32_t))/sizeof(uint32_t));
+        }
+        }else
+        {
             fclose(f);
-            return true;
-        }else{
-            //fclose(f);
             return false;
         }
-        
+        fclose(f);
+        return true;
     }
 }
 
@@ -406,13 +409,7 @@ void inicializarBitMap(bool* bitmap, int tamano){
 }
 //-------------------------------MAIN----------------------------------------------
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
-        exit(1);
-    }
-    
-    // CONFIG y logger
-    levantar_config(argv[1]);
+    levantar_config("filesystem.config");
     int fd_filesystem = iniciar_servidor(logger_filesystem,NULL,puerto_escucha,"FILESYSTEM");
     int tamano_fat=(cant_bloques_total-cant_bloques_swap)*sizeof(uint32_t);
     bool* bitmapBloquesSwap=(bool*)malloc(sizeof(bool) * cant_bloques_swap);
@@ -429,9 +426,9 @@ int main(int argc, char* argv[]) {
     }
     bloquesOcupados(bitmapBloques);
     //Pruebas
-    if(crear_archivo("probando2")){
+   if(crear_archivo("probando2")){
     asignarBloque("probando2", bitmapBloques);}
-    truncarArchivo("probando2", 1024*9,bitmapBloques);
+    truncarArchivo("probando2", 1024*50,bitmapBloques);
     log_info(logger_filesystem,"Trunqué el archivo");
     int tamano=abrir_archivo("probando2");
     int bloque=obtener_bloqueInicial("probando2");
@@ -439,7 +436,7 @@ int main(int argc, char* argv[]) {
     log_info(logger_filesystem,"Archivo truncado: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibres,bloquesLibres);
     log_info(logger_filesystem,"Abri el archivo de tamano %d que inicia en el bloque %d", tamano, bloque);
     bloquesOcupados(bitmapBloques);
-    truncarArchivo("probando2", 1024*5, bitmapBloques);
+    truncarArchivo("probando2", 1024*20, bitmapBloques);
     tamano=abrir_archivo("probando2");
     bloque=obtener_bloqueInicial("probando2");
     actualizarFcb("probando2", tamano, bloque);
