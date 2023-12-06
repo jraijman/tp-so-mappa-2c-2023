@@ -87,15 +87,15 @@ static void procesar_conexion(void *void_args) {
             int cant_paginas_necesarias = paginas_necesarias(proceso);
             printf("cant paginas necesarias: %d\n", cant_paginas_necesarias);
             //mandar aca a fs para recibir pos en swap 
-            send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
+            //send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
             //bloquear con recv hasta recibir la lista de swap 
-            printf("bloqueado esperando a swap\n");
-            op_code cop = recibir_operacion(conexion_memoria_filesystem);
-             printf("OPCODE: %d\n", cop);
-            int bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
-            printf("bloques reservados: %d\n", bloques_reservados);
-            t_list* tabla_paginas = inicializar_proceso(proceso);
-            list_add(lista_tablas_de_procesos, tabla_paginas);
+            //printf("bloqueado esperando a swap\n");
+            //op_code cop = recibir_operacion(conexion_memoria_filesystem);
+            // printf("OPCODE: %d\n", cop);
+            //int bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
+            //printf("bloques reservados: %d\n", bloques_reservados);
+            //t_list* tabla_paginas = inicializar_proceso(proceso);
+            //list_add(lista_tablas_de_procesos, tabla_paginas);
             pcb_destroyer(proceso);
             break;
 		case FINALIZAR_PROCESO:

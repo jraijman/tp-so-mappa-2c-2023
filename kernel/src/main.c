@@ -34,10 +34,6 @@ int main(int argc, char* argv[]) {
 
     // inicio hilos
     iniciar_hilos();
-    while ((1))
-    {
-        /* code */
-    }
    
     // libero conexiones, log y config
     terminar_programa(logger_kernel, config);
@@ -142,12 +138,12 @@ void iniciar_hilos(){
     pthread_create(&hilo_respuestas_fs, NULL, (void*)manejar_recibir_fs, NULL);
     pthread_create(&hilo_respuestas_memoria, NULL, (void*)manejar_recibir_memoria, NULL);
 
-    pthread_detach(hilo_consola);
-    pthread_detach(hilo_plan_largo);
-    pthread_detach(hilo_plan_corto);
-    pthread_detach(hilo_respuestas_cpu);   
-    pthread_detach(hilo_respuestas_fs);
-    pthread_detach(hilo_respuestas_memoria);
+    pthread_join(hilo_consola, NULL);
+    pthread_join(hilo_plan_largo, NULL);
+    pthread_join(hilo_plan_corto, NULL);
+    pthread_join(hilo_respuestas_cpu, NULL);
+    pthread_join(hilo_respuestas_fs, NULL);
+    pthread_join(hilo_respuestas_memoria, NULL);
 
 }
 
