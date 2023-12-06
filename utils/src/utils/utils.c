@@ -51,3 +51,23 @@ char *list_to_string(t_list *list)
     return string;
 }
 
+char *list_to_string_char(t_list *list)
+{
+    char *string = string_new();
+    string_append(&string, "[");
+    for (int i = 0; i < list_size(list); i++)
+    {
+        char *num = (char *)list_get(list, i);
+        if (i < list_size(list) - 1)
+        {
+            string_append(&string, num);
+        }
+        else
+        {
+            string_append(&string, num);
+        }
+    }
+    string_append(&string, "]");
+    return string;
+}
+

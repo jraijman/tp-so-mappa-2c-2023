@@ -1080,32 +1080,109 @@ void* manejar_sleep(void * args){
 
 //-------------------DETECCION DE DEADLOCK---------------------------
 
-
-
-void detectar_deadlock_recurso(){
-
-    for(int i = 0; i < queue_size(cola_block); i++){
-        pcb* un_proceso = queue_peek(cola_block, i);
-        
-        t_queue* cola_procesos = un_recurso->procesos;
-        t_queue* cola_bloqueados = un_recurso->bloqueados;
-
-        
-        
-        
-    }
+estructura_deadlock* armar_estructura_deadlock(int pid, t_list* recursos_en_posecion, char* recursos_en_espera) {
+    // Crear un PCB y asignar los valores iniciales
+    estructura_deadlock* estructura = malloc(sizeof(estructura_deadlock));
     
-    
+    estructura->pid = pid;
+    estructura->recursos_en_posecion = recursos_en_posecion;
+    estructura->recursos_en_espera = recursos_en_espera;
+
+    return estructura;
 }
 
-void deadlock_entre(pcb* otro_proceso,pcb* proceso){
+void estrctura_deadlock_destroyer(estructura_deadlock* estructura){
+    list_destroy(estructura->recursos_en_posecion);
+    list_destroy(estructura->recursos_en_espera);
+	free(estructura);
+}
+
+void detectar_deadlock_recurso(){
+    log_info(logger_kernel,ANSI_COLOR_GRAY "ANÁLISIS DE DETECCIÓN DE DEADLOCK");
+    t_list* lista_retencion = list_create();
+    t_list* lista_posible_deadlock = list_create();
+
+    for(int i = 0; i < queue_size(cola_block); i++){
+        pcb* un_proceso = list_get(cola_block->elements, i);
+        t_list *recursos_en_posecion = recursos_que_tiene(un_proceso);
+        t_list *recursos_en_espera = recursos_que_espera(un_proceso);
+        
+        estructura_deadlock *estructura = armar_estructura_deadlock(un_proceso->pid, recursos_en_posecion, recursos_en_espera);
+        list_add(lista_posible_deadlock, estructura);
+
+        list_add_all(lista_retencion, tiene_retencion_y_espera(un_proceso));
+        //[REC1 REC2 REC2 REC1]    [REC1 REC2 REC2 REC3 REC3 REC4 REC4 REC1]
+        if(list_size(lista_retencion) > 0){
+            if(verificar_espera_circular(lista_retencion)){
+                //loguear toda la lista de posible deadlock
+                
+                for(int i = 0; i < list_size(lista_posible_deadlock); i++){
+                    estructura_deadlock *estructura = list_get(lista_posible_deadlock, i);
+                    log_info(logger_kernel,ANSI_COLOR_GRAY " Deadlock detectado: %d - Recursos en posesión %s - Recurso requerido: %s",estructura->pid, list_to_string_char(estructura->recursos_en_posecion), list_to_string_char(estructura->recursos_en_espera));
+                }
+                
+            }
+        }
+        //list_destroy(recursos_en_posecion);
+        //list_destroy(recursos_en_espera);
+    }
+    //hay q hacer free de estructura
+    for(int i = 0; i < list_size(lista_posible_deadlock); i++){
+        estructura_deadlock *estructura = list_get(lista_posible_deadlock, i);
+        estrctura_deadlock_destroyer(estructura);
+    }
+    list_destroy(lista_posible_deadlock);
+    list_destroy(lista_retencion);
+}
+
+t_list *recursos_que_tiene(pcb *proceso) {
+    t_list *recursos_en_posecion = list_create();
     for (int i = 0; i < list_size(lista_recursos); i++) {
-      t_recurso* rec= list_get(lista_recursos, i);
+        t_recurso* rec= list_get(lista_recursos, i);
+        if(lista_contiene_id(rec->procesos->elements, proceso)){
+            list_add(recursos_en_posecion, rec->recurso);
+        }
+    }
+    return recursos_en_posecion;
+}
+
+t_list *recursos_que_espera(pcb *proceso) {
+    t_list *recursos_en_espera = list_create();
+    for (int i = 0; i < list_size(lista_recursos); i++) {
+        t_recurso* rec= list_get(lista_recursos, i);
         if(lista_contiene_id(rec->bloqueados->elements, proceso)){
-            if(lista_contiene_id(rec->procesos->elements, proceso)){
-                return true;
+            list_add(recursos_en_espera, rec->recurso);
+        }
+    }
+    return recursos_en_espera;
+}
+
+bool verificar_espera_circular(t_list *lista_retencion){
+    char* primer_elemento = list_get(lista_retencion, 0);
+    char* ultimo_elemento = list_get(lista_retencion, list_size(lista_retencion) - 1);
+    bool comparacion = strcmp(primer_elemento, ultimo_elemento) == 0;
+    if(comparacion){
+        return true;
+    }
+    return false;
+}
+
+
+t_list* tiene_retencion_y_espera(pcb* proceso){
+    t_list* lista_retencion = list_create();
+    for (int i = 0; i < list_size(lista_recursos); i++) {
+        t_recurso* rec= list_get(lista_recursos, i);
+        if(lista_contiene_id(rec->procesos->elements, proceso)){
+            for (int i = 0; i < list_size(lista_recursos); i++) {
+                t_recurso* rec_bloqueado= list_get(lista_recursos, i);
+                if(lista_contiene_id(rec_bloqueado->bloqueados->elements, proceso)){
+                    list_add(lista_retencion, rec->recurso);  
+                    list_add(lista_retencion, rec_bloqueado->recurso); 
+                    return lista_retencion;
+                }
             }
         }
         
     }
+    return lista_retencion;
 }

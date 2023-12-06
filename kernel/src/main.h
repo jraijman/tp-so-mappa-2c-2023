@@ -62,6 +62,12 @@ typedef struct {
 	char* extra;
 } HiloArgs;
 
+typedef struct{
+    t_list *recursos_en_posecion;
+    t_list *recursos_en_espera;
+    int pid;    
+} estructura_deadlock;
+
 //lista recursos
 t_list *lista_recursos;
 
@@ -157,5 +163,9 @@ bool lista_contiene_id(t_list* lista, pcb * proceso);
 bool cmp(void *a, void *b);
 void liberar_recursos_proceso(pcb* proceso);
 void* manejar_sleep(void * args);
+t_list* tiene_retencion_y_espera(pcb* proceso);
+bool verificar_espera_circular(t_list *lista_retencion);
+t_list *recursos_que_tiene(pcb *proceso);
+t_list *recursos_que_espera(pcb *proceso);
 
 #endif 
