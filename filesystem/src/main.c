@@ -132,7 +132,7 @@ bool iniciar_bloques(int tamano_bloques, bool* bitmapBloques, bool* bitmapSwap) 
             return true;
         } else {
             free(bloque.info);
-            fclose(f);
+            //fclose(f);
             return false;
         }
     }
@@ -186,13 +186,14 @@ bool crear_archivo(char* nombre) {
     strcat(ruta, ".fcb");
     t_config* nuevoFCB=config_create(ruta);
     if(nuevoFCB!=NULL){
+        config_destroy(nuevoFCB);
         return false;
     }else{
-        nuevoFCB=(t_config*)malloc(sizeof(t_config));
+        t_config* nuevoFCB = malloc(sizeof(t_config));
         nuevoFCB->properties=dictionary_create();
         nuevoFCB->path=ruta;
         config_save_in_file(nuevoFCB,ruta);
-        nuevoFCB=config_create(ruta);
+        //nuevoFCB=config_create(ruta);
         config_set_value(nuevoFCB,"NOMBRE_ARCHIVO", strdup(nombreArchivo));
         config_set_value(nuevoFCB,"TAMANIO_ARCHIVO", "0");
         config_set_value(nuevoFCB, "BLOQUE_INICIAL", " ");
@@ -382,17 +383,17 @@ bool iniciar_fat(int tamano_fat, char* path_fat){
         entrada.entrada_FAT=0;
         f=fopen(path_fat,"wb");
         if(f!=NULL){
-        for(int i=0; i<entradas; i++){
-        fwrite(&entrada,sizeof(uint32_t),1,f);
-        //log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",(ftell(f)-sizeof(uint32_t))/sizeof(uint32_t));
-        }
-        }else
-        {
+            for(int i=0; i<entradas; i++){
+                fwrite(&entrada,sizeof(uint32_t),1,f);
+                //log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",(ftell(f)-sizeof(uint32_t))/sizeof(uint32_t));
+            }
             fclose(f);
+            return true;
+        }else{
+            //fclose(f);
             return false;
         }
-        fclose(f);
-        return true;
+        
     }
 }
 

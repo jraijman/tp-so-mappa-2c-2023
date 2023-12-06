@@ -124,6 +124,7 @@ int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket
         pthread_create(&hilo, NULL, (void*) procesar_conexion, (void*) args);
         pthread_detach(hilo);
         return 1;
+        free(args);
     }
     return 0;
 }

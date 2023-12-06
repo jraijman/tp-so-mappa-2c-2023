@@ -81,6 +81,13 @@ t_list* recibir_paquete(int socket_cliente){
 	int tamanio;
 
 	buffer = recibir_buffer(&size, socket_cliente);
+	//memory leaks
+	if (buffer == NULL) {
+        // Manejar el error de recepción del paquete
+        list_destroy(valores);
+        return NULL;
+    }
+
 	while(desplazamiento < size){
 		memcpy(&tamanio, buffer + desplazamiento, sizeof(int));
 		desplazamiento+=sizeof(int);
@@ -325,6 +332,15 @@ pcb* desempaquetar_pcb(t_list* paquete, int* counter) {
 	t_list* archivos = desempaquetar_archivos(paquete, counter);
 	contexto->archivos = archivos;
 
+	// memory leaks
+    if (contexto->path == NULL || contexto->registros == NULL || contexto->archivos == NULL) {
+        free(contexto->path);
+        registros_destroy(contexto->registros);
+        lista_archivos_destroy(contexto->archivos);
+        free(contexto);
+        return NULL;
+    }
+
 	return contexto;
 }
 
@@ -342,8 +358,9 @@ pcb* recv_pcb(int fd_modulo){
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int counter = 0;
 	pcb* contexto_recibido = desempaquetar_pcb(paquete, &counter);
-	printf("\n RECV PCB PID: %d\n", contexto_recibido->pid);
-	list_destroy(paquete);
+	//printf("\n RECV PCB PID: %d\n", contexto_recibido->pid);
+	list_destroy(paquete);// memory leaks
+	//list_destroy_and_destroy_elements(paquete, free); // este rompe todo
 	return contexto_recibido;
 }
 
@@ -420,6 +437,21 @@ char* recv_recurso(int fd_modulo){
 	return recurso;
 }
 
+void send_reserva_swap(int fd, int cant_paginas_necesarias){
+	t_paquete* paquete = crear_paquete(INICIALIZAR_PROCESO);
+	agregar_a_paquete(paquete, &(cant_paginas_necesarias), sizeof(int));
+	enviar_paquete(paquete, fd);
+	eliminar_paquete(paquete);
+}
+int recv_reserva_swap(int fd_modulo){
+	t_list* paquete = recibir_paquete(fd_modulo);
+	int* cant = list_get(paquete, 0);
+	int ret = *cant;
+	free(cant);
+	list_destroy(paquete);
+	return ret;
+}
+
 void send_inicializar_proceso(pcb *contexto, int fd_modulo){
     t_paquete* paquete = crear_paquete(INICIALIZAR_PROCESO);
 	empaquetar_pcb(paquete, contexto);
@@ -439,8 +471,12 @@ void send_terminar_proceso(int pid, int fd_modulo){
 int recv_terminar_proceso(int fd_modulo){
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int* pid = list_get(paquete, 0);
-	list_destroy(paquete);
-	return *pid;
+
+	//memory leaks
+	int pid_value = *pid; // Guardar el valor del PID antes de destruir el paquete
+    list_destroy_and_destroy_elements(paquete, free); // Liberar memoria del paquete y sus elementos
+	
+	return pid_value;
 }
 //--------------------------------------Instruccion------------------------------------------
 void empaquetar_instruccion(t_paquete* paquete, Instruccion instruccion) {
@@ -503,17 +539,9 @@ int recv_fetch_instruccion(int fd_modulo, char** path, int** pc) {
 
 
     list_destroy(paquete);
-    return 0; // Puedes devolver el valor necesario en tu implementación.
+    return 0; 
 }
 
-
-void send_reserva_swap(int fd, int cantidad_bloques) {
-	t_paquete* paquete = crear_paquete(RESERVA_SWAP);
-    // Agregar cant de bloques al paquete
-    agregar_a_paquete(paquete, &cantidad_bloques, sizeof(int));
-    enviar_paquete(paquete, fd);
-    eliminar_paquete(paquete);
-}
 
 void send_liberacion_swap(int fd, int pid){
     t_paquete* paquete = crear_paquete(LIBERACION_SWAP);
@@ -528,11 +556,7 @@ int recv_liberacion_swap(int fd_modulo){
 	return *pid;
 }
 
-void recv_reserva_swap(int fd, int *pid, int *cantidad_bloques) {
-	t_list* paquete = recibir_paquete(fd);
-  	pid = list_get(paquete, 0);
-    cantidad_bloques = list_get(paquete, 1);
-}
+
 
 void empaquetar_bloques(t_paquete* paquete_bloques, t_list* lista_bloques) {
     int cantidad_bloques = list_size(lista_bloques);

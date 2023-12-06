@@ -9,7 +9,6 @@ int main(int argc, char* argv[]){
     
     // CONFIG y logger
     levantar_config(argv[1]);
-    logger_cpu = iniciar_logger("cpu.log", "CPU:");
 
 
     // Genero conexión a memoria
@@ -117,16 +116,13 @@ int server_escuchar(int fd_cpu_interrupt, int fd_cpu_dispatch) {
     int socket_cliente_dispatch = esperar_cliente(logger_cpu, server_name, fd_cpu_dispatch);
 	
     if (socket_cliente_interrupt != -1 && socket_cliente_dispatch != -1) {
-        int *args = malloc(sizeof(int));
         //hilo para servidor dispatch
         pthread_t hilo_dispatch;
-		args = &socket_cliente_dispatch;
-		pthread_create(&hilo_dispatch, NULL, (void*) procesar_conexion_dispatch, (void*) args);
+		pthread_create(&hilo_dispatch, NULL, (void*) procesar_conexion_dispatch, (void*) &socket_cliente_dispatch);
 		pthread_detach(hilo_dispatch);
         //hilo para servidor interrupt
         pthread_t hilo_interrupt;
-		args = &socket_cliente_interrupt;
-		pthread_create(&hilo_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) args);
+		pthread_create(&hilo_interrupt, NULL, (void*) procesar_conexion_interrupt, (void*) &socket_cliente_interrupt);
 		pthread_detach(hilo_interrupt);
         return 1;
  	}
@@ -145,7 +141,6 @@ void levantar_config(char* ruta){
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1 && !recibio_interrupcion && flag_ciclo) {
-        //sleep(1);
         Instruccion * instruccion = malloc(sizeof(Instruccion));
         if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
             contexto->pc++;
@@ -211,9 +206,22 @@ void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
     Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
-        //traducir(instruccion, &direccion, contexto);
+        int direccion_logica = obtener_direccion_logica(instruccion);
+        int direccion_fisica = traducir(direccion_logica, conexion_cpu_memoria); //traducir(instruccion, &direccion, contexto);
     }
     //log_info(logger_cpu,ANSI_COLOR_BLUE "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
+}
+
+int obtener_direccion_logica(Instruccion *instruccion){
+    int direccion_logica;
+    if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || strcmp(instruccion->opcode, "F_WRITE") == 0){
+        direccion_logica = atoi(instruccion->operando2);
+    } else if (strcmp(instruccion->opcode, "MOV_OUT") == 0)
+    {
+        direccion_logica = atoi(instruccion->operando1);
+    }
+    
+    return direccion_logica;
 }
 
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger) {

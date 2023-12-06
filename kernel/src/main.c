@@ -73,8 +73,8 @@ void levantar_config(char* ruta){
     char** instancias = string_array_new();
 	instancias = config_get_array_value(config, "INSTANCIAS_RECURSOS");
 	instancia_recursos = string_to_int_array(instancias);
-    grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
     string_array_destroy(instancias);
+    grado_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION_INI");
 }
 
 void * leer_consola(void * arg)
@@ -778,7 +778,7 @@ void manejar_recibir_cpu(){
                 case F_WRITE:
                     break;
                 default:
-                    printf("Error al recibir mensaje\n");
+                    printf("Error al recibir mensaje %d \n", cop);
                     break;
             free(extra);
             free(nombre_archivo);
@@ -800,7 +800,7 @@ void manejar_recibir_memoria(){
                     recibir_mensaje(logger_kernel, fd_memoria);
                     break;
                 default:
-                    printf("Error al recibir mensaje\n");
+                    printf("Error al recibir mensaje %d \n", cop);
                     break;
             }
         }   
@@ -834,7 +834,7 @@ void manejar_recibir_fs(){
                     sem_post(&archivo_abierto);
                     break;
                 default:
-                    printf("Error al recibir mensaje\n");
+                    printf("Error al recibir mensaje %d \n", cop);
                     break;
             }
         }   

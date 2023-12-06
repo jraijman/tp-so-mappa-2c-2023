@@ -1,22 +1,22 @@
 #include "instrucciones.h"
 #include <sys/socket.h>
 
-int traducir(int direccion_logica,int fd) {
+int traducir(int direccion_logica, int fd) {
     Direccion direccion;
-    direccion.direccionLogica=direccion_logica;
-    direccion.desplazamiento=-1;
-    direccion.direccionFisica=-1;
-    direccion.numeroPagina=-1;
-    direccion.marco=-1;
-    direccion.pageFault=false;
-    direccion.tamano_pagina=-1;
-    send_direccion(fd, &direccion);
+    direccion.direccionLogica = direccion_logica;
+    direccion.desplazamiento = -1;
+    direccion.direccionFisica = -1;
+    direccion.numeroPagina = -1;
+    direccion.marco = -1;
+    direccion.pageFault = false;
+    direccion.tamano_pagina = -1;
+    send_direccion(fd, &direccion); 
     recv_direccion(fd, &direccion);//RECIBO LA DIRECCIÓN ACTUALIZADA CON EL TAMANO DE PAGINA SI SE PUEDE CONSEGUIR ANTES MEJOR AHORRO PASOS.
-    direccion.numeroPagina=direccion.direccionLogica/direccion.tamano_pagina;
-    direccion.desplazamiento=direccion.direccionLogica-(direccion.numeroPagina*direccion.tamano_pagina);
+    direccion.numeroPagina = direccion.direccionLogica / direccion.tamano_pagina;
+    direccion.desplazamiento = direccion.direccionLogica - (direccion.numeroPagina * direccion.tamano_pagina);
     send_direccion(fd,&direccion);
     recv_direccion(fd,&direccion);//RECIBO LA DIRECCIÓN ACTUALIZADA CON LA DIRECCIÓN FÍSICA DEL MARCO;
-    direccion.direccionFisica=direccion.marco+direccion.desplazamiento;
+    direccion.direccionFisica = direccion.marco + direccion.desplazamiento;
     return direccion.direccionFisica;
 }
 

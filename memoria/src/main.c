@@ -85,12 +85,18 @@ static void procesar_conexion(void *void_args) {
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             enviar_mensaje("OK inicio proceso", cliente_socket);
             int cant_paginas_necesarias = paginas_necesarias(proceso);
+            printf("cant paginas necesarias: %d\n", cant_paginas_necesarias);
             //mandar aca a fs para recibir pos en swap 
             send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
             //bloquear con recv hasta recibir la lista de swap 
-            //t_list* bloques_reservados = recv_bloques_reservados(logger_memoria, conexion_memoria_filesystem);
-            //t_list* tabla_paginas = inicializar_proceso(proceso);
-            //list_add(lista_tablas_de_procesos, tabla_paginas);
+            printf("bloqueado esperando a swap\n");
+            op_code cop = recibir_operacion(conexion_memoria_filesystem);
+             printf("OPCODE: %d\n", cop);
+            int bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
+            printf("bloques reservados: %d\n", bloques_reservados);
+            t_list* tabla_paginas = inicializar_proceso(proceso);
+            list_add(lista_tablas_de_procesos, tabla_paginas);
+            pcb_destroyer(proceso);
             break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
@@ -98,28 +104,28 @@ static void procesar_conexion(void *void_args) {
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
 			//terminar_proceso(pid_fin);
 			break;
-        case PEDIDO_LECTURA_FS:
-           // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
-            /*parametros_escritura_fs = recibir_paquete(cliente_socket);
-        
-            char* valor_a_escribir_fs = list_get(parametros_escritura_fs, 0);
-            int* posicion_escritura_fs = list_get(parametros_escritura_fs, 1);
-            tam_esc_fs = list_get(parametros_escritura_fs, 2);
-            pid_escritura_fs = list_get(parametros_escritura_fs, 3);
-
-            // info sobre el tamaño del valor a escribir en el logger.
-            log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
-
-            // Simular retardo de memoria
-            usleep(RETARDO_REPUESTA* 1000);
-
-             // Escribe el valor en el espacio de usuario en la posición especificada.
-            memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
-            
-            // Registra información sobre la escritura en el logger y envía un mensaje indicando el fin de la operación de escritura al módulo cliente (FS).
-            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);*/
-
+        case ENVIO_DIRECCION:
+            /*
+            Direccion* direccion = recv_direccion(cliente_socket);
+            */
             break;
+        case PEDIDO_LECTURA_FS:
+         /*
+            valor_fs = malloc(*tamano_fs);
+
+            // Simula un retardo en el acceso a memoria según la configuración.
+            usleep(RETARDO_RESPUESTA * 1000);
+
+            // Copia el valor desde el espacio de usuario a la variable valor_fs.
+            memcpy(valor_fs, espacio_usuario + *posicion_fs, *tamano_fs);
+
+            // Registra información sobre la lectura en el logger.
+            log_info(logger_obligatorio, "PID: %d - Acción: LEER - Dirección física: %d - Tamaño: %d - Origen: FS", *pid_fs, *posicion_fs, *tamano_fs);
+
+            // Registra el valor leído en el logger y lo envía de vuelta al módulo cliente (FS).
+            log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
+            break;
+        */
         case PEDIDO_ESCRITURA_FS:
             // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
             /*parametros_escritura_fs = recibir_paquete(cliente_socket);
@@ -133,7 +139,7 @@ static void procesar_conexion(void *void_args) {
             log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
 
             // Simula un retardo en el acceso a memoria según la configuración.
-            usleep(RETARDO_REPUESTA * 1000);
+            usleep(RETARDO_REPUESTA);
 
             // Escribe el valor en el espacio de usuario en la posición especificada.
             memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
@@ -145,9 +151,11 @@ static void procesar_conexion(void *void_args) {
         case ENVIO_INSTRUCCION:
             char* path;
             int* pc;
-            usleep(RETARDO_REPUESTA);
+            sleep(RETARDO_REPUESTA/1000);
             recv_fetch_instruccion(cliente_socket, &path,&pc);
             leer_instruccion_por_pc_y_enviar(path,*pc, cliente_socket);
+            free(path); // Liberar memoria de la variable path
+            free(pc); // Liberar memoria de la variable pc
             break;
 
 	return;
@@ -161,9 +169,7 @@ int server_escuchar(int fd_memoria) {
 
 	if (cliente_socket != -1) {
 		pthread_t hilo;
-		int *args = malloc(sizeof(int));
-		args = &cliente_socket;
-		pthread_create(&hilo, NULL, (void*) procesar_conexion, (void*) args);
+		pthread_create(&hilo, NULL, (void*) procesar_conexion, (void*) &cliente_socket);
 		pthread_detach(hilo);
 		return 1;
 	}
@@ -239,7 +245,6 @@ t_list* obtenerMarcosAsignados(int pid){
 void eliminar_proceso_memoria(int pid) {
     
     t_list* marcos_asignados = obtenerMarcosAsignados(pid);
-
     
     for (int i = 0; i < list_size(marcos_asignados); i++) {
         t_marco* marco = list_get(marcos_asignados, i);
@@ -413,7 +418,8 @@ void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd) {
     FILE *archivo = fopen(path_completa_instruccion, "r");
     if (archivo == NULL) {
         perror("No se pudo abrir el archivo de instrucciones");
-        return NULL;
+        free(path_completa_instruccion);
+        return;
     }
 
     char instruccion_leida[256];
@@ -421,57 +427,81 @@ void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd) {
 
     while (fgets(instruccion_leida, sizeof(instruccion_leida), archivo) != NULL) {
         if (current_pc == pc) {
-            //printf("Instrucción %d: %s", pc, instruccion_leida);
-            Instruccion *instruccion = armar_estructura_instruccion(instruccion_leida);
-            send_instruccion(fd, *instruccion);
+            printf("Instrucción %d: %s", pc, instruccion_leida);
+            Instruccion instruccion = armar_estructura_instruccion(instruccion_leida);
+
+            send_instruccion(fd, instruccion);
+
+            // Liberar memoria asignada para la estructura Instruccion
+            free(instruccion.opcode);
+            free(instruccion.operando1);
+            free(instruccion.operando2);
+            
             break;
         }
         current_pc++;
     }
-
     fclose(archivo);
     free(path_completa_instruccion);
 }
 
-Instruccion* armar_estructura_instruccion(char* instruccion_leida){
+Instruccion armar_estructura_instruccion(char* instruccion_leida){
     char **palabras = string_split(instruccion_leida, " ");
     
-    Instruccion *instruccion = malloc(sizeof(Instruccion));
+    Instruccion instruccion;
 
     if (palabras[0] != NULL) {
-        instruccion->opcode = malloc(sizeof(char) * strlen(palabras[0]) + 1);
-        strcpy(instruccion->opcode, palabras[0]);
+        instruccion.opcode = malloc(sizeof(char) * (strlen(palabras[0]) + 1));
+        strcpy(instruccion.opcode, palabras[0]);
 
         if (palabras[1] != NULL) {
-            instruccion->operando1 = malloc(sizeof(char) * strlen(palabras[1]) + 1);
-            strcpy(instruccion->operando1, palabras[1]);
+            instruccion.operando1 = malloc(sizeof(char) * (strlen(palabras[1]) + 1));
+            strcpy(instruccion.operando1, palabras[1]);
 
-             if (instruccion->operando1[strlen(instruccion->operando1) - 1] == '\n') {
-                    instruccion->operando1[strlen(instruccion->operando1) - 1] = '\0';
-                }
+            if (instruccion.operando1[strlen(instruccion.operando1) - 1] == '\n') {
+                instruccion.operando1[strlen(instruccion.operando1) - 1] = '\0';
+            }
 
             if (palabras[2] != NULL) {
-                instruccion->operando2 = malloc(sizeof(char) * strlen(palabras[2]) + 1);
-                strcpy(instruccion->operando2, palabras[2]);
-                // Eliminar el salto de línea al final del operando2 si existe
-                if (instruccion->operando2[strlen(instruccion->operando2) - 1] == '\n') {
-                    instruccion->operando2[strlen(instruccion->operando2) - 1] = '\0';
+                instruccion.operando2 = malloc(sizeof(char) * (strlen(palabras[2]) + 1));
+                strcpy(instruccion.operando2, palabras[2]);
+
+                if (instruccion.operando2[strlen(instruccion.operando2) - 1] == '\n') {
+                    instruccion.operando2[strlen(instruccion.operando2) - 1] = '\0';
                 }
             } else {
-                instruccion->operando2 = malloc(sizeof(char) * (strlen("") + 1));
-                instruccion->operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
+                instruccion.operando2 = malloc(sizeof(char));
+                instruccion.operando2[0] = '\0'; // Vaciar el operando2 si no hay tercer palabra
             }
         } else {
-            instruccion->operando1 = malloc(1);
-            instruccion->operando2 = malloc(1);
-            instruccion->operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
-            instruccion->operando2[0] = '\0'; // Vaciar el operando2
+            instruccion.operando1 = malloc(sizeof(char));
+            instruccion.operando2 = malloc(sizeof(char));
+            instruccion.operando1[0] = '\0'; // Vaciar el operando1 si no hay segunda palabra
+            instruccion.operando2[0] = '\0'; // Vaciar el operando2
         }
     } else {
         perror("Error al cargar la instrucción");
+
+        // Liberar memoria en caso de error
+        free(instruccion.opcode);
+        free(instruccion.operando1);
+        free(instruccion.operando2);
+        instruccion.opcode = NULL;
+        instruccion.operando1 = NULL;
+        instruccion.operando2 = NULL;
     }
+
+    // Liberar memoria asignada a palabras
+    int i = 0;
+    while (palabras[i] != NULL) {
+        free(palabras[i]);
+        i++;
+    }
+    free(palabras);
+
     return instruccion;
 }
+
 // Función para loguear el valor leído y enviarlo de vuelta al módulo cliente (FS)
 void log_valor_espacio_usuario_y_enviar(char* valor, int tamanio, int cliente_socket) {
     log_valor_espacio_usuario(valor, tamanio);
@@ -494,7 +524,7 @@ void log_valor_espacio_usuario(char* valor, int tamanio){
 
 //LRU
 // Función para reemplazar una página utilizando el algoritmo LRU
-/*void algoritmo_lru(t_list* tabla_De_Paginas) {
+void algoritmo_lru(t_list* tabla_De_Paginas) {
     if (list_is_empty(tabla_De_Paginas)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
         return;
@@ -502,7 +532,7 @@ void log_valor_espacio_usuario(char* valor, int tamanio){
 
     // Filtrar y ordenar de más vieja a más nueva
     list_sort(tabla_De_Paginas, (void*)masVieja);
-
+    
     // Obtener la página más antigua
     entrada_pagina* paginaReemplazo = list_get(tabla_De_Paginas, 0);
     log_info(logger_memoria, "Voy a reemplazar la página %d que estaba en el frame %d", paginaReemplazo->pid, paginaReemplazo->num_marco);
@@ -523,10 +553,12 @@ void log_valor_espacio_usuario(char* valor, int tamanio){
 
     // Actualizar el tiempo de uso de las demás páginas
     actualizarTiempoDeUso(tabla_De_Paginas);
-}*/
-int masVieja(entrada_pagina* unaPag, entrada_pagina* otraPag){
-		
-	return (otraPag->tiempo_uso > unaPag->tiempo_uso); //LA QUE ESTA HACE MAS TIEMPO
+}
+bool masVieja(void *unaPag, void *otraPag) { 
+    entrada_pagina* pa = unaPag;
+    entrada_pagina* pb = otraPag;
+    int intA = pa->tiempo_uso; int intB = pb->tiempo_uso; 
+    return intA < intB; 
 }
 // Función para actualizar el tiempo de uso de todas las páginas
 void actualizarTiempoDeUso(t_list* tabla_De_Paginas) {

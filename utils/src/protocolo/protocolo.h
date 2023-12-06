@@ -254,6 +254,7 @@ void send_valor_leido_fs(char* valor, int tamanio, int fd_modulo);
 void send_escribir_valor_fs(char* valor, int dir_fisica, int tamanio, int pid, int fd_modulo);
 void send_abrir_archivo(char* nombre_archivo, int fd_modulo);
 void send_crear_archivo(char* nombre_archivo, int fd_modulo);
+void send_reserva_swap(int fd, int cant_paginas_necesarias);
 
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
@@ -268,4 +269,7 @@ void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo, int *pid);
 void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
 void recv_f_close(int fd,char** nombre_archivo);
+int recv_reserva_swap(int fd_modulo);
+
+
 #endif

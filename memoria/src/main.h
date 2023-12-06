@@ -50,9 +50,10 @@ uint32_t get_memory_and_page_size();
 int buscar_marco_libre();
 t_list* obtenerMarcosAsignados( int pid);
 int paginas_necesarias(pcb *proceso);
-Instruccion* armar_estructura_instruccion(char* instruccion_leida);
+Instruccion armar_estructura_instruccion(char* instruccion_leida);
 char *armar_path_instruccion(char *path_consola);
 uint32_t algoritmo_fifo(int pid_actual);
 void algoritmo_lru(t_list* tabla_De_Paginas);
+bool masVieja(void *unaPag, void *otraPag);
 
 #endif 
