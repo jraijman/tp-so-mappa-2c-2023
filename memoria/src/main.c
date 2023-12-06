@@ -23,8 +23,13 @@ void levantar_config(char *ruta)
 int main(int argc, char *argv[])
 {
 
+    if (argc < 2) {
+        fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
+        exit(1);
+    }
+    
     // CONFIG y logger
-    levantar_config("memoria.config");
+    levantar_config(argv[1]);
 
     // genero conexion a filesystem
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
@@ -416,7 +421,7 @@ void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd) {
 
     while (fgets(instruccion_leida, sizeof(instruccion_leida), archivo) != NULL) {
         if (current_pc == pc) {
-            printf("Instrucción %d: %s", pc, instruccion_leida);
+            //printf("Instrucción %d: %s", pc, instruccion_leida);
             Instruccion *instruccion = armar_estructura_instruccion(instruccion_leida);
             send_instruccion(fd, *instruccion);
             break;

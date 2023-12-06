@@ -2,9 +2,14 @@
 
 int main(int argc, char* argv[]) {
 
+    if (argc < 2) {
+        fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
+        exit(1);
+    }
     
     // CONFIG y logger
-    levantar_config("kernel.config");
+    levantar_config(argv[1]);
+
     iniciar_listas();
     iniciar_semaforos();
 
@@ -505,7 +510,7 @@ void manejar_wait(pcb* proceso, char* recurso){
             pthread_mutex_unlock(&recursobuscado->mutex);
             //agregar a la cola de block
             agregar_a_block(proceso);
-            detectar_deadlock_recurso(proceso, recursobuscado);
+            detectar_deadlock_recurso();
             sem_post(&puedo_ejecutar_proceso);
 		}
         else{
@@ -1074,22 +1079,23 @@ void* manejar_sleep(void * args){
 }
 
 //-------------------DETECCION DE DEADLOCK---------------------------
-void detectar_deadlock_recurso(pcb * proceso, t_recurso * recurso){
-    //el proceso q entra como parametro es el que va a ingresar a la cola block 
-    //esta esperando que se libere el recurso
-    //tengo que ver si el recurso que esta esperando esta siendo usado por otro proceso
-    //si es asi, tengo que ver si ese proceso esta esperando otro recurso bloqueado por el proceso que esta esperando
- 
-    // Check if the resource is being used by another process
-    
-    for (int i = 0; i < queue_size(cola_block); i++) {
-        pcb* otro_proceso = list_get(cola_block->elements, i);
-        if (otro_proceso->pid != proceso->pid  && lista_contiene_id(recurso->procesos->elements, otro_proceso)) {
-            if(deadlock_entre(otro_proceso,proceso)){
-                log_info(logger_kernel, ANSI_COLOR_GRAY "DEADLOCK ENTRE PROCESOS %d y %d", proceso->pid, otro_proceso->pid);
-            }
-        }
+
+
+
+void detectar_deadlock_recurso(){
+
+    for(int i = 0; i < queue_size(cola_block); i++){
+        pcb* un_proceso = queue_peek(cola_block, i);
+        
+        t_queue* cola_procesos = un_recurso->procesos;
+        t_queue* cola_bloqueados = un_recurso->bloqueados;
+
+        
+        
+        
     }
+    
+    
 }
 
 void deadlock_entre(pcb* otro_proceso,pcb* proceso){

@@ -1,8 +1,14 @@
 #include "main.h"
 
 int main(int argc, char* argv[]){
+
+     if (argc < 2) {
+        fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
+        exit(1);
+    }
+    
     // CONFIG y logger
-    levantar_config("cpu.config");
+    levantar_config(argv[1]);
     logger_cpu = iniciar_logger("cpu.log", "CPU:");
 
 
@@ -139,7 +145,7 @@ void levantar_config(char* ruta){
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1 && !recibio_interrupcion && flag_ciclo) {
-        sleep(1);
+        //sleep(1);
         Instruccion * instruccion = malloc(sizeof(Instruccion));
         if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
             contexto->pc++;
@@ -155,7 +161,7 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
 }
 
 void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd_dispatch, int fd_memoria) {
-    log_info(logger_cpu, "Instrucción ejecutada: %s %s %s", instruccion.opcode, instruccion.operando1, instruccion.operando2);
+    log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s",contexto_ejecucion->pid, instruccion.opcode, instruccion.operando1, instruccion.operando2);
 
     if (strcmp(instruccion.opcode, "SET") == 0) {
         setInstruccion(contexto_ejecucion, instruccion, logger_cpu);

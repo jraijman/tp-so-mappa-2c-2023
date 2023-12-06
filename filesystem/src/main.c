@@ -405,7 +405,13 @@ void inicializarBitMap(bool* bitmap, int tamano){
 }
 //-------------------------------MAIN----------------------------------------------
 int main(int argc, char* argv[]) {
-    levantar_config("filesystem.config");
+    if (argc < 2) {
+        fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
+        exit(1);
+    }
+    
+    // CONFIG y logger
+    levantar_config(argv[1]);
     int fd_filesystem = iniciar_servidor(logger_filesystem,NULL,puerto_escucha,"FILESYSTEM");
     int tamano_fat=(cant_bloques_total-cant_bloques_swap)*sizeof(uint32_t);
     bool* bitmapBloquesSwap=(bool*)malloc(sizeof(bool) * cant_bloques_swap);
