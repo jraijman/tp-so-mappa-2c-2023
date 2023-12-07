@@ -48,18 +48,16 @@ static void procesar_conexion_interrupt(void* void_args) {
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
             case INTERRUPCION:
-                int pid_recibido;
-                recv_interrupcion(cliente_socket_interrupt,&pid_recibido);
+                int pid_recibido = recv_interrupcion(cliente_socket_interrupt);
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion al proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
                 if(contexto->pid==pid_recibido){
                 recibio_interrupcion = true;
-                }
+                } 
                 break;
             case INTERRUPCION_FINALIZAR:
-                int pid_recibido_finalizar;
-                recv_interrupcion(cliente_socket_interrupt,&pid_recibido);
+                int pid_recibido_finalizar = recv_interrupcion(cliente_socket_interrupt);
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "se finaliza el proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
-                if(contexto->pid==pid_recibido){
+                if(contexto->pid==pid_recibido_finalizar){
                 recibio_interrupcion = true;
                 }
                 break;
@@ -95,10 +93,10 @@ static void procesar_conexion_dispatch(void* void_args) {
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
+                    pcb_destroyer(contexto);
                     break;    
                 } else {
                     log_error(logger_cpu, "Error al recibir el PCB");
-                    
                 }
                 break;
             default: {
@@ -147,6 +145,10 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
             decodeInstruccion(instruccion,contexto);
             executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
         }
+        free(instruccion->opcode);
+        free(instruccion->operando1);
+        free(instruccion->operando2);
+        free(instruccion);
     }
     if(recibio_interrupcion){
         recibio_interrupcion=false;
@@ -236,6 +238,9 @@ bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* lo
     strcpy(instruccion->opcode, aux.opcode);
     strcpy(instruccion->operando1, aux.operando1);
     strcpy(instruccion->operando2, aux.operando2);
+    free(aux.opcode);
+    free(aux.operando1);
+    free(aux.operando2);
     if(instruccion!=NULL) {
         log_info(logger,ANSI_COLOR_BLUE "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto->pid, contexto->pc);

@@ -642,6 +642,7 @@ void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t
 		return;
 	}
 	enviar_paquete(paquete, fd);
+	eliminar_paquete(paquete);
 }
 void recv_pcbDesalojado(int fd, pcb** contexto, char** extra) {
     t_list* paquete = recibir_paquete(fd);
@@ -658,11 +659,13 @@ void send_interrupcion(int pid, int fd_modulo){
 	eliminar_paquete(paquete);
 }
 
-int recv_interrupcion(int fd_modulo, int *pid){
+int recv_interrupcion(int fd_modulo){
 	t_list* paquete = recibir_paquete(fd_modulo);
-	memcpy(pid, list_get(paquete, 0), sizeof(int));
+	int* tiempo = list_get(paquete, 0);
+	int ret = *tiempo;
+	free(tiempo);
 	list_destroy(paquete);
-	return 0; // Puedes devolver el valor necesario en tu implementación.
+	return ret;
 }
 
 

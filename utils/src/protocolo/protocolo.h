@@ -266,7 +266,7 @@ int recv_terminar_proceso(int fd_modulo);
 Instruccion recv_instruccion(int socket_cliente);
 int recv_fetch_instruccion(int fd_modulo, char** path, int** pc);
 void send_interrupcion(int pid, int fd_modulo);
-int recv_interrupcion(int fd_modulo, int *pid);
+int recv_interrupcion(int fd_modulo);
 void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
 void recv_f_close(int fd,char** nombre_archivo);
 int recv_reserva_swap(int fd_modulo);

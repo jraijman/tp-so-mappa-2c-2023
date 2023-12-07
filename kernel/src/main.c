@@ -244,12 +244,41 @@ void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
 void proceso_estado(){
     // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
     printf("Procesos por estado:\n");
-    log_info(logger_kernel, ANSI_COLOR_PINK "Estado NEW - PROCESOS: %s",list_to_string(pid_lista_ready(cola_new->elements)));
-    log_info(logger_kernel, ANSI_COLOR_PINK "Estado READY - PROCESOS: %s", list_to_string(pid_lista_ready(cola_ready->elements)));
-    log_info(logger_kernel, ANSI_COLOR_PINK "Estado EXEC - PROCESOS: %s", list_to_string(pid_lista_ready(cola_exec->elements)));
-    log_info(logger_kernel, ANSI_COLOR_PINK "Estado BLOCKED - PROCESOS: %s", list_to_string(pid_lista_ready(cola_block->elements)));
-    log_info(logger_kernel, ANSI_COLOR_PINK "Estado EXIT - PROCESOS: %s", list_to_string(pid_lista_ready(cola_exit->elements)));
-    printf("\n");
+    t_list* lista_new = pid_lista_ready(cola_new->elements);
+    char *new_processes_string = list_to_string(lista_new);
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado NEW - PROCESOS: %s", new_processes_string);
+    list_destroy(lista_new);
+    free(new_processes_string);
+    
+
+    t_list* lista_ready = pid_lista_ready(cola_ready->elements);
+    char *ready_processes_string = list_to_string(lista_ready);
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado READY - PROCESOS: %s", ready_processes_string);
+    list_destroy(lista_ready);
+    free(ready_processes_string);
+    
+
+    t_list* lista_exec = pid_lista_ready(cola_exec->elements);
+    char *exec_processes_string = list_to_string(lista_exec);
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado EXEC - PROCESOS: %s", exec_processes_string);
+    list_destroy(lista_exec);
+    free(exec_processes_string);
+    
+
+    t_list* lista_block = pid_lista_ready(cola_block->elements);
+    char *blocked_processes_string = list_to_string(lista_block);
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado BLOCKED - PROCESOS: %s", blocked_processes_string);
+    list_destroy(lista_block);
+    free(blocked_processes_string);
+    
+
+    t_list* lista_exit = pid_lista_ready(cola_exit->elements);
+    char *exit_processes_string = list_to_string(lista_exit);
+    log_info(logger_kernel, ANSI_COLOR_PINK "Estado EXIT - PROCESOS: %s", exit_processes_string);
+    list_destroy(lista_exit);
+    free(exit_processes_string);
+    
+
 }
 
 //-----------------------------------OPERACIONES DE LISTAS/COLAS-------------------------------------------
@@ -397,7 +426,7 @@ void controlar_interrupcion_rr(){
     while(1){
         sem_wait(&control_interrupciones_rr);
         cpu_disponible=false;
-        usleep(quantum*1000);
+        sleep(quantum/1000);
 		if(!cpu_disponible){
             if(list_size(cola_exec->elements) > 0 & list_size(cola_ready->elements) > 0){
                 if(hay_exit == false){
@@ -1076,8 +1105,7 @@ void* manejar_sleep(void * args){
 
 //-------------------DETECCION DE DEADLOCK---------------------------
 
-estructura_deadlock* armar_estructura_deadlock(int pid, t_list* recursos_en_posecion, char* recursos_en_espera) {
-    // Crear un PCB y asignar los valores iniciales
+estructura_deadlock* armar_estructura_deadlock(int pid, t_list* recursos_en_posecion, t_list* recursos_en_espera) {
     estructura_deadlock* estructura = malloc(sizeof(estructura_deadlock));
     
     estructura->pid = pid;
@@ -1105,8 +1133,9 @@ void detectar_deadlock_recurso(){
         
         estructura_deadlock *estructura = armar_estructura_deadlock(un_proceso->pid, recursos_en_posecion, recursos_en_espera);
         list_add(lista_posible_deadlock, estructura);
-
-        list_add_all(lista_retencion, tiene_retencion_y_espera(un_proceso));
+        t_list* lista_ret_y_esp = tiene_retencion_y_espera(un_proceso);
+        list_add_all(lista_retencion, lista_ret_y_esp);
+        list_destroy(lista_ret_y_esp);
         //[REC1 REC2 REC2 REC1]    [REC1 REC2 REC2 REC3 REC3 REC4 REC4 REC1]
         if(list_size(lista_retencion) > 0){
             if(verificar_espera_circular(lista_retencion)){
@@ -1114,18 +1143,15 @@ void detectar_deadlock_recurso(){
                 
                 for(int i = 0; i < list_size(lista_posible_deadlock); i++){
                     estructura_deadlock *estructura = list_get(lista_posible_deadlock, i);
-                    log_info(logger_kernel,ANSI_COLOR_GRAY " Deadlock detectado: %d - Recursos en posesión %s - Recurso requerido: %s",estructura->pid, list_to_string_char(estructura->recursos_en_posecion), list_to_string_char(estructura->recursos_en_espera));
+                    char* recursos_pos = list_to_string_char(estructura->recursos_en_posecion);
+                    char* recursos_esp = list_to_string_char(estructura->recursos_en_espera);
+                    log_info(logger_kernel,ANSI_COLOR_GRAY " Deadlock detectado: %d - Recursos en posesión %s - Recurso requerido: %s",estructura->pid, recursos_pos, recursos_esp);
+                    free(recursos_pos);
+                    free(recursos_esp);
+                    estrctura_deadlock_destroyer(estructura);
                 }
-                
             }
         }
-        //list_destroy(recursos_en_posecion);
-        //list_destroy(recursos_en_espera);
-    }
-    //hay q hacer free de estructura
-    for(int i = 0; i < list_size(lista_posible_deadlock); i++){
-        estructura_deadlock *estructura = list_get(lista_posible_deadlock, i);
-        estrctura_deadlock_destroyer(estructura);
     }
     list_destroy(lista_posible_deadlock);
     list_destroy(lista_retencion);
