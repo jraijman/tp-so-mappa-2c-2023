@@ -15,6 +15,7 @@ void levantar_config(char *ruta)
     tam_memoria = config_get_int_value(config, "TAM_MEMORIA");
     puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
     tam_pagina = config_get_int_value(config, "TAM_PAGINA");
+    tamPaginaGlobal=tam_pagina;
     path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
     RETARDO_REPUESTA = config_get_int_value(config, "RETARDO_RESPUESTA");
     algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
