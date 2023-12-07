@@ -443,13 +443,17 @@ void send_reserva_swap(int fd, int cant_paginas_necesarias){
 	enviar_paquete(paquete, fd);
 	eliminar_paquete(paquete);
 }
-int recv_reserva_swap(int fd_modulo){
+t_list* recv_reserva_swap(int fd_modulo){
 	t_list* paquete = recibir_paquete(fd_modulo);
-	int* cant = list_get(paquete, 0);
-	int ret = *cant;
-	free(cant);
+	t_list* lista_bloques = list_create();
+	for(int i=0; i<list_size(paquete); i++){
+		int* cant = list_get(paquete, i);
+		int ret = *cant;
+		free(cant);
+		list_add(lista_bloques,ret);
+	}
 	list_destroy(paquete);
-	return ret;
+	return lista_bloques;
 }
 
 void send_inicializar_proceso(pcb *contexto, int fd_modulo){
@@ -670,14 +674,14 @@ int recv_interrupcion(int fd_modulo){
 
 
 //---------------------------------------Direccion---------------------------------------
-void empaquetar_direccion(t_paquete* paquete, Direccion* direccion) {
-    agregar_a_paquete(paquete, &direccion->direccionLogica, sizeof(int));
-    agregar_a_paquete(paquete, &direccion->tamano_pagina, sizeof(int));
-    agregar_a_paquete(paquete, &direccion->desplazamiento, sizeof(int));
-	agregar_a_paquete(paquete, &direccion->numeroPagina, sizeof(int));
-    agregar_a_paquete(paquete, &direccion->marco, sizeof(int));
-    agregar_a_paquete(paquete, &direccion->direccionFisica, sizeof(int));
-    agregar_a_paquete(paquete, &direccion->pageFault, sizeof(bool));
+void empaquetar_direccion(t_paquete* paquete, Direccion direccion) {
+    agregar_a_paquete(paquete, &(direccion.direccionLogica), sizeof(int));
+    agregar_a_paquete(paquete, &(direccion.tamano_pagina), sizeof(int));
+    agregar_a_paquete(paquete, &(direccion.desplazamiento), sizeof(int));
+	agregar_a_paquete(paquete, &(direccion.numeroPagina), sizeof(int));
+    agregar_a_paquete(paquete, &(direccion.marco), sizeof(int));
+    agregar_a_paquete(paquete, &(direccion.direccionFisica), sizeof(int));
+    agregar_a_paquete(paquete, &(direccion.pageFault), sizeof(int));
 }
 
 Direccion desempaquetar_direccion(t_list* paquete) {
@@ -685,14 +689,14 @@ Direccion desempaquetar_direccion(t_list* paquete) {
     direccion.direccionLogica = *(int*)list_get(paquete, 0);
     direccion.tamano_pagina = *(int*)list_get(paquete, 1);
     direccion.desplazamiento = *(int*)list_get(paquete, 2);
-	direccion.numeroPagina = *(int*)list_get(paquete, 3);
-    direccion.marco = *(int*)list_get(paquete,4);
+    direccion.numeroPagina = *(int*)list_get(paquete, 3);
+    direccion.marco = *(int*)list_get(paquete, 4);
     direccion.direccionFisica = *(int*)list_get(paquete, 5);
-    direccion.pageFault = *(bool*)list_get(paquete, 6);
+    direccion.pageFault = *(int*)list_get(paquete, 6);
     return direccion;
 }
 
-void send_direccion(int socket_cliente, Direccion* direccion) {
+void send_direccion(int socket_cliente, Direccion direccion) {
     printf("Enviando direccion\n");
     t_paquete* paquete = crear_paquete(ENVIO_DIRECCION);
     empaquetar_direccion(paquete, direccion);
@@ -700,18 +704,15 @@ void send_direccion(int socket_cliente, Direccion* direccion) {
     eliminar_paquete(paquete);
 }
 
-void recv_direccion(int socket_cliente,Direccion* direccion) {
+Direccion recv_direccion(int socket_cliente) {
     printf("Recibiendo direccion\n");
     t_list* paquete = recibir_paquete(socket_cliente);
-    Direccion direccionaux = desempaquetar_direccion(paquete);
-	direccion->desplazamiento=direccionaux.desplazamiento;
-	direccion->direccionFisica=direccionaux.direccionFisica;
-	direccion->direccionLogica=direccionaux.direccionLogica;
-	direccion->numeroPagina=direccionaux.numeroPagina;
-	direccion->marco=direccionaux.marco;
-	direccion->tamano_pagina=direccionaux.tamano_pagina;
-	direccion->pageFault=direccionaux.pageFault;
+	if (paquete == NULL) {
+        return (Direccion){-1, -1, -1, -1, -1, -1, -1};
+    }
+    Direccion direccion = desempaquetar_direccion(paquete);
     list_destroy(paquete);
+	return direccion;
 }
 void send_valor_leido_fs(char* valor, int tamanio, int fd_modulo){
 	t_paquete* paquete = crear_paquete(PEDIDO_LECTURA_FS);

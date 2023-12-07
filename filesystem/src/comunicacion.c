@@ -16,7 +16,7 @@ static void procesar_conexion(void* void_args) {
     free(args);
     op_code cop;
     while(cliente_socket != -1){
-        if (recv(cliente_socket, &cop, sizeof(cop), 0) != sizeof(cop)) {
+        if (recv(cliente_socket, &cop, sizeof(op_code), 0) != sizeof(op_code)) {
     		log_info(logger, ANSI_COLOR_BLUE"El cliente se desconecto de %s server", server_name);
 			return;
     	}
@@ -52,6 +52,7 @@ static void procesar_conexion(void* void_args) {
             case INICIALIZAR_PROCESO:{
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int cantidad_bloques=*(int*)list_get(paquete, 0);
+                list_destroy(paquete);
                 int bloques_reservados[cantidad_bloques];
                 if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados,bitmapSwap)){
                     t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
@@ -102,8 +103,8 @@ static void procesar_conexion(void* void_args) {
                 enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
             }
             default:
-                log_error(logger, "Algo anduvo mal en el server de %s", server_name);
-                return;
+                log_error(logger, "MESNAJE DESCONOCIDO OPCODE: %d", cop);
+                break;
         }
     }
 

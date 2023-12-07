@@ -48,6 +48,8 @@ int main(int argc, char *argv[])
     int pid;
     Proceso *tabla_proceso;
     t_marco* marcos;
+    lista_tablas_de_procesos = list_create();
+    sem_init(&swap_asignado, 0, 0);
 
     while(server_escuchar(fd_memoria));
    
@@ -87,15 +89,15 @@ static void procesar_conexion(void *void_args) {
             int cant_paginas_necesarias = paginas_necesarias(proceso);
             printf("cant paginas necesarias: %d\n", cant_paginas_necesarias);
             //mandar aca a fs para recibir pos en swap 
-            //send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
+            send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
             //bloquear con recv hasta recibir la lista de swap 
-            //printf("bloqueado esperando a swap\n");
-            //op_code cop = recibir_operacion(conexion_memoria_filesystem);
-            // printf("OPCODE: %d\n", cop);
-            //int bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
-            //printf("bloques reservados: %d\n", bloques_reservados);
-            //t_list* tabla_paginas = inicializar_proceso(proceso);
-            //list_add(lista_tablas_de_procesos, tabla_paginas);
+            printf("bloqueado esperando a swap\n");
+            op_code cop = recibir_operacion(conexion_memoria_filesystem);
+            t_list* bloques_reservados  = recv_reserva_swap(conexion_memoria_filesystem);
+            t_list* tabla_paginas = inicializar_proceso(proceso);
+            list_add(lista_tablas_de_procesos, tabla_paginas);
+            //SEMAFORO PARA MANDAR INTRUCCIONES A CPU
+            sem_post(&swap_asignado);
             pcb_destroyer(proceso);
             break;
 		case FINALIZAR_PROCESO:
@@ -105,9 +107,10 @@ static void procesar_conexion(void *void_args) {
 			//terminar_proceso(pid_fin);
 			break;
         case ENVIO_DIRECCION:
-            /*
-            Direccion* direccion = recv_direccion(cliente_socket);
-            */
+            recibir_operacion(cliente_socket);
+            Direccion direccion = recv_direccion(cliente_socket);  
+            direccion.tamano_pagina=tam_pagina;
+            send_direccion(cliente_socket,direccion);
             break;
         case PEDIDO_LECTURA_FS:
          /*
@@ -153,9 +156,14 @@ static void procesar_conexion(void *void_args) {
             int* pc;
             sleep(RETARDO_REPUESTA/1000);
             recv_fetch_instruccion(cliente_socket, &path,&pc);
+            sem_wait(&swap_asignado); 
             leer_instruccion_por_pc_y_enviar(path,*pc, cliente_socket);
+            sem_post(&swap_asignado);
             free(path); // Liberar memoria de la variable path
             free(pc); // Liberar memoria de la variable pc
+            break;
+        default:
+            printf("Error al recibir mensaje con OPCODE %d \n", cop);
             break;
 
 	return;
@@ -255,7 +263,7 @@ void eliminar_proceso_memoria(int pid) {
 
 
 t_list* inicializar_proceso(pcb* proceso) {
-    int entradas_por_tabla = proceso->size/tam_pagina;
+    int entradas_por_tabla = paginas_necesarias(proceso);
     t_list* tabla_de_paginas = list_create();
 	for (int i = 0; i < entradas_por_tabla ; i++){
 		entrada_pagina* pagina = malloc(entradas_por_tabla * sizeof(pagina));
@@ -433,6 +441,7 @@ void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd) {
             send_instruccion(fd, instruccion);
 
             // Liberar memoria asignada para la estructura Instruccion
+
             free(instruccion.opcode);
             free(instruccion.operando1);
             free(instruccion.operando2);

@@ -7,6 +7,7 @@
 #include<commons/string.h>
 #include<commons/config.h>
 #include<readline/readline.h>
+#include<commons/collections/list.h>
 
 #define ANSI_COLOR_GREEN   "\x1b[32m" // Código de escape para color verde
 #define ANSI_COLOR_BLUE    "\x1b[34m" // Código de escape para color azul

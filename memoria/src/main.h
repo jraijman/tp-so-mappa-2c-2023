@@ -11,8 +11,13 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "comunicacion.h"
 #include "../../utils/src/protocolo/protocolo.h"
+#include <pthread.h>
+#include <semaphore.h>
 
 int fd_memoria;
+
+//semaforos
+sem_t swap_asignado;
 
 char* server_name;
 

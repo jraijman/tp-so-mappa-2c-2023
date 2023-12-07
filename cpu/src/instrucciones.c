@@ -8,14 +8,16 @@ int traducir(int direccion_logica, int fd) {
     direccion.direccionFisica = -1;
     direccion.numeroPagina = -1;
     direccion.marco = -1;
-    direccion.pageFault = false;
+    direccion.pageFault = 0;
     direccion.tamano_pagina = -1;
-    send_direccion(fd, &direccion); 
-    recv_direccion(fd, &direccion);//RECIBO LA DIRECCIÓN ACTUALIZADA CON EL TAMANO DE PAGINA SI SE PUEDE CONSEGUIR ANTES MEJOR AHORRO PASOS.
+    send_direccion(fd, direccion); 
+    op_code cop = recibir_operacion(fd);
+    direccion = recv_direccion(fd);//RECIBO LA DIRECCIÓN ACTUALIZADA CON EL TAMANO DE PAGINA SI SE PUEDE CONSEGUIR ANTES MEJOR AHORRO PASOS.
     direccion.numeroPagina = direccion.direccionLogica / direccion.tamano_pagina;
     direccion.desplazamiento = direccion.direccionLogica - (direccion.numeroPagina * direccion.tamano_pagina);
-    send_direccion(fd,&direccion);
-    recv_direccion(fd,&direccion);//RECIBO LA DIRECCIÓN ACTUALIZADA CON LA DIRECCIÓN FÍSICA DEL MARCO;
+    send_direccion(fd,direccion);
+    cop = recibir_operacion(fd);
+    direccion = recv_direccion(fd);//RECIBO LA DIRECCIÓN ACTUALIZADA CON LA DIRECCIÓN FÍSICA DEL MARCO;
     direccion.direccionFisica = direccion.marco + direccion.desplazamiento;
     return direccion.direccionFisica;
 }

@@ -182,7 +182,7 @@ typedef struct
     int numeroPagina;
     int direccionFisica;
     int marco;
-    bool pageFault;
+    int pageFault;
 } Direccion;
 
 ///
@@ -216,8 +216,8 @@ void recibir_mensaje(t_log* logger, int socket_cliente);
 void crear_buffer(t_paquete* paquete);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 void recv_pcbDesalojado(int fd,pcb** contexto, char** extra);
-void send_direccion(int conexion_cpu_memoria,Direccion* direccion);
-void recv_direccion(int conexion_cpu_memoria,Direccion* direccion);
+void send_direccion(int conexion_cpu_memoria,Direccion direccion);
+Direccion recv_direccion(int conexion_cpu_memoria);
 //Paquetes
 t_list* recibir_paquete(int);
 t_paquete* crear_paquete(op_code);
@@ -269,7 +269,7 @@ void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo);
 void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
 void recv_f_close(int fd,char** nombre_archivo);
-int recv_reserva_swap(int fd_modulo);
+t_list* recv_reserva_swap(int fd_modulo);
 
 
 #endif

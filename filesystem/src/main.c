@@ -96,6 +96,7 @@ bool iniciar_bloques(int tamano_bloques, bool* bitmapBloques, bool* bitmapSwap) 
 
             if (strcmp(bloque.info, "0")==0) {
                 swapLibres++;
+                //bitmapSwap[i] = 0;
             } else {
                 bitmapSwap[i] = 1;
             }
@@ -414,7 +415,14 @@ void inicializarBitMap(bool* bitmap, int tamano){
 }
 //-------------------------------MAIN----------------------------------------------
 int main(int argc, char* argv[]) {
-    levantar_config("filesystem.config");
+    if (argc < 2) {
+        fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
+        exit(1);
+    }
+    
+    // CONFIG y logger
+    levantar_config(argv[1]);
+
     int fd_filesystem = iniciar_servidor(logger_filesystem,NULL,puerto_escucha,"FILESYSTEM");
     int tamano_fat=(cant_bloques_total-cant_bloques_swap)*sizeof(uint32_t);
     bool* bitmapBloquesSwap=(bool*)malloc(sizeof(bool) * cant_bloques_swap);
@@ -431,7 +439,7 @@ int main(int argc, char* argv[]) {
     }
     bloqueOcupado(bitmapBloques);
     //Pruebas
-    if(crear_archivo("probando2")){
+    /*if(crear_archivo("probando2")){
     asignarBloque("probando2", bitmapBloques);}
     truncarArchivo("probando2", 1024*20,bitmapBloques);
     bloqueOcupado(bitmapBloques);
@@ -450,9 +458,9 @@ int main(int argc, char* argv[]) {
     bloqueOcupado;
     log_info(logger_filesystem,"Archivo truncado: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibres,bloquesLibres);
     log_info(logger_filesystem,"Abri el archivo de tamano %d que inicia en el bloque %d", tamano, bloque);
-    
     //espero clientes kernel y memoria
-    bloqueOcupado(bitmapBloques);
+    bloqueOcupado(bitmapBloques);*/
+
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem,bitmapBloques,bitmapBloquesSwap));
 
     //CIERRO LOG Y CONFIG y libero conexion
