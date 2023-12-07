@@ -153,7 +153,7 @@ void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap) {
     reservado.info = malloc(tam_bloque);
     strcpy(reservado.info, "\0");
     sleep(retardo_acceso_bloque / 1000);
-    log_info(logger_filesystem, "A´CCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
+    log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
     fwrite(reservado.info, tam_bloque, 1, f);
     bitmap[bloque] = 1;
     bloquesLibres--;    
@@ -167,8 +167,8 @@ void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap) {
     bloque.info = malloc(tam_bloque);
     strcpy(bloque.info, "0");
     sleep(retardo_acceso_bloque / 1000);
-    fwrite(bloque.info, tam_bloque, 1, f);
     log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
+    fwrite(bloque.info, tam_bloque, 1, f);
     bitmap[bloqueLib] = 0;
     bloquesLibres++;
     free(bloque.info);
@@ -317,13 +317,11 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
         bloquesOcupados[0]=bloqueInicio;
         uint32_t bloqueLibre;
         bloquesArchivo(fat,bloqueInicio,tamanoNuevo/tam_bloque,bloquesOcupados);
-        for(int i=(tamanoActual/tam_bloque)-1;i<tamanoNuevo/tam_bloque;i++){
+        for(int i=(tamanoActual/tam_bloque)-1;i<tamanoNuevo/tam_bloque-1;i++){
             bloqueLibre=buscarBloqueLibre(bitmap);
             bloquesOcupados[i+1]=bloqueLibre;
-            log_info(logger_filesystem,"Bloques i:%d -i:%d", bloquesOcupados[i],bloquesOcupados[i+1]);
             actualizarFAT(fat,bloquesOcupados[i],bloquesOcupados[i+1]);
             reservarBloque(bloques,bloqueLibre,bitmap);
-            log_info(logger_filesystem,"Bloques i:%d -i:%d", bloquesOcupados[i],bloquesOcupados[i+1]);
         }
         fclose(fat);
         fclose(bloques);
@@ -339,7 +337,6 @@ void achicarArchivo(int bloqueInicio, int tamanoActual, int tamanoNuevo, bool* b
     uint32_t* bloquesOcupados = (uint32_t*)calloc(tamanoActual / tam_bloque, sizeof(uint32_t));
     bloquesArchivo(fat,bloqueInicio,tamanoActual/tam_bloque,bloquesOcupados);
     for(int i = tamanoActual/tam_bloque; i > tamanoNuevo/tam_bloque; i--){
-        log_info(logger_filesystem,"Bloques i:%d -i:%d", bloquesOcupados[i-1],bloquesOcupados[i-2]);
         liberarBloque(bloques, bloquesOcupados[i-1], bitmap);
         fseek(fat, bloquesOcupados[i-1]*sizeof(uint32_t), SEEK_SET);
         fwrite(&libre, sizeof(uint32_t), 1, fat);
@@ -357,12 +354,10 @@ bool truncarArchivo(char* nombre, int tamano, bool* bitmap){
     int bloqueInicio=obtener_bloqueInicial(nombre);
     int tamanoActual=abrir_archivo(nombre);
     if(tamanoActual<tamano){
-        log_info(logger_filesystem,"Debo ampliar %d bloques", (tamano-tamanoActual)/tam_bloque);
         ampliarArchivo(bloqueInicio,tamanoActual , tamano,bitmap);
         actualizarFcb(nombre,tamano,bloqueInicio);
         return true;
     }else if(tamanoActual>tamano){
-        log_info(logger_filesystem,"Debo achicar");
         achicarArchivo(bloqueInicio,tamanoActual,tamano,bitmap);
         actualizarFcb(nombre, tamano,bloqueInicio);
         return true;
