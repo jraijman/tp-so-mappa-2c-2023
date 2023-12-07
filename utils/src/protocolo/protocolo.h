@@ -17,6 +17,8 @@
 #include <pthread.h>
 #include<commons/collections/queue.h>
 
+
+int tamPaginaGlobal;
 typedef enum
 {
     //OPCODES
@@ -41,6 +43,8 @@ typedef enum
     INTERRUPCION,
     PCB_PAGEFAULT,
     CONEXION_MEMORIA,
+    PEDIDO_MARCO,
+    ENVIO_MARCO,
     ABRIR_ARCHIVO,
     RESERVA_SWAP,
     BLOQUES_RESERVADOS,
@@ -173,7 +177,7 @@ typedef struct
 } SolicitudLiberacionSwap;
 
 
-
+/*
 typedef struct
 {
     int direccionLogica;
@@ -184,7 +188,7 @@ typedef struct
     int marco;
     int pageFault;
 } Direccion;
-
+*/
 ///
 typedef struct
 {

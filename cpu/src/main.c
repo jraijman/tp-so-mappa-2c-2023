@@ -139,11 +139,16 @@ void levantar_config(char* ruta){
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1 && !recibio_interrupcion && flag_ciclo) {
-        Instruccion * instruccion = malloc(sizeof(Instruccion));
+    Instruccion * instruccion = malloc(sizeof(Instruccion));
+    int direccionFisica;    
         if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
+            direccionFisica=decodeInstruccion(instruccion,contexto);
+            if(direccionFisica>0 || direccionFisica==-2){
             contexto->pc++;
-            decodeInstruccion(instruccion,contexto);
-            executeInstruccion(contexto, *instruccion, cliente_socket_dispatch, conexion_cpu_memoria);
+            executeInstruccion(contexto, *instruccion,direccionFisica ,cliente_socket_dispatch, conexion_cpu_memoria);
+            }else{
+                return;
+            }
         }
         free(instruccion->opcode);
         free(instruccion->operando1);
@@ -157,7 +162,7 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     }
 }
 
-void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd_dispatch, int fd_memoria) {
+void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int direccionFisica ,int fd_dispatch, int fd_memoria) {
     log_info(logger_cpu, "PID: %d - Ejecutando: %s - %s %s",contexto_ejecucion->pid, instruccion.opcode, instruccion.operando1, instruccion.operando2);
 
     if (strcmp(instruccion.opcode, "SET") == 0) {
@@ -179,9 +184,9 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd
         flag_ciclo = false;
         exitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode,"MOV_IN")==0){
-        movInInstruccion(contexto_ejecucion, instruccion,logger_cpu);
+        movInInstruccion(contexto_ejecucion, instruccion,direccionFisica,logger_cpu);
     } else if (strcmp(instruccion.opcode,"MOV_OUT")==0){
-        movOutInstruccion(contexto_ejecucion,instruccion,fd_memoria,logger_cpu);
+        movOutInstruccion(contexto_ejecucion,instruccion,direccionFisica,fd_memoria,logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_OPEN") == 0) {
         flag_ciclo = false;
         fOpenInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
@@ -193,24 +198,31 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion, int fd
         fSeekInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_READ") == 0) {
         flag_ciclo = false;
-        fReadInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch,fd_memoria, logger_cpu);
+        fReadInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_WRITE") == 0) {
         flag_ciclo = false;
-        fWriteInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch,fd_memoria, logger_cpu);
+        fWriteInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_TRUNCATE") == 0) {
         flag_ciclo = false;
         fTruncateInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     }
 }
 
-void decodeInstruccion(Instruccion *instruccion, pcb* contexto){
+int decodeInstruccion(Instruccion *instruccion, pcb* contexto){
     //log_info(logger_cpu,ANSI_COLOR_BLUE "Decoding instruccion");
-    Direccion direccion;
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
         int direccion_logica = obtener_direccion_logica(instruccion);
-        int direccion_fisica = traducir(direccion_logica, conexion_cpu_memoria); //traducir(instruccion, &direccion, contexto);
+        int direccion_fisica = traducir(direccion_logica, conexion_cpu_memoria);
+        if(direccion_fisica>0){
+            return direccion_fisica;
+        }else{
+            return -1;
+        }
+    }else{
+        return -2;
     }
+    return -3;
     //log_info(logger_cpu,ANSI_COLOR_BLUE "Decodificando instrucción: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
 }
 
@@ -222,7 +234,6 @@ int obtener_direccion_logica(Instruccion *instruccion){
     {
         direccion_logica = atoi(instruccion->operando1);
     }
-    
     return direccion_logica;
 }
 

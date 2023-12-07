@@ -2,24 +2,27 @@
 #include <sys/socket.h>
 
 int traducir(int direccion_logica, int fd) {
-    Direccion direccion;
-    direccion.direccionLogica = direccion_logica;
-    direccion.desplazamiento = -1;
-    direccion.direccionFisica = -1;
-    direccion.numeroPagina = -1;
-    direccion.marco = -1;
-    direccion.pageFault = 0;
-    direccion.tamano_pagina = -1;
-    send_direccion(fd, direccion); 
+    int numeroPagina=floor(direccion_logica/tamPaginaGlobal);
+    int desplazamiento=direccion_logica-numeroPagina*tamPaginaGlobal;
+    t_paquete* paqueteDireccion=crear_paquete(PEDIDO_MARCO);
+    agregar_a_paquete(paqueteDireccion,numeroPagina, sizeof(int));
+    enviar_paquete(paqueteDireccion, fd);
+    eliminar_paquete(paqueteDireccion);
     op_code cop = recibir_operacion(fd);
-    direccion = recv_direccion(fd);//RECIBO LA DIRECCIÓN ACTUALIZADA CON EL TAMANO DE PAGINA SI SE PUEDE CONSEGUIR ANTES MEJOR AHORRO PASOS.
-    direccion.numeroPagina = direccion.direccionLogica / direccion.tamano_pagina;
-    direccion.desplazamiento = direccion.direccionLogica - (direccion.numeroPagina * direccion.tamano_pagina);
-    send_direccion(fd,direccion);
-    cop = recibir_operacion(fd);
-    direccion = recv_direccion(fd);//RECIBO LA DIRECCIÓN ACTUALIZADA CON LA DIRECCIÓN FÍSICA DEL MARCO;
-    direccion.direccionFisica = direccion.marco + direccion.desplazamiento;
-    return direccion.direccionFisica;
+    if(cop==ENVIO_MARCO){
+    t_list* paqueteDireccionFisica=recibir_paquete(fd);
+    int direccionFisica=list_get(paqueteDireccionFisica,0);
+    list_destroy(paqueteDireccionFisica);
+    return direccionFisica;
+    }else if(cop==PCB_PAGEFAULT){
+        t_paquete* paquetePageFault=crear_paquete(PCB_PAGEFAULT);
+        empaquetar_pcb(paquetePageFault,contexto);
+        agregar_a_paquete(paquetePageFault,numeroPagina);
+        enviar_paquete(paquetePageFault);
+        eliminar_paquete(paquetePageFault);
+        return -1;
+    }
+    return -2;
 }
 
 void setInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
@@ -108,32 +111,31 @@ void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int 
     send_pcbDesalojado(contexto, "EXIT","", fd_dispatch, logger);
 }
 
-void movInInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger) {
+void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, t_log* logger) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_IN");
     // MOV_IN (Registro, Dirección Lógica): Lee el valor de memoria correspondiente a la Dirección Lógica y lo almacena en el Registro.
     char* registro = instruccion.operando1;
-    int direccion_logica = atoi(instruccion.operando2);
     int* registro_destino = obtener_registro(contexto, registro);
     if(registro_destino!=NULL){
-    *registro_destino = direccion_logica;
+    *registro_destino = direccionFisica;
     }else{
         log_error(logger, "Registro no reconocido en instruccion MOV_IN");
     }
 }
 
-void movOutInstruccion(pcb* contexto, Instruccion instruccion,int fd_memoria, t_log* logger) {
+void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_memoria, t_log* logger) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_OUT");
     // MOV_OUT (Dirección Lógica, Registro): Lee el valor del Registro y lo escribe en 
     //la dirección física de memoria obtenida a partir de la Dirección Lógica.
-    int direccion_logica = atoi(instruccion.operando1);
     char* registro = instruccion.operando2;
     int* registro_origen = obtener_registro(contexto, registro);
     if(registro_origen != NULL){
-    int direccion_física=traducir(direccion_logica, fd_memoria);
-    //escribir_memoria(direccion_logica, *registro_origen);
-    }else{
+        if(direccionFisica>0){
+        //escribirMemoria(DirFisica);
+        }
+        }else{
         log_error(logger,"Registro no reconocido en instruccion MOV_OUT");
-    }
+        }
 }
 
 void fOpenInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch, t_log* logger) {
@@ -160,12 +162,12 @@ void fCloseInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatc
     //LO MISMO, TENGO QUE ESPERAR ALGO O SIGO NORMAL?
 }
 
-void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch, t_log* logger) {
+void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_cpu_dispatch, t_log* logger) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION F_SEEK");
     // F_SEEK (Nombre Archivo, Posición): Esta instrucción solicita al kernel actualizar 
     //el puntero del archivo a la posición pasada por parámetro.
     char* nombre_archivo = instruccion.operando1;
-    int posicion =atoi(instruccion.operando2);
+    int posicion =direccionFisica
     t_paquete* paquete = crear_paquete(F_SEEK);
     agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
     agregar_a_paquete(paquete,&posicion,sizeof(int));
@@ -173,30 +175,25 @@ void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch
     eliminar_paquete(paquete);
 }
 
-void fReadInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch, int fd_memoria, t_log* logger) {
+void fReadInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_cpu_dispatch, int fd_memoria, t_log* logger) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION F_READ");
     // F_READ (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se lea del archivo indicado y se escriba en la dirección física de Memoria la información leída.
     char* nombre_archivo = instruccion.operando1;
     int direccion_logica = atoi(instruccion.operando2);
     t_paquete* paquete = crear_paquete(F_READ);
-    int direccion_física=traducir(direccion_logica, fd_memoria);
     agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
-    agregar_a_paquete(paquete,&direccion_logica,sizeof(int));
-    agregar_a_paquete(paquete,&direccion_física,sizeof(int));
+    agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
 }
 
-void fWriteInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch,int fd_memoria, t_log* logger) {
+void fWriteInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_cpu_dispatch,int fd_memoria, t_log* logger) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION F_WRITE");
     // F_WRITE (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se escriba en el archivo indicado la información que es obtenida a partir de la dirección física de Memoria.
     char* nombre_archivo = instruccion.operando1;
-    int direccion_logica = atoi(instruccion.operando2);
     t_paquete* paquete = crear_paquete(F_WRITE);
-    int direccion_física=traducir(direccion_logica, fd_memoria);
     agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
-    agregar_a_paquete(paquete,&direccion_logica,sizeof(int));
-    agregar_a_paquete(paquete,&direccion_física,sizeof(int));
+    agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
     }

@@ -25,13 +25,13 @@ void sleepInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int
 void waitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_cpu_dispatch);
 void signalInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int fd_cpu_dispatch);
 void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger , int fd_cpu_dispatch);
-void movInInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
-void movOutInstruccion(pcb* contexto, Instruccion instruccion,int fd_memoria, t_log* logger);
+void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, t_log* logger);
+void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_memoria, t_log* logger);
 void fOpenInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch, t_log* logger);
 void fCloseInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch, t_log* logger);
-void fSeekInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch, t_log* logger);
-void fReadInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch,int fd_memoria, t_log* logger);
-void fWriteInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch,int fd_memoria, t_log* logger);
+void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, int fd_cpu_dispatch, t_log* logger);
+void fReadInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, int fd_cpu_dispatch,int fd_memoria, t_log* logger);
+void fWriteInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, int fd_cpu_dispatch,int fd_memoria, t_log* logger);
 void fTruncateInstruccion(pcb* contexto, Instruccion instruccion, int fd_cpu_dispatch, t_log* logger);
 
 #endif 
