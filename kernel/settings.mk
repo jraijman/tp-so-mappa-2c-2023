@@ -10,7 +10,7 @@ CDEBUG=-g -Wall -DDEBUG -fcommon -fdiagnostics-color=always
 CRELEASE=-O3 -Wall -DNDEBUG -fcommon
 
 # Arguments when executing with start, memcheck or helgrind
-ARGS=kernel.config
+ARGS=./config/kernel.config
 
 # Valgrind flags
 MEMCHECK_FLAGS=--track-origins=yes

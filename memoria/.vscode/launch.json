@@ -10,7 +10,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}.out",
       "args": [
-        "memoriaPlanificacion.config"
+        "./config/memoria.config"
         // TODO: Agregar los argumentos que se necesiten
       ],
       "stopAtEntry": false,
