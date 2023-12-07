@@ -730,6 +730,14 @@ void manejar_recibir_cpu(){
                 case MENSAJE:
                     recibir_mensaje(logger_kernel, fd_cpu_dispatch);
                     break;
+                case PCB_PAGEFAULT:
+                    t_list* paquetePF=recibir_paquete(fd_cpu_dispatch);
+                    int cont=0;
+                    proceso=desempaquetar_pcb(paquetePF,cont);
+                    int paginaFault=list_get(paquetePF,cont);
+                    list_destroy(paquetePF);
+                    //MANEJO DE PAGE FAULT
+                    break;
                 case PCB_WAIT:
                     //printf("\n manejo wait \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);

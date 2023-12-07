@@ -106,11 +106,21 @@ static void procesar_conexion(void *void_args) {
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
 			//terminar_proceso(pid_fin);
 			break;
-        case ENVIO_DIRECCION:
-            recibir_operacion(cliente_socket);
-            Direccion direccion = recv_direccion(cliente_socket);  
-            direccion.tamano_pagina=tam_pagina;
-            send_direccion(cliente_socket,direccion);
+        case PEDIDO_MARCO:
+            t_list* paquete=recibir_paquete(cliente_socket);
+            int direccionFisica=list_get(paquete,0);
+            list_destroy(paquete);
+            uint32_t numeroMarco;
+            //Buscar el numero de marco;
+            if(numeroMarco>0){
+                t_paquete* paqueteMarco=crear_paquete(ENVIO_MARCO);
+                agregar_a_paquete(paqueteMarco,numeroMarco,sizeof(uint32_t));
+                enviar_paquete(paqueteMarco,cliente_socket);
+                eliminar_paquete(paqueteMarco);
+            }else{
+                t_paquete* paquetePageFault=crear_paquete(PCB_PAGEFAULT);
+                enviar_paquete(paquetePageFault,cliente_socket);
+            }
             break;
         case PEDIDO_LECTURA_FS:
          /*
