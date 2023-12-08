@@ -16,7 +16,8 @@
 #include "../../utils/src/sockets/sockets.h"
 #include "../../utils/src/protocolo/protocolo.h"
 
-int traducir(int direccionLogica, int fd_memoria);
+int tamPaginaGlobal;
+int traducir(int direccionLogica, int fd_memoria, int pid, int fd_dispatch);
 uint32_t* obtener_registro(pcb* contexto, char* nombre_registro);
 void setInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);
 void sumInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger);

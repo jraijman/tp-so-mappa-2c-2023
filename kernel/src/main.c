@@ -731,12 +731,21 @@ void manejar_recibir_cpu(){
                     recibir_mensaje(logger_kernel, fd_cpu_dispatch);
                     break;
                 case PCB_PAGEFAULT:
-                    t_list* paquetePF=recibir_paquete(fd_cpu_dispatch);
-                    int cont=0;
-                    proceso=desempaquetar_pcb(paquetePF,&cont);
-                    int paginaFault=*(int*)list_get(paquetePF,cont);
+                    t_list* paquetePF = recibir_paquete(fd_cpu_dispatch);
+                    int cont = 0;
+                    proceso = desempaquetar_pcb(paquetePF, &cont);
+                    int paginaFault = *(int*)list_get(paquetePF, cont);
                     list_destroy(paquetePF);
+                    pcb_a_borrar = sacar_de_exec();
+                    //pcb_destroyer(pcb_a_borrar);
                     //MANEJO DE PAGE FAULT
+                    pthread_t hilo_page_fault;
+                    // Crear la estructura de argumentos
+                    HiloArgs2* args2 = malloc(sizeof(HiloArgs));
+                    args2->proceso = proceso;
+                    args2->pagina = paginaFault;
+                     pthread_create(&hilo_page_fault, NULL, manejar_page_fault, args2);
+                    pthread_detach(hilo_page_fault);
                     break;
                 case PCB_WAIT:
                     //printf("\n manejo wait \n");
@@ -1087,7 +1096,39 @@ bool lista_contiene_id(t_list* lista, pcb * proceso) {
         }
     }
     return contiene_id;
-}       
+}    
+
+void* manejar_page_fault(void * args){
+    HiloArgs2* hiloArgs = args;
+    pcb* proceso = hiloArgs->proceso;
+    int pagina = hiloArgs->pagina;
+    
+    log_info(logger_kernel, ANSI_COLOR_CYAN "Page Fault PID: %d - Pagina: %d", proceso->pid,pagina);
+    agregar_a_block(proceso);
+
+    sem_post(&puedo_ejecutar_proceso);
+
+    t_paquete *paquete = crear_paquete(CARGAR_PAGINA);
+    agregar_a_paquete(paquete, &proceso->pid, sizeof(int));
+    agregar_a_paquete(paquete, &pagina, sizeof(int));
+    enviar_paquete(paquete, fd_memoria);
+    eliminar_paquete(paquete);
+
+    op_code cop = recibir_operacion(fd_memoria);  
+    if(cop == PAGINA_CARGADA){
+        log_info(logger_kernel, ANSI_COLOR_PINK "PID: %d - PAGINA CARGADA", proceso->pid);
+        proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
+        agregar_a_ready(proceso);
+    }
+    else{
+        printf("Error al recibir mensaje %d \n", cop);
+    }  
+
+    // Libera la memoria de la estructura de argumentos
+    free(hiloArgs);
+    // Termina el hilo
+    pthread_exit(NULL);
+} 
 
 void* manejar_sleep(void * args){
     HiloArgs* hiloArgs = args;

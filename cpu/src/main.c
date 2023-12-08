@@ -16,10 +16,18 @@ int main(int argc, char* argv[]){
     //mensaje prueba 
     enviar_mensaje("Hola, soy CPU!", conexion_cpu_memoria);
 
-
     // Inicio servidor de dispatch e interrupt para el kernel
     fd_cpu_dispatch = iniciar_servidor(logger_cpu, NULL, puerto_dispatch, "CPU DISPATCH");
     fd_cpu_interrupt = iniciar_servidor(logger_cpu, NULL, puerto_interrupt, "CPU INTERRUPT");
+
+    //pido tamaño de pagina y recibo
+    t_paquete* paquete = crear_paquete(TAMANIO_PAGINA);
+	enviar_paquete(paquete, conexion_cpu_memoria);
+	eliminar_paquete(paquete);
+    op_code cop = recibir_operacion(conexion_cpu_memoria);
+    tamPaginaGlobal = recv_tam_pagina(conexion_cpu_memoria);
+    log_info(logger_cpu, "Tamaño de página: %d", tamPaginaGlobal);
+
     
     // Espero msjs
     while(server_escuchar(fd_cpu_interrupt, fd_cpu_dispatch));
@@ -142,7 +150,7 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     Instruccion * instruccion = malloc(sizeof(Instruccion));
     int direccionFisica;    
         if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
-            direccionFisica=decodeInstruccion(instruccion,contexto);
+            direccionFisica=decodeInstruccion(instruccion,contexto,cliente_socket_dispatch);
             if(direccionFisica>0 || direccionFisica==-2){
             contexto->pc++;
             executeInstruccion(contexto, *instruccion,direccionFisica ,cliente_socket_dispatch, conexion_cpu_memoria);
@@ -189,32 +197,32 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int dir
         movOutInstruccion(contexto_ejecucion,instruccion,direccionFisica,fd_memoria,logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_OPEN") == 0) {
         flag_ciclo = false;
-        fOpenInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+        fOpenInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_CLOSE") == 0) {
         flag_ciclo = false;
-        fCloseInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+        fCloseInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_SEEK") == 0) {
         flag_ciclo = false;
-        fSeekInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch, logger_cpu);
+        fSeekInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_READ") == 0) {
         flag_ciclo = false;
-        fReadInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch,fd_memoria, logger_cpu);
+        fReadInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_WRITE") == 0) {
         flag_ciclo = false;
-        fWriteInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch,fd_memoria, logger_cpu);
+        fWriteInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_TRUNCATE") == 0) {
         flag_ciclo = false;
-        fTruncateInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+        fTruncateInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     }
 }
 
-int decodeInstruccion(Instruccion *instruccion, pcb* contexto){
+int decodeInstruccion(Instruccion *instruccion, pcb* contexto, int fd_dispatch){
     //log_info(logger_cpu,ANSI_COLOR_BLUE "Decoding instruccion");
     if (strcmp(instruccion->opcode, "MOV_IN") == 0 || strcmp(instruccion->opcode, "F_READ") == 0 || 
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
         int direccion_logica = obtener_direccion_logica(instruccion);
-        int direccion_fisica = traducir(direccion_logica, conexion_cpu_memoria);
-        if(direccion_fisica>0){
+        int direccion_fisica = traducir(direccion_logica, conexion_cpu_memoria, contexto->pid, fd_dispatch);
+        if(direccion_fisica > 0){
             return direccion_fisica;
         }else{
             return -1;

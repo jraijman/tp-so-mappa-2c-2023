@@ -28,7 +28,7 @@ pcb* contexto;
 
 void levantar_config(char*);
 void ciclo_instruccion(pcb* contexto,int cliente_socket_dispatch,int cliente_socket_interrupt, t_log* logger);
-int decodeInstruccion(Instruccion* instruccion, pcb* contexto);
+int decodeInstruccion(Instruccion* instruccion, pcb* contexto, int fd);
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger);
 void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int direccionFisica, int fd, int fd_memoria);
 int server_escuchar(int server_socket_dispatch, int server_socket_interupt);

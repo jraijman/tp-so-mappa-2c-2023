@@ -1,24 +1,25 @@
 #include "instrucciones.h"
 #include <sys/socket.h>
 
-int traducir(int direccion_logica, int fd) {
-    int numeroPagina=floor(direccion_logica/tamPaginaGlobal);
-    int desplazamiento=direccion_logica-numeroPagina*tamPaginaGlobal;
+int traducir(int direccion_logica, int fd, int pid, int fd_dispatch) {
+    int numeroPagina = floor(direccion_logica / tamPaginaGlobal);
+    int desplazamiento = direccion_logica - numeroPagina * tamPaginaGlobal;
     t_paquete* paqueteDireccion=crear_paquete(PEDIDO_MARCO);
-    agregar_a_paquete(paqueteDireccion,numeroPagina, sizeof(int));
+    agregar_a_paquete(paqueteDireccion, &numeroPagina, sizeof(int));
+    agregar_a_paquete(paqueteDireccion, &pid, sizeof(int));
     enviar_paquete(paqueteDireccion, fd);
     eliminar_paquete(paqueteDireccion);
     op_code cop = recibir_operacion(fd);
     if(cop==ENVIO_MARCO){
-    t_list* paqueteDireccionFisica=recibir_paquete(fd);
-    int direccionFisica=list_get(paqueteDireccionFisica,0);
-    list_destroy(paqueteDireccionFisica);
-    return direccionFisica;
+        t_list* paqueteDireccionFisica=recibir_paquete(fd);
+        int direccionFisica = list_get(paqueteDireccionFisica,0);
+        list_destroy(paqueteDireccionFisica);
+        return direccionFisica;
     }else if(cop==PCB_PAGEFAULT){
-        t_paquete* paquetePageFault=crear_paquete(PCB_PAGEFAULT);
+        t_paquete* paquetePageFault = crear_paquete(PCB_PAGEFAULT);
         empaquetar_pcb(paquetePageFault,contexto);
-        agregar_a_paquete(paquetePageFault, numeroPagina, sizeof(int));
-        enviar_paquete(paquetePageFault, fd);
+        agregar_a_paquete(paquetePageFault, &numeroPagina, sizeof(int));
+        enviar_paquete(paquetePageFault, fd_dispatch);
         eliminar_paquete(paquetePageFault);
         return -1;
     }

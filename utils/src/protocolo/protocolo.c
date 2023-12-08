@@ -462,6 +462,20 @@ void send_inicializar_proceso(pcb *contexto, int fd_modulo){
 	enviar_paquete(paquete, fd_modulo);
 	eliminar_paquete(paquete);
 }
+void send_tam_pagina(int tam, int fd_modulo){
+	t_paquete* paquete = crear_paquete(TAMANIO_PAGINA);
+	agregar_a_paquete(paquete, &(tam), sizeof(int));
+	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
+}
+int recv_tam_pagina(int fd_modulo){
+	t_list* paquete = recibir_paquete(fd_modulo);
+	int* tiempo = list_get(paquete, 0);
+	int ret = *tiempo;
+	free(tiempo);
+	list_destroy(paquete);
+	return ret;
+}
 
 
 

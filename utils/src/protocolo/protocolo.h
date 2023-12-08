@@ -17,8 +17,6 @@
 #include <pthread.h>
 #include<commons/collections/queue.h>
 
-
-int tamPaginaGlobal;
 typedef enum
 {
     //OPCODES
@@ -57,6 +55,9 @@ typedef enum
     INTERRUPCION_FINALIZAR,
     ARCHIVO_NO_EXISTE,
     ARCHIVO_CREADO,
+    TAMANIO_PAGINA,
+    CARGAR_PAGINA,
+    PAGINA_CARGADA,
     //INSTRUCCIONES
     SET,
     ADD,
@@ -259,6 +260,7 @@ void send_escribir_valor_fs(char* valor, int dir_fisica, int tamanio, int pid, i
 void send_abrir_archivo(char* nombre_archivo, int fd_modulo);
 void send_crear_archivo(char* nombre_archivo, int fd_modulo);
 void send_reserva_swap(int fd, int cant_paginas_necesarias);
+void send_tam_pagina(int tam, int fd_modulo);
 
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
@@ -274,6 +276,7 @@ int recv_interrupcion(int fd_modulo);
 void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
 void recv_f_close(int fd,char** nombre_archivo);
 t_list* recv_reserva_swap(int fd_modulo);
+int recv_tam_pagina(int fd_modulo);
 
 
 #endif

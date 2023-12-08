@@ -15,7 +15,6 @@ void levantar_config(char *ruta)
     tam_memoria = config_get_int_value(config, "TAM_MEMORIA");
     puerto_filesystem = config_get_string_value(config, "PUERTO_FILESYSTEM");
     tam_pagina = config_get_int_value(config, "TAM_PAGINA");
-    tamPaginaGlobal=tam_pagina;
     path_instrucciones = config_get_string_value(config, "PATH_INSTRUCCIONES");
     RETARDO_REPUESTA = config_get_int_value(config, "RETARDO_RESPUESTA");
     algoritmo_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
@@ -78,6 +77,9 @@ static void procesar_conexion(void *void_args) {
 		case MENSAJE:
 			recibir_mensaje(logger_memoria, cliente_socket);
 			break;
+        case TAMANIO_PAGINA:
+            send_tam_pagina(tam_pagina,cliente_socket);
+            break;
 		case PAQUETE:
 			t_list *paquete_recibido = recibir_paquete(cliente_socket);
 			log_info(logger_memoria, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
@@ -97,8 +99,8 @@ static void procesar_conexion(void *void_args) {
             t_list* bloques_reservados  = recv_reserva_swap(conexion_memoria_filesystem);
             t_list* tabla_paginas = inicializar_proceso(proceso);
             list_add(lista_tablas_de_procesos, tabla_paginas);
-            //SEMAFORO PARA MANDAR INTRUCCIONES A CPU
-            sem_post(&swap_asignado);
+            //VER TEMA DE Q NO EJECUTE INSTRUCCIONES SIN ANTES RECIBIR LA LISTA DE SWAP
+            
             pcb_destroyer(proceso);
             break;
 		case FINALIZAR_PROCESO:
@@ -108,14 +110,19 @@ static void procesar_conexion(void *void_args) {
 			//terminar_proceso(pid_fin);
 			break;
         case PEDIDO_MARCO:
-            t_list* paquete=recibir_paquete(cliente_socket);
-            int direccionFisica =*(int*)list_get(paquete, 0);
+            t_list* paquete = recibir_paquete(cliente_socket);
+            int* punterodir = list_get(paquete, 0);
+	        int numero_pagina = *punterodir;
+            punterodir = list_get(paquete, 1);
+	        int pid = *punterodir;
+            free(punterodir);
             list_destroy(paquete);
-            uint32_t numeroMarco;
+            int numeroMarco;
             //Buscar el numero de marco;
+            numeroMarco = obtener_nro_marco_memoria(numero_pagina,pid);
             if(numeroMarco>0){
-                t_paquete* paqueteMarco=crear_paquete(ENVIO_MARCO);
-                agregar_a_paquete(paqueteMarco,&numeroMarco,sizeof(uint32_t));
+                 t_paquete* paqueteMarco=crear_paquete(ENVIO_MARCO);
+                agregar_a_paquete(paqueteMarco, &numeroMarco, sizeof(uint32_t));
                 enviar_paquete(paqueteMarco,cliente_socket);
                 eliminar_paquete(paqueteMarco);
             }else{
@@ -167,16 +174,27 @@ static void procesar_conexion(void *void_args) {
             int* pc;
             sleep(RETARDO_REPUESTA/1000);
             recv_fetch_instruccion(cliente_socket, &path,&pc);
-            sem_wait(&swap_asignado); 
             leer_instruccion_por_pc_y_enviar(path,*pc, cliente_socket);
-            sem_post(&swap_asignado);
             free(path); // Liberar memoria de la variable path
             free(pc); // Liberar memoria de la variable pc
+            //
+            break;
+        case CARGAR_PAGINA:
+            t_list* paquete_pag = recibir_paquete(cliente_socket);
+            int* puntero = list_get(paquete_pag, 0);
+	        int pid_pag = *puntero;
+            
+            puntero = list_get(paquete_pag, 1);
+	        int pagina_a_cargar = *puntero;
+            free(puntero);
+            list_destroy(paquete_pag);
+            
+            //cargar pagina
+            
             break;
         default:
             printf("Error al recibir mensaje con OPCODE %d \n", cop);
             break;
-
 	return;
         }
     }
@@ -194,6 +212,21 @@ int server_escuchar(int fd_memoria) {
 	}
 
 	return 0;
+}
+//[ [entradas], [entradas], [entradas]   ]
+
+int obtener_nro_marco_memoria(int num_pagina, int pid_actual){
+    for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
+        t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
+        entrada_pagina * entrada = list_get(tabla_pagina, 0);
+        if(entrada->pid==pid_actual){
+            entrada_pagina* pagina = list_get(tabla_pagina, num_pagina);
+            if(pagina->en_memoria == 1){
+                return pagina->num_marco;
+            }
+        }
+    }
+    return -1;
 }
 
 
@@ -213,21 +246,7 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
     
     return -1;
 }
-// Devuelve el contenido de un marco que está en memoria.
-void* obtener_marco(uint32_t nro_marco) {
-  // Reserva memoria para un marco
-  void* marco = malloc(tam_pagina);
-  // Bloquea el acceso al array de memoria
-  pthread_mutex_lock(&mx_memoria);
 
-  memcpy(marco, memoria + nro_marco * tam_pagina, tam_pagina);
-
-  // Desbloquea el acceso al array de memoria
-  pthread_mutex_unlock(&mx_memoria);
-
-  
-  return marco;
-}
 void escribir_marco_en_memoria(uint32_t nro_marco, void* marco){
 	char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
     uint32_t tam_pagina_int = atoi(tam_pagina_str);
@@ -356,15 +375,13 @@ t_list* crear_tabla(int pid){
 
 /* ----------------------PAGE FAULT----------------------------
 // Función para tratar un fallo de página
-uint32_t tratar_page_fault(uint32_t num_segmento, uint32_t num_pagina, uint16_t pid_actual) {
+int tratar_page_fault(int num_pagina, int pid_actual) {
     // Crear y obtener listas para el proceso y la tabla de marcos
     t_list* tabla_de_proceso = list_create();
     tabla_de_proceso = list_get(lista_tablas_de_procesos, pid_actual);
-    t_list* tabla_de_marcos = list_create();
-    tabla_de_marcos = list_get(tabla_de_proceso, num_segmento);
     
     // Obtener información de la página que causó el fallo
-    entrada_pagina* pagina = list_get(tabla_de_marcos, num_pagina);
+    entrada_pagina* pagina = list_get(tabla_de_procesos, num_pagina);
 
     // Log: Page fault detectado
     log_info(logger, "[CPU][ACCESO A DISCO] PAGE FAULT!!!");
@@ -375,7 +392,7 @@ uint32_t tratar_page_fault(uint32_t num_segmento, uint32_t num_pagina, uint16_t 
     // Leer el contenido de la página desde el swap
     void* marco = leer_marco_en_swap(fd, nro_marco_en_swap, tam_pagina);
 
-    int32_t nro_marco;
+    int nro_marco;
 
     // Si el proceso ya tiene todos sus marcos en memoria
     if (marcos_en_memoria(pid_actual) == marcos_por_proceso) {
@@ -383,8 +400,8 @@ uint32_t tratar_page_fault(uint32_t num_segmento, uint32_t num_pagina, uint16_t 
         nro_marco = usar_algoritmo(pid_actual);
 
         // Log: Información sobre el reemplazo
-        log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <SEGMENTO %d>|<PAGINA %d>",
-                 pid_actual, nro_marco, num_segmento, num_pagina);
+        log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
+                 pid_actual, nro_marco, num_pagina);
     } else {
         // Si el proceso aún tiene marcos disponibles, buscar un marco libre en memoria
         nro_marco = buscar_marco_libre();
@@ -414,12 +431,13 @@ uint32_t tratar_page_fault(uint32_t num_segmento, uint32_t num_pagina, uint16_t 
     free(marco);
 
     // Log: SWAP IN
-    log_info(logger, "[CPU] LECTURA EN SWAP: SWAP IN - PID: <%d> - Marco: <%d> - Page In: <SEGMENTO %d>|<PÁGINA %d>",
-             pid_actual, nro_marco, num_segmento, num_pagina);
+    log_info(logger, "[CPU] LECTURA EN SWAP: SWAP IN - PID: <%d> - Marco: <%d> - Page In:<PÁGINA %d>",
+             pid_actual, nro_marco, num_pagina);
 
     // Devolver el número de marco utilizado
     return nro_marco;
 }
+
 */
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------
 

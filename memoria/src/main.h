@@ -64,4 +64,9 @@ bool masVieja(void *unaPag, void *otraPag);
 void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd);
 void eliminar_tabla_paginas(int pid);
 void log_valor_espacio_usuario(char* valor, int tamanio);
+int obtener_nro_marco_memoria(int num_pagina, int pid_actual);
+
+
+
+
 #endif 

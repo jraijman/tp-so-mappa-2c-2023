@@ -62,6 +62,11 @@ typedef struct {
 	char* extra;
 } HiloArgs;
 
+typedef struct {
+	pcb* proceso;
+	int pagina;
+} HiloArgs2;
+
 typedef struct{
     t_list *recursos_en_posecion;
     t_list *recursos_en_espera;
@@ -169,5 +174,6 @@ t_list *recursos_que_tiene(pcb *proceso);
 t_list *recursos_que_espera(pcb *proceso);
 void loguear_deadlock(t_list *lista_posible_deadlock);
 void detectar_deadlock_recurso();
+void* manejar_page_fault(void * args);
 
 #endif 
