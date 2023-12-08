@@ -17,8 +17,8 @@ int traducir(int direccion_logica, int fd) {
     }else if(cop==PCB_PAGEFAULT){
         t_paquete* paquetePageFault=crear_paquete(PCB_PAGEFAULT);
         empaquetar_pcb(paquetePageFault,contexto);
-        agregar_a_paquete(paquetePageFault,numeroPagina);
-        enviar_paquete(paquetePageFault);
+        agregar_a_paquete(paquetePageFault, numeroPagina, sizeof(int));
+        enviar_paquete(paquetePageFault, fd);
         eliminar_paquete(paquetePageFault);
         return -1;
     }
@@ -167,7 +167,7 @@ void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
     // F_SEEK (Nombre Archivo, Posición): Esta instrucción solicita al kernel actualizar 
     //el puntero del archivo a la posición pasada por parámetro.
     char* nombre_archivo = instruccion.operando1;
-    int posicion =direccionFisica
+    int posicion = direccionFisica;
     t_paquete* paquete = crear_paquete(F_SEEK);
     agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
     agregar_a_paquete(paquete,&posicion,sizeof(int));
