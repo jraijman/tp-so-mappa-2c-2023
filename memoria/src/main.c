@@ -36,9 +36,7 @@ int main(int argc, char *argv[])
      // inicio servidor de escucha
     fd_memoria = iniciar_servidor(logger_memoria, NULL, puerto_escucha, "MEMORIA");
     //mando a fs para que se conecte
-    t_paquete* paquete = crear_paquete(CONEXION_MEMORIA);
-	enviar_paquete(paquete, conexion_memoria_filesystem);
-	eliminar_paquete(paquete);
+    enviar_mensaje("CONECTATE", conexion_memoria_filesystem);
     
     // espero clientes kernel,cpu y filesystem
     while(server_escuchar(fd_memoria));
@@ -65,11 +63,14 @@ static void procesar_conexion(void *void_args) {
 		}
 		switch (cop) {
 		case MENSAJE:
-			recibir_mensaje(logger_memoria, cliente_socket);
+			char* msj = recibir_mensaje_fs(cliente_socket);
+                if(strcmp(msj,"TAM_PAGINA")==0){
+                    send_tam_pagina(tam_pagina,cliente_socket);
+                }else{
+                    log_info(logger_memoria, ANSI_COLOR_YELLOW"Me llegó el mensaje: %s", msj);
+                }
+                free(msj); // Liberar la memoria del mensaje recibido
 			break;
-        case TAMANIO_PAGINA:
-            send_tam_pagina(tam_pagina,cliente_socket);
-            break;
 		case PAQUETE:
 			t_list *paquete_recibido = recibir_paquete(cliente_socket);
 			log_info(logger_memoria, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
@@ -78,7 +79,7 @@ static void procesar_conexion(void *void_args) {
 		case INICIALIZAR_PROCESO:
 			pcb* proceso = recv_pcb(cliente_socket); //void* memoriaFisica = malloc();
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
-            enviar_mensaje("OK inicio proceso", cliente_socket);
+            //enviar_mensaje("OK inicio proceso", cliente_socket);
             int cant_paginas_necesarias = paginas_necesarias(proceso);
             printf("cant paginas necesarias: %d\n", cant_paginas_necesarias);
             //mandar aca a fs para recibir pos en swap 
@@ -86,7 +87,8 @@ static void procesar_conexion(void *void_args) {
             //bloquear con recv hasta recibir la lista de swap 
             printf("bloqueado esperando a swap\n");
             op_code cop = recibir_operacion(conexion_memoria_filesystem);
-            t_list* bloques_reservados  = recv_reserva_swap(conexion_memoria_filesystem);
+            t_list* bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
+            //log_info(logger_memoria, "Recibí la lista de swap %s");
             t_list* tabla_paginas = inicializar_proceso(proceso, bloques_reservados);
             list_add(lista_tablas_de_procesos, tabla_paginas);
             //VER TEMA DE Q NO EJECUTE INSTRUCCIONES SIN ANTES RECIBIR LA LISTA DE SWAP
@@ -95,7 +97,7 @@ static void procesar_conexion(void *void_args) {
             break;
 		case FINALIZAR_PROCESO:
 			int pid_fin = recv_terminar_proceso(cliente_socket);
-            enviar_mensaje("OK fin proceso", cliente_socket);
+            //enviar_mensaje("OK fin proceso", cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
 			//terminar_proceso(pid_fin);
 			break;
@@ -111,7 +113,7 @@ static void procesar_conexion(void *void_args) {
             //Buscar el numero de marco;
             numeroMarco = obtener_nro_marco_memoria(numero_pagina,pid);
             if(numeroMarco>0){
-                 t_paquete* paqueteMarco=crear_paquete(ENVIO_MARCO);
+                t_paquete* paqueteMarco=crear_paquete(ENVIO_MARCO);
                 agregar_a_paquete(paqueteMarco, &numeroMarco, sizeof(uint32_t));
                 enviar_paquete(paqueteMarco,cliente_socket);
                 eliminar_paquete(paqueteMarco);
@@ -281,13 +283,15 @@ t_list* inicializar_proceso(pcb* proceso, t_list* bloques_reservados) {
     int entradas_por_tabla = paginas_necesarias(proceso);
     t_list* tabla_de_paginas = list_create();
 	for (int i = 0; i < entradas_por_tabla ; i++){
-		entrada_pagina* pagina = malloc(entradas_por_tabla * sizeof(pagina));
+		entrada_pagina* pagina = malloc(sizeof(entrada_pagina));
 		pagina->num_marco=-1;
 		pagina->modificado=0;
 		pagina->en_memoria=0;
         pagina->pid= proceso->pid;
-        pagina->posicion_swap = list_get(bloques_reservados,i);
+        int *posSwap = list_get(bloques_reservados,i);
+        pagina->posicion_swap = *posSwap;
 		list_add(tabla_de_paginas, pagina);
+        free(posSwap);
 	}
     
 	return tabla_de_paginas;
@@ -360,6 +364,13 @@ t_list* buscar_tabla_pagina(int pid_actual){
     return NULL;
 }
 
+void escribir_bloque_en_memoria(char* bloque_swap,int nro_marco){
+    int marco_en_memoria = nro_marco * tam_pagina;
+    pthread_mutex_lock(&mx_memoria);
+    memcpy(memoria + marco_en_memoria, bloque_swap, tam_pagina);
+    pthread_mutex_unlock(&mx_memoria);
+}
+
 //----------------------PAGE FAULT----------------------------
 // Función para tratar un fallo de página
 int tratar_page_fault(int num_pagina, int pid_actual) {
@@ -375,43 +386,28 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
     // Obtener el número de marco en el swap
     //Lo obtenemos desde filesystem
     send_pedido_swap(conexion_memoria_filesystem, pagina->posicion_swap);
-    //op_code cop = recibir_operacion(conexion_memoria_filesystem);
     char *bloque_swap = recv_leido_swap(conexion_memoria_filesystem);
+    
 
+    int nro_marco = buscar_marco_libre();
 
-    /*int nro_marco = buscar_marco_libre();
-
-    if (nro_marco == -1)
+    if (nro_marco == -1) // estan todas ocupadas
     {
-        nro_marco = usar_algoritmo(pid_actual);
+        //nro_marco = usar_algoritmo(pid_actual);
         
         // Log: Información sobre el reemplazo
-        log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
+        log_info(logger_memoria, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
                  pid_actual, nro_marco, num_pagina);
     } else {
-        // Si la memoria tiene marcos disponibles, buscar un marco libre en memoria
-        nro_marco = buscar_marco_libre();
+        
+        escribir_bloque_en_memoria(bloque_swap, nro_marco);
+
+        
     }
     
 
     // Si la memoria tiene todos los marcos ocupados
-    /*if (memoria_llena()) {
-        // Utilizar LRU O FIFO  para seleccionar un marco a reemplazar
-        nro_marco = usar_algoritmo(pid_actual);
-
-        // Log: Información sobre el reemplazo
-        log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
-                 pid_actual, nro_marco, num_pagina);
-    }else {
-        // Si la memoria tiene marcos disponibles, buscar un marco libre en memoria
-        nro_marco = buscar_marco_libre();
-
-        // Si no hay marcos libres, logear un error y terminar el programa
-        if (nro_marco == -1) {
-            log_error(logger, "ERROR!!!!! NO HAY MARCOS LIBRES EN MEMORIA!!!");
-            exit(EXIT_FAILURE);
-        }
-    }
+    /*
 
     // Marcar el nuevo marco como ocupado
     

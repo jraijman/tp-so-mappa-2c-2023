@@ -21,13 +21,16 @@ static void procesar_conexion(void* void_args) {
 			return;
     	}
         switch (cop) {
-            case CONEXION_MEMORIA:
-                sleep(2);
-                conexion_filesystem_memoria = crear_conexion(logger,"MEMORIA",ip_memoria,puerto_memoria);
-                enviar_mensaje("Hola soy FILESYSTEM", conexion_filesystem_memoria);
-                break;
             case MENSAJE:
-                recibir_mensaje(logger, cliente_socket);
+                char* msj = recibir_mensaje_fs(cliente_socket);
+                if(strcmp(msj,"CONECTATE")==0){
+                     sleep(2);
+                    conexion_filesystem_memoria = crear_conexion(logger,"MEMORIA",ip_memoria,puerto_memoria);
+                    enviar_mensaje("Hola soy FILESYSTEM", conexion_filesystem_memoria);
+                }else{
+                    log_info(logger, ANSI_COLOR_YELLOW"Me llegó el mensaje: %s", msj);
+                }
+                free(msj); // Liberar la memoria del mensaje recibido
                 break;
 		    case PAQUETE:
                 t_list *paquete_recibido = recibir_paquete(cliente_socket);
@@ -58,9 +61,10 @@ static void procesar_conexion(void* void_args) {
                     t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
                     for(int i=0; i<cantidad_bloques;i++)
                     {
-                        agregar_a_paquete(paqueteReserva,&bloques_reservados[i],sizeof(int));
+                        int bloque = bloques_reservados[i];
+                        agregar_a_paquete(paqueteReserva, &bloque, sizeof(int));
                     }
-                    enviar_paquete(paqueteReserva,cliente_socket);
+                    enviar_paquete(paqueteReserva, cliente_socket);
                     eliminar_paquete(paqueteReserva);
                 }else{
                     enviar_mensaje("Error al reservar los bloques SWAP",cliente_socket);
@@ -101,15 +105,18 @@ static void procesar_conexion(void* void_args) {
                 list_destroy(paquete);
                 truncarArchivo(nombre,tamano,bitmapBloques);
                 enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
+                break;
             }
             case PEDIDO_SWAP:{
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int num_bloque=*(int*)list_get(paquete,0);
                 list_destroy(paquete);
                 char* info_leida = leer_bloque(num_bloque);
-                send_leido_swap(cliente_socket,info_leida);
+                send_leido_swap(cliente_socket,info_leida,tam_bloque);
                 free(info_leida);
+                break;
             }
+           
             default:
                 log_error(logger, "MESNAJE DESCONOCIDO OPCODE: %d", cop);
                 break;

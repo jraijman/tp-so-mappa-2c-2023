@@ -830,7 +830,7 @@ void manejar_recibir_cpu(){
 }
 
 void manejar_recibir_memoria(){
-    while(1){
+   /* while(1){
         if(fd_memoria == 0|| fd_memoria == -1){
             printf("Error al recibir mensaje de memoria\n");
             return;
@@ -846,7 +846,7 @@ void manejar_recibir_memoria(){
                     break;
             }
         }   
-    }    
+    }  */  
 }
 
 void manejar_recibir_fs(){
@@ -899,6 +899,7 @@ void iniciar_semaforos(){
     sem_init(&archivo_abierto, 0, 0);
     sem_init(&sem_sleep, 0, 0);
     sem_init(&sem_no_usamos, 0, 500);
+    sem_init(&manejar_recv_memoria, 0, 1);
     
 
     //mutex de colas de planificacion
@@ -907,6 +908,7 @@ void iniciar_semaforos(){
 	pthread_mutex_init(&mutex_exec, NULL);
     pthread_mutex_init(&mutex_block, NULL);
 	pthread_mutex_init(&mutex_exit, NULL);
+    pthread_mutex_init(&manejar_recibir_mem, NULL);
 
     //mutex para pausar planificacion
     pthread_mutex_init(&mutex_plani_corta, NULL);
@@ -1122,7 +1124,7 @@ void* manejar_page_fault(void * args){
     }
     else{
         printf("Error al recibir mensaje %d \n", cop);
-    }  
+    } 
 
     // Libera la memoria de la estructura de argumentos
     free(hiloArgs);

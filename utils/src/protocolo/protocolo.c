@@ -72,6 +72,13 @@ void recibir_mensaje(t_log* logger, int socket_cliente) {
         free(buffer); // Liberar la memoria del mensaje recibido
     }
 }
+char* recibir_mensaje_fs(int socket_cliente) {
+    int size;
+    char* buffer = (char*)recibir_buffer(&size, socket_cliente);
+    if (buffer != NULL) {
+        return buffer;
+    }
+}
 
 t_list* recibir_paquete(int socket_cliente){
 	int size;
@@ -455,9 +462,9 @@ t_list* recv_reserva_swap(int fd_modulo){
 	t_list* lista_bloques = list_create();
 	for(int i=0; i<list_size(paquete); i++){
 		int* cant = list_get(paquete, i);
-		int ret = *cant;
-		free(cant);
-		list_add(lista_bloques,&ret);
+		//int ret = *cant;
+		list_add(lista_bloques, cant);
+		//free(cant);
 	}
 	list_destroy(paquete);
 	return lista_bloques;
@@ -756,14 +763,15 @@ void send_pedido_swap(int fd, int posicion_swap){
 	eliminar_paquete(paquete);
 }
 
-void send_leido_swap(int fd, char * leido){
+void send_leido_swap(int fd, char * leido, int tam_pagina){
 	t_paquete* paquete = crear_paquete(PEDIDO_SWAP);
-	agregar_a_paquete(paquete, leido, strlen(leido) + 1);
+	agregar_a_paquete(paquete, leido, tam_pagina);
 	enviar_paquete(paquete, fd);
 	eliminar_paquete(paquete);
 }
 
 char * recv_leido_swap(int fd_modulo){
+    op_code cop = recibir_operacion(fd_modulo);
 	t_list* paquete = recibir_paquete(fd_modulo);
 	char* leido = list_get(paquete, 0);
 	list_destroy(paquete);

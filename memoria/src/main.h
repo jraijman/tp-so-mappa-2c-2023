@@ -76,6 +76,7 @@ void eliminar_tabla_paginas(int pid);
 void log_valor_espacio_usuario(char* valor, int tamanio);
 int obtener_nro_marco_memoria(int num_pagina, int pid_actual);
 int tratar_page_fault(int num_pagina, int pid_actual);
+void escribir_bloque_en_memoria(char* bloque_swap, int nro_marco);
 
 
 

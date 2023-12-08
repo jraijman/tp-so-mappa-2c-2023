@@ -475,18 +475,8 @@ int main(int argc, char* argv[]) {
     }else{
         log_info(logger_filesystem,"Archivo de bloques iniciado correctamente: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibres,bloquesLibres);
     }
-    int bloques_reservados[20];
-    reservar_bloquesSWAP(20,bloques_reservados,bitmapBloquesSwap);
-    char* info=malloc(tam_bloque);
-    info=leer_bloque(0);
-    log_info(logger_filesystem,"%s",info);
-    leer_bloque(1);
-    leer_bloque(2);
-    leer_bloque(30);
     //Pruebas
     //espero clientes kernel y memoria
-    bloqueOcupado(bitmapBloques);
-
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem,bitmapBloques,bitmapBloquesSwap));
 
     //CIERRO LOG Y CONFIG y libero conexion

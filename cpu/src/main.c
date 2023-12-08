@@ -22,9 +22,8 @@ int main(int argc, char* argv[]){
 
     //pido tamaño de pagina y recibo
     //HACER send_tam_pagina y recv_tam_pagina
-    t_paquete* paquete = crear_paquete(TAMANIO_PAGINA);
-	enviar_paquete(paquete, conexion_cpu_memoria);
-	eliminar_paquete(paquete);
+    enviar_mensaje("TAM_PAGINA", conexion_cpu_memoria);
+
     op_code cop = recibir_operacion(conexion_cpu_memoria);
     tamPaginaGlobal = recv_tam_pagina(conexion_cpu_memoria);
     log_info(logger_cpu, "Tamaño de página: %d", tamPaginaGlobal);
@@ -250,8 +249,12 @@ bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* lo
     //log_info (logger,ANSI_COLOR_BLUE "Fetch de instruccion");
     Instruccion aux;
     send_fetch_instruccion(contexto->path,contexto->pc, fd); // Envía paquete para pedir instrucciones
-    recibir_operacion(fd);
-    aux=recv_instruccion(fd);
+    op_code cop = recibir_operacion(fd);
+    if(cop!=ENVIO_INSTRUCCION){
+        log_error(logger,"el cop no corresponde a una instruccion %d",cop);
+        return false;
+    }
+    aux = recv_instruccion(fd);
     instruccion->opcode = malloc(sizeof(char) * strlen(aux.opcode) + 1);
     instruccion->operando1 = malloc(sizeof(char) * strlen(aux.operando1) + 1);
     instruccion->operando2 = malloc(sizeof(char) * strlen(aux.operando2) + 1);

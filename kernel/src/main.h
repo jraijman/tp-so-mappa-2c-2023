@@ -95,6 +95,7 @@ sem_t archivo_abierto;
 sem_t sem_sleep;
 
 sem_t sem_no_usamos;
+sem_t manejar_recv_memoria;
 
 pthread_mutex_t mutex_new;
 pthread_mutex_t mutex_ready;
@@ -103,6 +104,7 @@ pthread_mutex_t mutex_block;
 pthread_mutex_t mutex_exit;
 pthread_mutex_t mutex_plani_corta;
 pthread_mutex_t mutex_plani_larga;
+pthread_mutex_t manejar_recibir_mem;
 
 // hilos
 pthread_t hilo_consola;

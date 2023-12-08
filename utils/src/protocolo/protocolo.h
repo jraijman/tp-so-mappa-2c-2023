@@ -20,6 +20,7 @@
 typedef enum
 {
     //OPCODES
+    HAY_ALGO_MAL,
     ENVIO_PCB,
     ENVIO_INSTRUCCION,
     ENVIO_PCB_DESALOJADO,
@@ -215,6 +216,7 @@ void pcb_destroyer(pcb* contexto);
 
 
 //Mensajes
+char* recibir_mensaje_fs(int socket_cliente);
 void enviar_mensaje(char* mensaje, int socket_cliente);
 int recibir_operacion(int socket_cliente);
 void* recibir_buffer(int* size, int socket_cliente);
@@ -264,7 +266,7 @@ void send_reserva_swap(int fd, int cant_paginas_necesarias);
 void send_tam_pagina(int tam, int fd_modulo);
 void send_pagina_cargada(int fd);
 void send_pedido_swap(int fd, int posicion_swap);
-void send_leido_swap(int fd, char * leido);
+void send_leido_swap(int fd, char * leido,int tam_pagina);
 
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);
@@ -281,6 +283,7 @@ void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
 void recv_f_close(int fd,char** nombre_archivo);
 t_list* recv_reserva_swap(int fd_modulo);
 int recv_tam_pagina(int fd_modulo);
+char * recv_leido_swap(int fd_modulo);
 
 
 #endif
