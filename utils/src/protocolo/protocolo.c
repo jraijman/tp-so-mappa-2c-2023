@@ -224,6 +224,13 @@ void send_archivos(int fd_modulo, t_list* lista_archivos) {
     eliminar_paquete(paquete_archivos);
 }
 
+void send_pagina_cargada(int fd){
+	t_paquete* paquete_archivos = crear_paquete(PAGINA_CARGADA);
+    enviar_paquete(paquete_archivos, fd);
+    eliminar_paquete(paquete_archivos);
+}
+
+
 t_list* recv_archivos(t_log* logger, int fd_modulo) {
     t_list* paquete = recibir_paquete(fd_modulo);
     t_list* lista_archivos = desempaquetar_archivos(paquete, 0);
@@ -742,3 +749,30 @@ void send_crear_archivo(char* nombre_archivo, int fd_modulo){
 
 
 //----------------------------------PAGE FAULT-----------------------------------------
+void send_pedido_swap(int fd, int posicion_swap){
+	t_paquete* paquete = crear_paquete(PEDIDO_SWAP);
+	agregar_a_paquete(paquete, &posicion_swap, sizeof(int));
+	enviar_paquete(paquete, fd);
+	eliminar_paquete(paquete);
+}
+
+void send_leido_swap(int fd, char * leido){
+	t_paquete* paquete = crear_paquete(PEDIDO_SWAP);
+	agregar_a_paquete(paquete, leido, strlen(leido) + 1);
+	enviar_paquete(paquete, fd);
+	eliminar_paquete(paquete);
+}
+
+char * recv_leido_swap(int fd_modulo){
+	t_list* paquete = recibir_paquete(fd_modulo);
+	char* leido = list_get(paquete, 0);
+	list_destroy(paquete);
+	return leido;
+}
+
+char* recv_pedido_swap(int fd_modulo){
+	t_list* paquete = recibir_paquete(fd_modulo);
+	char* valor = list_get(paquete, 0);
+	list_destroy(paquete);
+	return valor;
+}

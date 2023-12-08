@@ -53,7 +53,7 @@ bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[], bool* bitm
     if (f != NULL) {
         int j = 0;
         while (j < cant_bloques) {
-            sleep(retardo_acceso_bloque / 1000);
+            //sleep(retardo_acceso_bloque / 1000);
             fread(bloque.info, tam_bloque, 1, f);
             log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld", (ftell(f) / tam_bloque));
 
@@ -61,7 +61,7 @@ bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[], bool* bitm
                 strcpy(bloque.info, "\0");
                 swapLibres--;
                 bloques_reservados[j] = (ftell(f) / tam_bloque);
-                sleep(retardo_acceso_bloque / 1000);
+                //sleep(retardo_acceso_bloque / 1000);
                 bitmap[ftell(f) / tam_bloque] = 1;
                 fwrite(bloque.info, tam_bloque, 1, f);
                 fseek(f, tam_bloque, SEEK_CUR);
@@ -76,6 +76,24 @@ bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[], bool* bitm
         return true;
     } else {
         return false;
+    }
+}
+
+//-----------------------LEER BLOQUE-------------------------------------------
+char* leer_bloque(int num_bloque){
+	FILE* f=fopen(path_bloques, "rb+");
+    if(f!=NULL){
+        char* info = malloc(tam_bloque);
+        sleep(retardo_acceso_bloque / 1000);
+        fseek(f, tam_bloque * num_bloque, SEEK_SET);
+        log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+        fclose(f);
+        log_info(logger_filesystem, "LA INFO LEIDA ES: %s", info);
+        return info;
+    }
+    else{
+        fclose(f);
+        return NULL;
     }
 }
 

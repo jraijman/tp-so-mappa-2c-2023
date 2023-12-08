@@ -37,4 +37,7 @@ uint32_t buscarBloqueLibre(bool* bitmap);
 uint32_t buscarUltimoBloque(FILE* fat, int inicio);
 uint32_t buscarUltimoBloqueAchicar(FILE* fat, int inicio, uint32_t* anteultimo, uint32_t* antepenultimo);
 void actualizarFcb(char* nombre, int tamano, int bloque);
+char* leer_bloque(int num_bloque);
+
+
 #endif

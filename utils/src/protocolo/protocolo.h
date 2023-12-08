@@ -58,6 +58,7 @@ typedef enum
     TAMANIO_PAGINA,
     CARGAR_PAGINA,
     PAGINA_CARGADA,
+    PEDIDO_SWAP,
     //INSTRUCCIONES
     SET,
     ADD,
@@ -261,6 +262,9 @@ void send_abrir_archivo(char* nombre_archivo, int fd_modulo);
 void send_crear_archivo(char* nombre_archivo, int fd_modulo);
 void send_reserva_swap(int fd, int cant_paginas_necesarias);
 void send_tam_pagina(int tam, int fd_modulo);
+void send_pagina_cargada(int fd);
+void send_pedido_swap(int fd, int posicion_swap);
+void send_leido_swap(int fd, char * leido);
 
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);

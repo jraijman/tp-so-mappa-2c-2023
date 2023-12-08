@@ -87,7 +87,7 @@ static void procesar_conexion(void *void_args) {
             printf("bloqueado esperando a swap\n");
             op_code cop = recibir_operacion(conexion_memoria_filesystem);
             t_list* bloques_reservados  = recv_reserva_swap(conexion_memoria_filesystem);
-            t_list* tabla_paginas = inicializar_proceso(proceso);
+            t_list* tabla_paginas = inicializar_proceso(proceso, bloques_reservados);
             list_add(lista_tablas_de_procesos, tabla_paginas);
             //VER TEMA DE Q NO EJECUTE INSTRUCCIONES SIN ANTES RECIBIR LA LISTA DE SWAP
             
@@ -180,8 +180,8 @@ static void procesar_conexion(void *void_args) {
             list_destroy(paquete_pag);
             
             //cargar pagina
-            int numero_marco = tratar_page_fault(int num_pagina, int pid_actual);
-            send_
+            int numero_marco = tratar_page_fault(pagina_a_cargar, pid_pag);
+            send_pagina_cargada(cliente_socket);
             
             break;
         default:
@@ -208,6 +208,8 @@ int server_escuchar(int fd_memoria) {
 
 void inicializar_memoria(){
     sem_init(&swap_asignado, 0, 0);
+    pthread_mutex_init(&mx_memoria, NULL);
+    pthread_mutex_init(&mx_bitarray_marcos_ocupados, NULL);
 
 	memoria = malloc(tam_memoria);
 
@@ -275,7 +277,7 @@ void eliminar_proceso_memoria(int pid) {
 }
 
 
-t_list* inicializar_proceso(pcb* proceso) {
+t_list* inicializar_proceso(pcb* proceso, t_list* bloques_reservados) {
     int entradas_por_tabla = paginas_necesarias(proceso);
     t_list* tabla_de_paginas = list_create();
 	for (int i = 0; i < entradas_por_tabla ; i++){
@@ -284,6 +286,7 @@ t_list* inicializar_proceso(pcb* proceso) {
 		pagina->modificado=0;
 		pagina->en_memoria=0;
         pagina->pid= proceso->pid;
+        pagina->posicion_swap = list_get(bloques_reservados,i);
 		list_add(tabla_de_paginas, pagina);
 	}
     
@@ -328,12 +331,7 @@ void liberar_recursos(pcb* proceso) {
     list_destroy(proceso->archivos);
 }
 
-int obtenerCantidadPaginasAsignadas(int pid) {
-    t_list* marcos_asignados = obtenerMarcosAsignados(pid);
-    int cantidadDePaginasAsignadas = list_size(marcos_asignados);
-    list_destroy(marcos_asignados);
-    return cantidadDePaginasAsignadas;
-}
+
 int get_memory_and_page_size() {
   return (tam_memoria / tam_pagina);
 }
@@ -362,35 +360,14 @@ t_list* buscar_tabla_pagina(int pid_actual){
     return NULL;
 }
 
-// leer marco
-void* leer_marco_en_swap(int fd, uint32_t nro_marco, uint32_t tamanio_marcos){
-	void* marco = malloc(tamanio_marcos);
-	struct stat sb;
-	if (fstat(fd,&sb) == -1){
-		log_error(logger, "No se pudo obtener el tamaño del archivo :(");
-		exit(-1);
-	}
-	void* datos_archivo = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE,fd,0);
-	if (datos_archivo == MAP_FAILED){ // si fallo el mmap
-		log_error(logger, "Fallo de mmap\n[ERROR] %s",strerror(errno));
-		if (errno == EINVAL) // si el error es de argumentos invalidos
-			log_error(logger, "Parametros pasados: tam %d fd %d offset %d",(int) sb.st_size, fd, nro_marco * tamanio_marcos);
-		exit(-1);
-	}
-	memcpy(marco, datos_archivo + nro_marco * tamanio_marcos, tamanio_marcos);
-	munmap(datos_archivo, sb.st_size);
-	usleep((configuracion->RETARDO_SWAP) * 1000);
-	return marco;
-}
-
-----------------------PAGE FAULT----------------------------
+//----------------------PAGE FAULT----------------------------
 // Función para tratar un fallo de página
 int tratar_page_fault(int num_pagina, int pid_actual) {
     // Crear y obtener listas para el proceso y la tabla de marcos
     t_list* tabla_de_proceso = buscar_tabla_pagina(pid_actual);
     
     // Obtener información de la página que causó el fallo
-    entrada_pagina* pagina = list_get(tabla_de_procesos, num_pagina);
+    entrada_pagina* pagina = list_get(tabla_de_proceso, num_pagina);
 
     // Log: Page fault detectado
     log_info(logger_memoria, ANSI_COLOR_LIME " PAGE FAULT!!!");
@@ -398,13 +375,11 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
     // Obtener el número de marco en el swap
     //Lo obtenemos desde filesystem
     send_pedido_swap(conexion_memoria_filesystem, pagina->posicion_swap);
-    void *bloque_swap = recv_swap(conexion_memoria_filesystem);
+    //op_code cop = recibir_operacion(conexion_memoria_filesystem);
+    char *bloque_swap = recv_leido_swap(conexion_memoria_filesystem);
 
 
-    // Leer el contenido de la página desde el swap
-    void* marco = leer_marco_en_swap(fd, nro_marco_en_swap, tam_pagina);
-
-    int nro_marco = buscar_marco_libre();
+    /*int nro_marco = buscar_marco_libre();
 
     if (nro_marco == -1)
     {
@@ -436,7 +411,7 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
             log_error(logger, "ERROR!!!!! NO HAY MARCOS LIBRES EN MEMORIA!!!");
             exit(EXIT_FAILURE);
         }
-    }*/
+    }
 
     // Marcar el nuevo marco como ocupado
     
@@ -451,13 +426,14 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
 
     // Liberar la memoria utilizada para almacenar el contenido leído desde el swap
     free(marco);
+    */
 
     // Log: SWAP IN
-    log_info(logger, "[CPU] LECTURA EN SWAP: SWAP IN - PID: <%d> - Marco: <%d> - Page In:<PÁGINA %d>",
-             pid_actual, nro_marco, num_pagina);
+    /*log_info(logger_memoria, "[CPU] LECTURA EN SWAP: SWAP IN - PID: <%d> - Marco: <%d> - Page In:<PÁGINA %d>",
+             pid_actual, nro_marco, num_pagina);*/
 
     // Devolver el número de marco utilizado
-    return nro_marco;
+    return 1;
 }
 
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------
@@ -580,10 +556,23 @@ void log_valor_espacio_usuario(char* valor, int tamanio){
 	int tamanio_valor = strlen(valor_log);
 	log_info(logger_memoria, "se leyo/escribio %s de tamaño %d en el espacio de usuario", valor_log, tamanio_valor);
 }
-
+/*
+int usar_algoritmo(int pid){//ESTO ESTA BIEN
+	if (strcmp(algoritmo, "FIFO") == 0){
+		log_info(logger, "Reemplazo por FIFO");
+		return algoritmo_fifo(pid);
+	}
+	else if (strcmp(algoritmo, "LRU") == 0){
+		log_info(logger, "Reemplazo por LRU");
+		return algoritmo_lru(pid);
+	}
+	else{
+		exit(-1);
+	}
+}
 //LRU
 // Función para reemplazar una página utilizando el algoritmo LRU
-void algoritmo_lru(t_list* tabla_De_Paginas) {
+int algoritmo_lru(t_list* tabla_De_Paginas) {
     if (list_is_empty(tabla_De_Paginas)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
         return;
@@ -612,6 +601,7 @@ void algoritmo_lru(t_list* tabla_De_Paginas) {
 
     // Actualizar el tiempo de uso de las demás páginas
     actualizarTiempoDeUso(tabla_De_Paginas);
+    return paginaReemplazo->num_marco;
 }
 bool masVieja(void *unaPag, void *otraPag) { 
     entrada_pagina* pa = unaPag;
@@ -626,3 +616,42 @@ void actualizarTiempoDeUso(t_list* tabla_De_Paginas) {
         pagina->tiempo_uso++;
     }
 }
+// Función para reemplazar una página utilizando el algoritmo FIFO
+int algoritmo_fifo(t_list* tabla_De_Paginas) {
+    if (list_is_empty(tabla_De_Paginas)) {
+        log_info(logger_memoria, "No hay páginas para reemplazar.");
+        return;
+    }
+
+    // Obtener la página más antigua (la primera que entró)
+    entrada_pagina* paginaReemplazo = list_get(tabla_De_Paginas, 0);
+    log_info(logger_memoria, "Voy a reemplazar la página %d que estaba en el frame %d", paginaReemplazo->pid, paginaReemplazo->num_marco);
+
+    // Guardar en memoria virtual si está modificada
+    if (paginaReemplazo->modificado == 1) {
+        //guardarMemoriaVirtual(paginaReemplazo);
+    }
+
+    // Desocupar el frame en el bitmap
+    //desocuparFrameEnBitmap(paginaReemplazo->num_marco);
+
+    // Actualizar el bit de presencia
+    paginaReemplazo->en_memoria = 0;
+
+    // Liberar memoria de la página reemplazada
+    free(paginaReemplazo);
+
+    // Mover las demás páginas hacia arriba en la lista
+    for (int i = 0; i < list_size(tabla_De_Paginas) - 1; ++i) {
+        entrada_pagina* paginaActual = list_get(tabla_De_Paginas, i);
+        entrada_pagina* paginaSiguiente = list_get(tabla_De_Paginas, i + 1);
+        *paginaActual = *paginaSiguiente;
+    }
+
+    // Actualizar el tiempo de uso de la última página (la más nueva)
+    entrada_pagina* ultimaPagina = list_get(tabla_De_Paginas, list_size(tabla_De_Paginas) - 1);
+    ultimaPagina->tiempo_uso++;
+
+    return paginaReemplazo->num_marco;
+}
+*/

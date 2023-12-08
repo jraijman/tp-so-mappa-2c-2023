@@ -34,8 +34,8 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 //list_iterate(paquete_recibido, (void*) iterator);
                 break;
-            case ABRIR_ARCHIVO:
-            {    t_list *paqueteRecibido=recibir_paquete(cliente_socket);
+            case ABRIR_ARCHIVO:{
+                t_list *paqueteRecibido=recibir_paquete(cliente_socket);
                 char* nombre = list_get(paqueteRecibido, 0);
                 int tamano=abrir_archivo(nombre);
                 if(tamano!=-1){
@@ -101,6 +101,14 @@ static void procesar_conexion(void* void_args) {
                 list_destroy(paquete);
                 truncarArchivo(nombre,tamano,bitmapBloques);
                 enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
+            }
+            case PEDIDO_SWAP:{
+                t_list* paquete=recibir_paquete(cliente_socket);
+                int num_bloque=*(int*)list_get(paquete,0);
+                list_destroy(paquete);
+                char* info_leida = leer_bloque(num_bloque);
+                send_leido_swap(cliente_socket,info_leida);
+                free(info_leida);
             }
             default:
                 log_error(logger, "MESNAJE DESCONOCIDO OPCODE: %d", cop);

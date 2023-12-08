@@ -24,8 +24,8 @@ void* memoria;
 
 //semaforos
 sem_t swap_asignado;
-pthread_mutex_t mx_memoria = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mx_bitarray_marcos_ocupados = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mx_memoria;
+pthread_mutex_t mx_bitarray_marcos_ocupados;
 
 char* server_name;
 
@@ -55,7 +55,7 @@ int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 int obtenerCantidadPaginasAsignadas(int pid);
 int server_escuchar(int fd_memoria);
 void terminar_proceso(int pid);
-t_list* inicializar_proceso(pcb* pcb);
+t_list* inicializar_proceso(pcb* pcb, t_list* bloques);
 pcb* encontrar_proceso(int pid);
 void* obtener_marco(uint32_t nro_marco); 
 void eliminar_proceso(int pid);
@@ -67,6 +67,7 @@ t_list* obtenerMarcosAsignados( int pid);
 int paginas_necesarias(pcb *proceso);
 Instruccion armar_estructura_instruccion(char* instruccion_leida);
 char *armar_path_instruccion(char *path_consola);
+int usar_algoritmo(int pid);
 uint32_t algoritmo_fifo(int pid_actual);
 void algoritmo_lru(t_list* tabla_De_Paginas);
 bool masVieja(void *unaPag, void *otraPag);
