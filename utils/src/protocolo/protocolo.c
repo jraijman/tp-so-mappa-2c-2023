@@ -496,6 +496,11 @@ int recv_terminar_proceso(int fd_modulo){
 	
 	return pid_value;
 }
+
+/*int send_f_open(){
+
+}*/
+
 //--------------------------------------Instruccion------------------------------------------
 void empaquetar_instruccion(t_paquete* paquete, Instruccion instruccion) {
     agregar_a_paquete(paquete, instruccion.opcode, strlen(instruccion.opcode) + 1);
@@ -734,3 +739,6 @@ void send_crear_archivo(char* nombre_archivo, int fd_modulo){
 	enviar_paquete(paquete, fd_modulo);
 }
 
+
+
+//----------------------------------PAGE FAULT-----------------------------------------

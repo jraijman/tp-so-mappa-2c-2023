@@ -744,7 +744,7 @@ void manejar_recibir_cpu(){
                     HiloArgs2* args2 = malloc(sizeof(HiloArgs));
                     args2->proceso = proceso;
                     args2->pagina = paginaFault;
-                     pthread_create(&hilo_page_fault, NULL, manejar_page_fault, args2);
+                    pthread_create(&hilo_page_fault, NULL, manejar_page_fault, args2);
                     pthread_detach(hilo_page_fault);
                     break;
                 case PCB_WAIT:

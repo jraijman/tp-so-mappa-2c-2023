@@ -16,8 +16,16 @@
 
 int fd_memoria;
 
+
+
+// Memoria fisica
+uint8_t* bitarray_marcos_ocupados;
+void* memoria;
+
 //semaforos
 sem_t swap_asignado;
+pthread_mutex_t mx_memoria = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t mx_bitarray_marcos_ocupados = PTHREAD_MUTEX_INITIALIZER;
 
 char* server_name;
 
@@ -37,6 +45,7 @@ t_log* logger_memoria;
 t_config* config;
 t_list* l_marco;
 t_list* l_proceso;
+void inicializar_memoria();
 void actualizarTiempoDeUso(t_list* tabla_De_Paginas);
 void liberar_marco(t_marco*);
 t_marco* marco_create(uint32_t, uint32_t,bool);
@@ -52,7 +61,7 @@ void* obtener_marco(uint32_t nro_marco);
 void eliminar_proceso(int pid);
 void liberar_recursos(pcb* proceso);
 void escribir_marco_en_memoria(uint32_t nro_marco, void* marco);
-uint32_t get_memory_and_page_size();
+int get_memory_and_page_size();
 int buscar_marco_libre();
 t_list* obtenerMarcosAsignados( int pid);
 int paginas_necesarias(pcb *proceso);
@@ -65,7 +74,7 @@ void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd);
 void eliminar_tabla_paginas(int pid);
 void log_valor_espacio_usuario(char* valor, int tamanio);
 int obtener_nro_marco_memoria(int num_pagina, int pid_actual);
-
+int tratar_page_fault(int num_pagina, int pid_actual);
 
 
 

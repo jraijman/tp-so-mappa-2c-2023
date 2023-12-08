@@ -21,6 +21,7 @@ int main(int argc, char* argv[]){
     fd_cpu_interrupt = iniciar_servidor(logger_cpu, NULL, puerto_interrupt, "CPU INTERRUPT");
 
     //pido tamaño de pagina y recibo
+    //HACER send_tam_pagina y recv_tam_pagina
     t_paquete* paquete = crear_paquete(TAMANIO_PAGINA);
 	enviar_paquete(paquete, conexion_cpu_memoria);
 	eliminar_paquete(paquete);
@@ -97,7 +98,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                 break;
             case ENVIO_PCB: 
                 flag_ciclo = true;
-                contexto=recv_pcb(cliente_socket_dispatch);
+                contexto = recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);

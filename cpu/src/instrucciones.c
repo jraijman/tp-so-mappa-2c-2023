@@ -144,6 +144,7 @@ void fOpenInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch
     // F_OPEN (Nombre Archivo, Modo Apertura): Esta instrucción solicita al kernel que abra el archivo pasado por parámetro con el modo de apertura indicado.
     char* nombre_archivo = instruccion.operando1;
     char* modo_apertura = instruccion.operando2;
+    //send_f_open(nombre_archivo, modo_apertura, fd_cpu_dispatch, logger);
     t_paquete* paquete = crear_paquete(F_OPEN);
     agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
     agregar_a_paquete(paquete,&modo_apertura,(sizeof(char)*string_length(modo_apertura)));

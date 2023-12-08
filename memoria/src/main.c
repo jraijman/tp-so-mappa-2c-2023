@@ -1,10 +1,6 @@
 
 #include "main.h"
 
-pthread_mutex_t mx_memoria = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mx_bitarray_marcos_ocupados = PTHREAD_MUTEX_INITIALIZER;
-uint8_t* bitarray_marcos_ocupados;
-void* memoria;
 void levantar_config(char *ruta)
 {
     logger_memoria = iniciar_logger("memoria.log", "MEMORIA:");
@@ -31,6 +27,8 @@ int main(int argc, char *argv[])
     // CONFIG y logger
     levantar_config(argv[1]);
 
+    inicializar_memoria();
+
     // genero conexion a filesystem
     conexion_memoria_filesystem = crear_conexion(logger_memoria, "FILESYSTEM", ip_filesystem, puerto_filesystem);
     enviar_mensaje("Hola soy MEMORIA", conexion_memoria_filesystem);
@@ -43,14 +41,6 @@ int main(int argc, char *argv[])
 	eliminar_paquete(paquete);
     
     // espero clientes kernel,cpu y filesystem
-    pcb* proceso;
-    int bytes_recibidos = 0;
-    int pid;
-    Proceso *tabla_proceso;
-    t_marco* marcos;
-    lista_tablas_de_procesos = list_create();
-    sem_init(&swap_asignado, 0, 0);
-
     while(server_escuchar(fd_memoria));
    
     // CIERRO LOG Y CONFIG y libero conexion
@@ -190,6 +180,8 @@ static void procesar_conexion(void *void_args) {
             list_destroy(paquete_pag);
             
             //cargar pagina
+            int numero_marco = tratar_page_fault(int num_pagina, int pid_actual);
+            send_
             
             break;
         default:
@@ -213,9 +205,26 @@ int server_escuchar(int fd_memoria) {
 
 	return 0;
 }
+
+void inicializar_memoria(){
+    sem_init(&swap_asignado, 0, 0);
+
+	memoria = malloc(tam_memoria);
+
+	lista_tablas_de_procesos = list_create();
+
+    int cantidad_paginas = tam_memoria / tam_pagina;
+	bitarray_marcos_ocupados = malloc(cantidad_paginas);
+	for (int i = 0; i < cantidad_paginas; i++)
+		bitarray_marcos_ocupados[i] = 0;
+
+}
+
+
 //[ [entradas], [entradas], [entradas]   ]
 
 int obtener_nro_marco_memoria(int num_pagina, int pid_actual){
+    
     for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
         t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
         entrada_pagina * entrada = list_get(tabla_pagina, 0);
@@ -230,23 +239,6 @@ int obtener_nro_marco_memoria(int num_pagina, int pid_actual){
 }
 
 
-void liberar_marco(t_marco* marco){
-    
-    log_info(logger_memoria,"se libera el marco:%d, con el proceso:%d",marco->num_marco,marco->pid);
-    marco->ocupado = false;
-    marco->pid = -1;
-}
-
-int calcularMarco(int pid, t_marco* marcos, int num_marcos) {
-    for (int i = 0; i < num_marcos; i++) {
-        if (marcos[i].ocupado && marcos[i].pid == pid) {
-            return marcos[i].num_marco;
-        }
-    }
-    
-    return -1;
-}
-
 void escribir_marco_en_memoria(uint32_t nro_marco, void* marco){
 	char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
     uint32_t tam_pagina_int = atoi(tam_pagina_str);
@@ -255,9 +247,10 @@ void escribir_marco_en_memoria(uint32_t nro_marco, void* marco){
 	memcpy(memoria + marco_en_memoria, marco, tam_pagina);
 	pthread_mutex_unlock(&mx_memoria);
 }
-int buscar_marco_libre(){
+
+// Buscar el primer marco libre
+int buscar_marco_libre(){//ESTO ESTA BIEN
 	pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
-    
 	for (int i = 0; i < get_memory_and_page_size(); i++){
 		if (bitarray_marcos_ocupados[i] == 0){
 			pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
@@ -267,28 +260,18 @@ int buscar_marco_libre(){
 	pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
 	return -1;
 }
+
 // Devuelve la cantidad de marcos que requiere un proceso del tamanio especificado
-uint32_t calcular_cant_marcos(uint16_t tamanio){
-	uint32_t  cant_marcos = get_memory_and_page_size()-1;
-    char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
-    uint32_t tam_pagina_int = atoi(tam_pagina_str);
-	if (tamanio % tam_pagina_int != 0)
+int calcular_cant_marcos(uint16_t tamanio){
+	int  cant_marcos = get_memory_and_page_size();
+	if (tamanio % tam_pagina != 0)
 		cant_marcos++;
 	return cant_marcos;
 }
-t_list* obtenerMarcosAsignados(int pid){
 
-}
 
 void eliminar_proceso_memoria(int pid) {
     
-    t_list* marcos_asignados = obtenerMarcosAsignados(pid);
-    
-    for (int i = 0; i < list_size(marcos_asignados); i++) {
-        t_marco* marco = list_get(marcos_asignados, i);
-        liberar_marco(marco);
-    }
-    list_destroy(marcos_asignados);
 }
 
 
@@ -351,15 +334,10 @@ int obtenerCantidadPaginasAsignadas(int pid) {
     list_destroy(marcos_asignados);
     return cantidadDePaginasAsignadas;
 }
-uint32_t get_memory_and_page_size() {
-  char* tam_memoria_str = config_get_string_value(config, "TAM_MEMORIA");
-  char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
-
-  uint32_t tam_memoria_int = atoi(tam_memoria_str);
-  uint32_t tam_pagina_int = atoi(tam_pagina_str);
-
-  return (tam_memoria_int / tam_pagina_int) + 1;
+int get_memory_and_page_size() {
+  return (tam_memoria / tam_pagina);
 }
+
 t_list* crear_tabla(int pid){
     t_list* tabla_de_pagina = list_create();
     uint32_t entrada_de_paginas = get_memory_and_page_size();
@@ -373,48 +351,92 @@ t_list* crear_tabla(int pid){
     return tabla_de_pagina;
 }
 
-/* ----------------------PAGE FAULT----------------------------
+t_list* buscar_tabla_pagina(int pid_actual){
+    for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
+        t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
+        entrada_pagina * entrada = list_get(tabla_pagina, 0);
+        if(entrada->pid==pid_actual){
+           return tabla_pagina;
+        }
+    }
+    return NULL;
+}
+
+// leer marco
+void* leer_marco_en_swap(int fd, uint32_t nro_marco, uint32_t tamanio_marcos){
+	void* marco = malloc(tamanio_marcos);
+	struct stat sb;
+	if (fstat(fd,&sb) == -1){
+		log_error(logger, "No se pudo obtener el tamaño del archivo :(");
+		exit(-1);
+	}
+	void* datos_archivo = mmap(NULL, sb.st_size, PROT_READ, MAP_PRIVATE,fd,0);
+	if (datos_archivo == MAP_FAILED){ // si fallo el mmap
+		log_error(logger, "Fallo de mmap\n[ERROR] %s",strerror(errno));
+		if (errno == EINVAL) // si el error es de argumentos invalidos
+			log_error(logger, "Parametros pasados: tam %d fd %d offset %d",(int) sb.st_size, fd, nro_marco * tamanio_marcos);
+		exit(-1);
+	}
+	memcpy(marco, datos_archivo + nro_marco * tamanio_marcos, tamanio_marcos);
+	munmap(datos_archivo, sb.st_size);
+	usleep((configuracion->RETARDO_SWAP) * 1000);
+	return marco;
+}
+
+----------------------PAGE FAULT----------------------------
 // Función para tratar un fallo de página
 int tratar_page_fault(int num_pagina, int pid_actual) {
     // Crear y obtener listas para el proceso y la tabla de marcos
-    t_list* tabla_de_proceso = list_create();
-    tabla_de_proceso = list_get(lista_tablas_de_procesos, pid_actual);
+    t_list* tabla_de_proceso = buscar_tabla_pagina(pid_actual);
     
     // Obtener información de la página que causó el fallo
     entrada_pagina* pagina = list_get(tabla_de_procesos, num_pagina);
 
     // Log: Page fault detectado
-    log_info(logger, "[CPU][ACCESO A DISCO] PAGE FAULT!!!");
+    log_info(logger_memoria, ANSI_COLOR_LIME " PAGE FAULT!!!");
 
     // Obtener el número de marco en el swap
     //Lo obtenemos desde filesystem
+    send_pedido_swap(conexion_memoria_filesystem, pagina->posicion_swap);
+    void *bloque_swap = recv_swap(conexion_memoria_filesystem);
+
 
     // Leer el contenido de la página desde el swap
     void* marco = leer_marco_en_swap(fd, nro_marco_en_swap, tam_pagina);
 
-    int nro_marco;
+    int nro_marco = buscar_marco_libre();
 
-    // Si el proceso ya tiene todos sus marcos en memoria
-    if (marcos_en_memoria(pid_actual) == marcos_por_proceso) {
+    if (nro_marco == -1)
+    {
+        nro_marco = usar_algoritmo(pid_actual);
+        
+        // Log: Información sobre el reemplazo
+        log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
+                 pid_actual, nro_marco, num_pagina);
+    } else {
+        // Si la memoria tiene marcos disponibles, buscar un marco libre en memoria
+        nro_marco = buscar_marco_libre();
+    }
+    
+
+    // Si la memoria tiene todos los marcos ocupados
+    /*if (memoria_llena()) {
         // Utilizar LRU O FIFO  para seleccionar un marco a reemplazar
         nro_marco = usar_algoritmo(pid_actual);
 
         // Log: Información sobre el reemplazo
         log_info(logger, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
                  pid_actual, nro_marco, num_pagina);
-    } else {
-        // Si el proceso aún tiene marcos disponibles, buscar un marco libre en memoria
+    }else {
+        // Si la memoria tiene marcos disponibles, buscar un marco libre en memoria
         nro_marco = buscar_marco_libre();
-
-        // Log: El proceso tiene marcos disponibles
-        log_info(logger, "[CPU] El proceso tiene marcos disponibles :)");
 
         // Si no hay marcos libres, logear un error y terminar el programa
         if (nro_marco == -1) {
             log_error(logger, "ERROR!!!!! NO HAY MARCOS LIBRES EN MEMORIA!!!");
             exit(EXIT_FAILURE);
         }
-    }
+    }*/
 
     // Marcar el nuevo marco como ocupado
     
@@ -438,7 +460,6 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
     return nro_marco;
 }
 
-*/
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------
 
 char *armar_path_instruccion(char *path_consola) {
