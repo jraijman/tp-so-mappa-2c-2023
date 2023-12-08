@@ -195,7 +195,7 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int dir
         fCloseInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_SEEK") == 0) {
         flag_ciclo = false;
-        fSeekInstruccion(contexto_ejecucion, instruccion, fd_cpu_dispatch, logger_cpu);
+        fSeekInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_READ") == 0) {
         flag_ciclo = false;
         fReadInstruccion(contexto_ejecucion, instruccion,direccionFisica, fd_cpu_dispatch,fd_memoria, logger_cpu);

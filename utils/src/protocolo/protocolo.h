@@ -218,10 +218,10 @@ int recibir_operacion(int socket_cliente);
 void* recibir_buffer(int* size, int socket_cliente);
 void recibir_mensaje(t_log* logger, int socket_cliente);
 void crear_buffer(t_paquete* paquete);
+void send_liberacion_swap(int fd, int pid);
+void send_fin_escritura(int fd_modulo);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 void recv_pcbDesalojado(int fd,pcb** contexto, char** extra);
-void send_direccion(int conexion_cpu_memoria,Direccion direccion);
-Direccion recv_direccion(int conexion_cpu_memoria);
 //Paquetes
 t_list* recibir_paquete(int);
 t_paquete* crear_paquete(op_code);
@@ -229,7 +229,7 @@ void agregar_a_paquete(t_paquete* paquete, void* valor, int tamanio);
 void enviar_paquete(t_paquete* paquete, int socket_cliente);
 void eliminar_paquete(t_paquete* paquete);
 void* serializar_paquete(t_paquete* paquete, int bytes);
-
+void registros_destroy(t_registros* registros);
 
 //Empaquetados
 void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos);

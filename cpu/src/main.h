@@ -32,4 +32,5 @@ int decodeInstruccion(Instruccion* instruccion, pcb* contexto);
 bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* logger);
 void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int direccionFisica, int fd, int fd_memoria);
 int server_escuchar(int server_socket_dispatch, int server_socket_interupt);
+int obtener_direccion_logica(Instruccion *instruccion);
 #endif

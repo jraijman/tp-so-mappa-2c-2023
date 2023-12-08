@@ -168,4 +168,6 @@ bool verificar_espera_circular(t_list *lista_retencion);
 t_list *recursos_que_tiene(pcb *proceso);
 t_list *recursos_que_espera(pcb *proceso);
 
+void detectar_deadlock_recurso();
+
 #endif 

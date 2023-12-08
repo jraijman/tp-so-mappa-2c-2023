@@ -662,7 +662,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
         if(archivo->abierto_w == 1){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             agregar_a_block(proceso);
-            queue_push(archivo->bloqueados_archivo, proceso->pid);
+            queue_push(archivo->bloqueados_archivo, &proceso->pid);
             sacar_de_exec();
             sem_post(&puedo_ejecutar_proceso);
         }else{
@@ -688,7 +688,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
         if(archivo->abierto_w == 1 || archivo->cant_abierto_r > 0){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             agregar_a_block(proceso);
-            queue_push(archivo->bloqueados_archivo, proceso->pid);
+            queue_push(archivo->bloqueados_archivo, &proceso->pid);
             sacar_de_exec();
             sem_post(&puedo_ejecutar_proceso);
         }else{
@@ -733,8 +733,8 @@ void manejar_recibir_cpu(){
                 case PCB_PAGEFAULT:
                     t_list* paquetePF=recibir_paquete(fd_cpu_dispatch);
                     int cont=0;
-                    proceso=desempaquetar_pcb(paquetePF,cont);
-                    int paginaFault=list_get(paquetePF,cont);
+                    proceso=desempaquetar_pcb(paquetePF,&cont);
+                    int paginaFault=*(int*)list_get(paquetePF,cont);
                     list_destroy(paquetePF);
                     //MANEJO DE PAGE FAULT
                     break;

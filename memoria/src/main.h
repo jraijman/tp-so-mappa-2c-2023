@@ -37,6 +37,7 @@ t_log* logger_memoria;
 t_config* config;
 t_list* l_marco;
 t_list* l_proceso;
+void actualizarTiempoDeUso(t_list* tabla_De_Paginas);
 void liberar_marco(t_marco*);
 t_marco* marco_create(uint32_t, uint32_t,bool);
 int reservar_primer_marco_libre(int);
@@ -60,5 +61,7 @@ char *armar_path_instruccion(char *path_consola);
 uint32_t algoritmo_fifo(int pid_actual);
 void algoritmo_lru(t_list* tabla_De_Paginas);
 bool masVieja(void *unaPag, void *otraPag);
-
+void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd);
+void eliminar_tabla_paginas(int pid);
+void log_valor_espacio_usuario(char* valor, int tamanio);
 #endif 
