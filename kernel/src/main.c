@@ -1141,28 +1141,32 @@ void detectar_deadlock_recurso(){
         
         estructura_deadlock *estructura = armar_estructura_deadlock(un_proceso->pid, recursos_en_posecion, recursos_en_espera);
         list_add(lista_posible_deadlock, estructura);
+        
         t_list* lista_ret_y_esp = tiene_retencion_y_espera(un_proceso);
         list_add_all(lista_retencion, lista_ret_y_esp);
-        list_destroy(lista_ret_y_esp);
         //[REC1 REC2 REC2 REC1]    [REC1 REC2 REC2 REC3 REC3 REC4 REC4 REC1]
         if(list_size(lista_retencion) > 0){
             if(verificar_espera_circular(lista_retencion)){
                 //loguear toda la lista de posible deadlock
-                
-                for(int i = 0; i < list_size(lista_posible_deadlock); i++){
-                    estructura_deadlock *estructura = list_get(lista_posible_deadlock, i);
-                    char* recursos_pos = list_to_string_char(estructura->recursos_en_posecion);
-                    char* recursos_esp = list_to_string_char(estructura->recursos_en_espera);
-                    log_info(logger_kernel,ANSI_COLOR_GRAY " Deadlock detectado: %d - Recursos en posesión %s - Recurso requerido: %s",estructura->pid, recursos_pos, recursos_esp);
-                    free(recursos_pos);
-                    free(recursos_esp);
-                    estrctura_deadlock_destroyer(estructura);
-                }
+                loguear_deadlock(lista_posible_deadlock);
             }
         }
+
+        list_destroy(lista_ret_y_esp);
     }
     list_destroy(lista_posible_deadlock);
     list_destroy(lista_retencion);
+}
+
+void loguear_deadlock(t_list* lista_posible_deadlock){
+    for(int i = 0; i < list_size(lista_posible_deadlock); i++){
+        estructura_deadlock *estructura = list_get(lista_posible_deadlock, i);
+        char* recursos_pos = list_to_string_char(estructura->recursos_en_posecion);
+        char* recursos_esp = list_to_string_char(estructura->recursos_en_espera);
+        log_info(logger_kernel,ANSI_COLOR_GRAY " Deadlock detectado: %d - Recursos en posesión %s - Recurso requerido: %s",estructura->pid, recursos_pos, recursos_esp);
+        free(recursos_pos);
+        free(recursos_esp);
+    }
 }
 
 t_list *recursos_que_tiene(pcb *proceso) {
