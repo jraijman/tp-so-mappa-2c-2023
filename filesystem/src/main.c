@@ -44,48 +44,65 @@ bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[], bool* bitm
     if (swapLibres < cant_bloques) {
         return false;
     }
-
     FILE* f = fopen(path_bloques, "rb+");
     fseek(f, 0, SEEK_SET);
     BLOQUE bloque;
     bloque.info = malloc(tam_bloque);
-
+    long aux;
     if (f != NULL) {
         int j = 0;
         while (j < cant_bloques) {
             //sleep(retardo_acceso_bloque / 1000);
-            fread(bloque.info, tam_bloque, 1, f);
             log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld", (ftell(f) / tam_bloque));
-
+            fread(bloque.info, tam_bloque, 1, f);
+            fseek(f,-(tam_bloque),SEEK_CUR);
             if (strcmp(bloque.info, "0") == 0) {
-                strcpy(bloque.info, "\0");
                 swapLibres--;
-                bloques_reservados[j] = (ftell(f) / tam_bloque);
+                strcpy(bloque.info, "\0");
+                bloques_reservados[j] =(ftell(f) / tam_bloque);
                 //sleep(retardo_acceso_bloque / 1000);
                 bitmap[ftell(f) / tam_bloque] = 1;
-                fwrite(bloque.info, tam_bloque, 1, f);
-                fseek(f, tam_bloque, SEEK_CUR);
                 log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld", (ftell(f) / tam_bloque));
+                fwrite(bloque.info, tam_bloque, 1, f);
                 j++;
             } else {
                 fseek(f, tam_bloque, SEEK_CUR);
             }
         }
-
         fclose(f);
+        free(bloque.info);
         return true;
     } else {
+        free(bloque.info);
         return false;
     }
 }
 
 //-----------------------LEER BLOQUE-------------------------------------------
 char* leer_bloque(int num_bloque){
+	FILE* f=fopen(path_bloques, "rb");
+    if(f!=NULL){
+        char* info = malloc(tam_bloque);
+        sleep(retardo_acceso_bloque / 1000);
+        fseek(f, tam_bloque * num_bloque, SEEK_SET);
+        log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+        fread(info, tam_bloque,1,f);
+        fclose(f);
+        log_info(logger_filesystem, "LA INFO LEIDA ES: %s", info);
+        return info;
+    }
+    else{
+        fclose(f);
+        return NULL;
+    }
+}
+char* escribir_bloque(int num_bloque){
 	FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
         char* info = malloc(tam_bloque);
         sleep(retardo_acceso_bloque / 1000);
         fseek(f, tam_bloque * num_bloque, SEEK_SET);
+        fread(&info, tam_bloque,1,f);
         log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
         fclose(f);
         log_info(logger_filesystem, "LA INFO LEIDA ES: %s", info);
@@ -96,6 +113,7 @@ char* leer_bloque(int num_bloque){
         return NULL;
     }
 }
+
 
 //----------------------------GESTION BLOQUES----------------------------------
 bool iniciar_bloques(int tamano_bloques, bool* bitmapBloques, bool* bitmapSwap) {
@@ -167,28 +185,30 @@ void bloqueOcupado(bool* bitmap){
     }
 }
 void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap) {
-    fseek(f,(bloque+cant_bloques_swap)*tam_bloque, SEEK_SET);
+    bloque=bloque+cant_bloques_swap;
+    fseek(f,bloque*tam_bloque, SEEK_SET);
     BLOQUE reservado;
     reservado.info = malloc(tam_bloque);
     strcpy(reservado.info, "\0");
     sleep(retardo_acceso_bloque / 1000);
     log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
     fwrite(reservado.info, tam_bloque, 1, f);
-    bitmap[bloque] = 1;
+    bitmap[bloque-cant_bloques_swap] = 1;
+    bloque=ftell(f)/tam_bloque;
     bloquesLibres--;    
     free(reservado.info);
 }
 
-
 void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap) {
-    fseek(f, (bloqueLib+cant_bloques_swap)*tam_bloque, SEEK_SET);
+    bloqueLib=bloqueLib+cant_bloques_swap;
+    fseek(f, bloqueLib*tam_bloque, SEEK_SET);
     BLOQUE bloque;
     bloque.info = malloc(tam_bloque);
     strcpy(bloque.info, "0");
     sleep(retardo_acceso_bloque / 1000);
     log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
     fwrite(bloque.info, tam_bloque, 1, f);
-    bitmap[bloqueLib] = 0;
+    bitmap[bloqueLib-cant_bloques_swap] = 0;
     bloquesLibres++;
     free(bloque.info);
 }
@@ -455,29 +475,17 @@ int main(int argc, char* argv[]) {
     }else{
         log_info(logger_filesystem,"Archivo de bloques iniciado correctamente: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibres,bloquesLibres);
     }
-    bloqueOcupado(bitmapBloques);
+    int bloques_reservados[20];
+    reservar_bloquesSWAP(20,bloques_reservados,bitmapBloquesSwap);
+    char* info=malloc(tam_bloque);
+    info=leer_bloque(0);
+    log_info(logger_filesystem,"%s",info);
+    leer_bloque(1);
+    leer_bloque(2);
+    leer_bloque(30);
     //Pruebas
-    /*if(crear_archivo("probando2")){
-    asignarBloque("probando2", bitmapBloques);}
-    truncarArchivo("probando2", 1024*20,bitmapBloques);
-    bloqueOcupado(bitmapBloques);
-    log_info(logger_filesystem,"Trunqué el archivo");
-    int tamano=abrir_archivo("probando2");
-    int bloque=obtener_bloqueInicial("probando2");
-    actualizarFcb("probando2", tamano, bloque);
-    log_info(logger_filesystem,"Archivo truncado: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibres,bloquesLibres);
-    log_info(logger_filesystem,"Abri el archivo de tamano %d que inicia en el bloque %d", tamano, bloque);
-    bloqueOcupado(bitmapBloques);
-    truncarArchivo("probando2", 1024*10, bitmapBloques);
-    bloqueOcupado(bitmapBloques);
-    tamano=abrir_archivo("probando2");
-    bloque=obtener_bloqueInicial("probando2");
-    actualizarFcb("probando2", tamano, bloque);
-    bloqueOcupado;
-    log_info(logger_filesystem,"Archivo truncado: SWAP LIBRE %d, BLOQUES LIBRES %d",swapLibres,bloquesLibres);
-    log_info(logger_filesystem,"Abri el archivo de tamano %d que inicia en el bloque %d", tamano, bloque);
     //espero clientes kernel y memoria
-    bloqueOcupado(bitmapBloques);*/
+    bloqueOcupado(bitmapBloques);
 
     while(server_escuchar_filesystem(logger_filesystem,"FILESYSTEM",fd_filesystem,bitmapBloques,bitmapBloquesSwap));
 
