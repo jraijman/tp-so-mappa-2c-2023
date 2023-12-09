@@ -60,7 +60,7 @@ pcb* encontrar_proceso(int pid);
 void* obtener_marco(uint32_t nro_marco); 
 void eliminar_proceso(int pid);
 void liberar_recursos(pcb* proceso);
-void escribir_marco_en_memoria(uint32_t nro_marco, void* marco);
+void escribir_marco_en_memoria(uint32_t nro_marco, uint32_t* marco);
 int get_memory_and_page_size();
 int buscar_marco_libre();
 t_list* obtenerMarcosAsignados( int pid);
@@ -77,6 +77,8 @@ void log_valor_espacio_usuario(char* valor, int tamanio);
 int obtener_nro_marco_memoria(int num_pagina, int pid_actual);
 int tratar_page_fault(int num_pagina, int pid_actual);
 void escribir_bloque_en_memoria(char* bloque_swap, int nro_marco);
+char* leer_marco_de_memoria(int nro_marco);
+uint32_t* leer_registro_de_memoria_uint(int nro_marco);
 
 
 

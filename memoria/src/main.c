@@ -184,6 +184,36 @@ static void procesar_conexion(void *void_args) {
             
             break;
             }
+        case MOV_IN:{
+            //leer valor de direccion fisica recibido de cpu y lee de memoria y enviar
+            t_list* paquete1 = recibir_paquete(cliente_socket);
+            int* puntero = list_get(paquete1, 0);
+            int direccionFisica = *puntero;
+            free(puntero);
+            list_destroy(paquete1);
+            uint32_t* valor = leer_registro_de_memoria_uint(direccionFisica);
+            log_info(logger_memoria, "Valor leido de memoria: %d", *valor);
+            t_paquete* paquete = crear_paquete(MOV_IN);
+            agregar_a_paquete(paquete,valor,sizeof(uint32_t));
+            enviar_paquete(paquete, cliente_socket);
+            eliminar_paquete(paquete);
+            log_info(logger_memoria, "Valor enviado a cpu");
+            break;
+            }
+        case MOV_OUT:{
+            //leer valor de direccion fisica recibido de cpu y lee de memoria y enviar
+            t_list* paquete = recibir_paquete(cliente_socket);
+            int* puntero = list_get(paquete, 0);
+            int direccionFisica = *puntero;
+            uint32_t *puntero2 = list_get(paquete, 1);
+            uint32_t valor = *puntero2;
+            free(puntero);
+            free(puntero2);
+            list_destroy(paquete);
+            //marcar bit de modificado en 1
+            escribir_marco_en_memoria(direccionFisica, &valor);
+            break;
+            }
         default:
             printf("Error al recibir mensaje con OPCODE %d \n", cop);
             break;
@@ -241,13 +271,32 @@ int obtener_nro_marco_memoria(int num_pagina, int pid_actual){
 }
 
 
-void escribir_marco_en_memoria(uint32_t nro_marco, void* marco){
-	char* tam_pagina_str = config_get_string_value(config, "TAM_PAGINA");
-    uint32_t tam_pagina_int = atoi(tam_pagina_str);
-    uint32_t marco_en_memoria = nro_marco * tam_pagina_int;
+void escribir_marco_en_memoria(uint32_t nro_marco, uint32_t* valor){
+    log_info(logger_memoria, "Escribiendo en marco %d", nro_marco);
+    uint32_t marco_en_memoria = nro_marco * tam_pagina;
 	pthread_mutex_lock(&mx_memoria);
-	memcpy(memoria + marco_en_memoria, marco, tam_pagina);
+	memcpy(memoria + marco_en_memoria, valor, sizeof(uint32_t));
 	pthread_mutex_unlock(&mx_memoria);
+}
+
+uint32_t* leer_registro_de_memoria_uint(int nro_marco){
+    log_info(logger_memoria, "Leyendo marco %d", nro_marco);
+    uint32_t* leido = malloc(tam_pagina);
+    int marco_en_memoria = nro_marco * tam_pagina;
+    pthread_mutex_lock(&mx_memoria);
+    memcpy(leido, memoria + marco_en_memoria, sizeof(uint32_t));
+    pthread_mutex_unlock(&mx_memoria);
+    return leido;
+}
+
+char* leer_marco_de_memoria(int nro_marco){
+    log_info(logger_memoria, "Leyendo marco %d", nro_marco);
+    char* leido = malloc(tam_pagina);
+    int marco_en_memoria = nro_marco * tam_pagina;
+    pthread_mutex_lock(&mx_memoria);
+    memcpy(leido, memoria + marco_en_memoria, tam_pagina);
+    pthread_mutex_unlock(&mx_memoria);
+    return leido;
 }
 
 // Buscar el primer marco libre

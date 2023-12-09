@@ -109,13 +109,24 @@ void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int 
     send_pcbDesalojado(contexto, "EXIT","", fd_dispatch, logger);
 }
 
-void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, t_log* logger) {
+void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, t_log* logger, int fd_memoria) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_IN");
     // MOV_IN (Registro, Dirección Lógica): Lee el valor de memoria correspondiente a la Dirección Lógica y lo almacena en el Registro.
     char* registro = instruccion.operando1;
-    int* registro_destino = obtener_registro(contexto, registro);
+    uint32_t* registro_destino = obtener_registro(contexto, registro);
     if(registro_destino!=NULL){
-    *registro_destino = direccionFisica;
+    t_paquete* paquete1 = crear_paquete(MOV_IN);
+    agregar_a_paquete(paquete1,&direccionFisica,sizeof(int));
+    enviar_paquete(paquete1, fd_memoria);
+    eliminar_paquete(paquete1);
+    //espera a recibir el valor de la direccion fisica
+    op_code codigo = recibir_operacion(fd_memoria);
+    t_list* paquete = recibir_paquete(fd_memoria);
+	int* puntero = list_get(paquete, 0);
+	int valor = *puntero;
+	free(puntero);
+	list_destroy(paquete);
+    *registro_destino = valor;
     }else{
         log_error(logger, "Registro no reconocido en instruccion MOV_IN");
     }
@@ -126,10 +137,14 @@ void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisic
     // MOV_OUT (Dirección Lógica, Registro): Lee el valor del Registro y lo escribe en 
     //la dirección física de memoria obtenida a partir de la Dirección Lógica.
     char* registro = instruccion.operando2;
-    int* registro_origen = obtener_registro(contexto, registro);
+    uint32_t* registro_origen = obtener_registro(contexto, registro);
     if(registro_origen != NULL){
         if(direccionFisica>=0){
         //escribirMemoria(DirFisica);
+        t_paquete* paquete = crear_paquete(MOV_OUT);
+        agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
+        agregar_a_paquete(paquete,registro_origen,sizeof(uint32_t));
+        enviar_paquete(paquete, fd_memoria);
         }
     }else{
         log_error(logger,"Registro no reconocido en instruccion MOV_OUT");

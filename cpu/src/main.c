@@ -196,7 +196,7 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int dir
         flag_ciclo = false;
         exitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode,"MOV_IN")==0){
-        movInInstruccion(contexto_ejecucion, instruccion,direccionFisica,logger_cpu);
+        movInInstruccion(contexto_ejecucion, instruccion,direccionFisica,logger_cpu,fd_memoria);
     } else if (strcmp(instruccion.opcode,"MOV_OUT")==0){
         movOutInstruccion(contexto_ejecucion,instruccion,direccionFisica,fd_memoria,logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_OPEN") == 0) {
