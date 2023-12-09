@@ -63,7 +63,7 @@ static void procesar_conexion(void *void_args) {
 			return;
 		}
 		switch (cop) {
-		case MENSAJE:
+		case MENSAJE:{
 			char* msj = recibir_mensaje_fs(cliente_socket);
                 if(strcmp(msj,"TAM_PAGINA")==0){
                     send_tam_pagina(tam_pagina,cliente_socket);
@@ -72,13 +72,14 @@ static void procesar_conexion(void *void_args) {
                 }
                 free(msj); // Liberar la memoria del mensaje recibido
 			break;
+            }
 		case PAQUETE:
 			t_list *paquete_recibido = recibir_paquete(cliente_socket);
 			log_info(logger_memoria, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
 			//list_iterate(paquete_recibido, (void*) iterator);
 			break;
-		case INICIALIZAR_PROCESO:
-			pcb* proceso = recv_pcb(cliente_socket); //void* memoriaFisica = malloc();
+		case INICIALIZAR_PROCESO:{
+            pcb* proceso = recv_pcb(cliente_socket); //void* memoriaFisica = malloc();
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             //enviar_mensaje("OK inicio proceso", cliente_socket);
             int cant_paginas_necesarias = paginas_necesarias(proceso);
@@ -87,7 +88,7 @@ static void procesar_conexion(void *void_args) {
             send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
             //bloquear con recv hasta recibir la lista de swap 
             printf("bloqueado esperando a swap\n");
-            op_code cop = recibir_operacion(conexion_memoria_filesystem);
+            op_code cop2 = recibir_operacion(conexion_memoria_filesystem);
             t_list* bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
             //log_info(logger_memoria, "Recibí la lista de swap %s");
             t_list* tabla_paginas = inicializar_proceso(proceso, bloques_reservados);
@@ -96,27 +97,32 @@ static void procesar_conexion(void *void_args) {
             
             pcb_destroyer(proceso);
             break;
-		case FINALIZAR_PROCESO:
-			int pid_fin = recv_terminar_proceso(cliente_socket);
+            }
+			
+		case FINALIZAR_PROCESO:{
+            int pid_fin = recv_terminar_proceso(cliente_socket);
             //enviar_mensaje("OK fin proceso", cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
 			//terminar_proceso(pid_fin);
 			break;
-        case PEDIDO_MARCO:
+        }			
+        case PEDIDO_MARCO:{
 	        int pid;
 	        int numero_pagina;
             recv_pedido_marco(cliente_socket, &pid, &numero_pagina);
             int numeroMarco;
             //Buscar el numero de marco;
             numeroMarco = obtener_nro_marco_memoria(numero_pagina, pid);
-            if(numeroMarco > 0){
+            if(numeroMarco >= 0){
                 send_marco(cliente_socket, numeroMarco);
             }else{
                 t_paquete* paquetePageFault = crear_paquete(PCB_PAGEFAULT);
+                agregar_a_paquete(paquetePageFault, &numeroMarco, sizeof(int));
                 enviar_paquete(paquetePageFault, cliente_socket);
                 eliminar_paquete(paquetePageFault);
             }
             break;
+            }
         case PEDIDO_LECTURA_FS:
          /*
             valor_fs = malloc(*tamano_fs);
@@ -156,7 +162,7 @@ static void procesar_conexion(void *void_args) {
             log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);*/
 
         break;
-        case ENVIO_INSTRUCCION:
+        case ENVIO_INSTRUCCION:{
             char* path;
             int* pc;
             sleep(RETARDO_REPUESTA/1000);
@@ -166,7 +172,8 @@ static void procesar_conexion(void *void_args) {
             free(pc); // Liberar memoria de la variable pc
             //
             break;
-        case CARGAR_PAGINA:
+            }
+        case CARGAR_PAGINA:{
             int pid_pag;
             int pagina_a_cargar;
             recv_cargar_pagina(cliente_socket, &pid_pag, &pagina_a_cargar);
@@ -176,6 +183,7 @@ static void procesar_conexion(void *void_args) {
             send_pagina_cargada(cliente_socket);
             
             break;
+            }
         default:
             printf("Error al recibir mensaje con OPCODE %d \n", cop);
             break;
@@ -381,6 +389,8 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
 
     int nro_marco = buscar_marco_libre();
 
+    
+
     if (nro_marco == -1) // estan todas ocupadas
     {
         //nro_marco = usar_algoritmo(pid_actual);
@@ -388,9 +398,24 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
         // Log: Información sobre el reemplazo
         log_info(logger_memoria, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
                  pid_actual, nro_marco, num_pagina);
+
+        //escribir en tabla de pagina que se pone en ese frame
+        pagina->num_marco = nro_marco;
+        pagina->en_memoria = 1;
+        // Marcar el nuevo marco como ocupado
+        pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
+        bitarray_marcos_ocupados[nro_marco] = 1;
+        pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
     } else {
         
         escribir_bloque_en_memoria(bloque_swap, nro_marco);
+        //escribir en tabla de pagina que se pone en ese frame
+        pagina->num_marco = nro_marco;
+        pagina->en_memoria = 1;
+        // Marcar el nuevo marco como ocupado
+        pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
+        bitarray_marcos_ocupados[nro_marco] = 1;
+        pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
 
     }
     
@@ -418,7 +443,7 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
              pid_actual, nro_marco, num_pagina);*/
 
     // Devolver el número de marco utilizado
-    return 1;
+    return nro_marco;
 }
 
 // ----------------------MEMORIA DE INSTRUCCIONES----------------------------

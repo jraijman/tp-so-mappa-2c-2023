@@ -823,11 +823,14 @@ void send_marco(int fd_modulo, int memoria_fisica){
 	eliminar_paquete(paquete);
 }
 
-void recv_marco(int fd_modulo, int *memoria_fisica){
+int recv_marco(int fd_modulo){
 	printf("Recibiendo marco\n");
 	t_list* paquete = recibir_paquete(fd_modulo);
-	*memoria_fisica = *(int*)list_get(paquete, 0);
+	int* tiempo = list_get(paquete, 0);
+	int ret = *tiempo;
+	free(tiempo);
 	list_destroy(paquete);
+	return ret;
 }
 
 void send_pcb_page_fault(int fd_modulo, pcb* contexto, int pagina){

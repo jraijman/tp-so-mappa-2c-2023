@@ -1108,7 +1108,7 @@ void* manejar_page_fault(void * args){
     sem_post(&puedo_ejecutar_proceso);
 
     send_cargar_pagina(fd_memoria, proceso->pid, pagina);
-
+    op_code codigo = recibir_operacion(fd_memoria);
     char *respuesta = recv_pagina_cargada(fd_memoria);
 
     if(strcmp(respuesta, "OK") == 0){

@@ -11,11 +11,12 @@ int traducir(int direccion_logica, int fd, int pid, int fd_dispatch) {
     op_code cop = recibir_operacion(fd);
     if(cop == ENVIO_MARCO){
         printf("ESTA EN MEMORIA\n");
-        int direccion_fisica;
-        recv_marco(fd, &direccion_fisica);
+        int direccion_fisica = recv_marco(fd);
         return direccion_fisica;
     }else if(cop == PCB_PAGEFAULT){
         printf("HAY PAGE FAULT\n");
+        //usa la misma funcion de recibir peor no es un marco
+        int pagefault = recv_marco(fd);
         send_pcb_page_fault(fd_dispatch, contexto, numeroPagina);
         return -1;
     }
@@ -127,7 +128,7 @@ void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisic
     char* registro = instruccion.operando2;
     int* registro_origen = obtener_registro(contexto, registro);
     if(registro_origen != NULL){
-        if(direccionFisica>0){
+        if(direccionFisica>=0){
         //escribirMemoria(DirFisica);
         }
     }else{

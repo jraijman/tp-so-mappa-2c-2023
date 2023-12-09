@@ -151,7 +151,7 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     int direccionFisica;    
         if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
             direccionFisica=decodeInstruccion(instruccion,contexto,cliente_socket_dispatch);
-            if(direccionFisica > 0 || direccionFisica == -2){
+            if(direccionFisica >= 0 || direccionFisica == -2){
             contexto->pc++;
             executeInstruccion(contexto, *instruccion, direccionFisica, cliente_socket_dispatch, conexion_cpu_memoria);
             }else{
@@ -226,7 +226,7 @@ int decodeInstruccion(Instruccion *instruccion, pcb* contexto, int fd_dispatch){
     strcmp(instruccion->opcode, "F_WRITE") == 0 || strcmp(instruccion->opcode, "MOV_OUT") == 0){
         int direccion_logica = obtener_direccion_logica(instruccion);
         int direccion_fisica = traducir(direccion_logica, conexion_cpu_memoria, contexto->pid, fd_dispatch);
-        if(direccion_fisica > 0){
+        if(direccion_fisica >= 0){
             return direccion_fisica;
         }else{
             return -1;
