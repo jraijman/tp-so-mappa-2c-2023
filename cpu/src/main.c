@@ -151,10 +151,14 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     int direccionFisica;    
         if(fetchInstruccion(conexion_cpu_memoria, contexto, instruccion, logger)){
             direccionFisica=decodeInstruccion(instruccion,contexto,cliente_socket_dispatch);
-            if(direccionFisica>0 || direccionFisica==-2){
+            if(direccionFisica > 0 || direccionFisica == -2){
             contexto->pc++;
-            executeInstruccion(contexto, *instruccion,direccionFisica ,cliente_socket_dispatch, conexion_cpu_memoria);
+            executeInstruccion(contexto, *instruccion, direccionFisica, cliente_socket_dispatch, conexion_cpu_memoria);
             }else{
+                free(instruccion->opcode);
+                free(instruccion->operando1);
+                free(instruccion->operando2);
+                free(instruccion);
                 return;
             }
         }

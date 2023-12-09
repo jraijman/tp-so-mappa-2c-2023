@@ -48,6 +48,7 @@ int main(int argc, char *argv[])
 
 // ----------------------COMUNICACION----------------------------------
 
+
 static void procesar_conexion(void *void_args) {
 	int *args = (int*) void_args;
 	int cliente_socket = *args;
@@ -102,24 +103,18 @@ static void procesar_conexion(void *void_args) {
 			//terminar_proceso(pid_fin);
 			break;
         case PEDIDO_MARCO:
-            t_list* paquete = recibir_paquete(cliente_socket);
-            int* punterodir = list_get(paquete, 0);
-	        int numero_pagina = *punterodir;
-            punterodir = list_get(paquete, 1);
-	        int pid = *punterodir;
-            free(punterodir);
-            list_destroy(paquete);
+	        int pid;
+	        int numero_pagina;
+            recv_pedido_marco(cliente_socket, &pid, &numero_pagina);
             int numeroMarco;
             //Buscar el numero de marco;
-            numeroMarco = obtener_nro_marco_memoria(numero_pagina,pid);
-            if(numeroMarco>0){
-                t_paquete* paqueteMarco=crear_paquete(ENVIO_MARCO);
-                agregar_a_paquete(paqueteMarco, &numeroMarco, sizeof(uint32_t));
-                enviar_paquete(paqueteMarco,cliente_socket);
-                eliminar_paquete(paqueteMarco);
+            numeroMarco = obtener_nro_marco_memoria(numero_pagina, pid);
+            if(numeroMarco > 0){
+                send_marco(cliente_socket, numeroMarco);
             }else{
-                t_paquete* paquetePageFault=crear_paquete(PCB_PAGEFAULT);
-                enviar_paquete(paquetePageFault,cliente_socket);
+                t_paquete* paquetePageFault = crear_paquete(PCB_PAGEFAULT);
+                enviar_paquete(paquetePageFault, cliente_socket);
+                eliminar_paquete(paquetePageFault);
             }
             break;
         case PEDIDO_LECTURA_FS:
@@ -172,14 +167,9 @@ static void procesar_conexion(void *void_args) {
             //
             break;
         case CARGAR_PAGINA:
-            t_list* paquete_pag = recibir_paquete(cliente_socket);
-            int* puntero = list_get(paquete_pag, 0);
-	        int pid_pag = *puntero;
-            
-            puntero = list_get(paquete_pag, 1);
-	        int pagina_a_cargar = *puntero;
-            free(puntero);
-            list_destroy(paquete_pag);
+            int pid_pag;
+            int pagina_a_cargar;
+            recv_cargar_pagina(cliente_socket, &pid_pag, &pagina_a_cargar);
             
             //cargar pagina
             int numero_marco = tratar_page_fault(pagina_a_cargar, pid_pag);
@@ -402,7 +392,6 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
         
         escribir_bloque_en_memoria(bloque_swap, nro_marco);
 
-        
     }
     
 

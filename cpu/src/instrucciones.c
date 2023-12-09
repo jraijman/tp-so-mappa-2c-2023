@@ -4,23 +4,19 @@
 int traducir(int direccion_logica, int fd, int pid, int fd_dispatch) {
     int numeroPagina = floor(direccion_logica / tamPaginaGlobal);
     int desplazamiento = direccion_logica - numeroPagina * tamPaginaGlobal;
-    t_paquete* paqueteDireccion=crear_paquete(PEDIDO_MARCO);
-    agregar_a_paquete(paqueteDireccion, &numeroPagina, sizeof(int));
-    agregar_a_paquete(paqueteDireccion, &pid, sizeof(int));
-    enviar_paquete(paqueteDireccion, fd);
-    eliminar_paquete(paqueteDireccion);
+    send_pedido_marco(fd, pid, numeroPagina);
+
+    printf("SE PIDE TRADUCIR UNA INSTUCCION\n");
+    
     op_code cop = recibir_operacion(fd);
-    if(cop==ENVIO_MARCO){
-        t_list* paqueteDireccionFisica=recibir_paquete(fd);
-        int direccionFisica = list_get(paqueteDireccionFisica,0);
-        list_destroy(paqueteDireccionFisica);
-        return direccionFisica;
-    }else if(cop==PCB_PAGEFAULT){
-        t_paquete* paquetePageFault = crear_paquete(PCB_PAGEFAULT);
-        empaquetar_pcb(paquetePageFault,contexto);
-        agregar_a_paquete(paquetePageFault, &numeroPagina, sizeof(int));
-        enviar_paquete(paquetePageFault, fd_dispatch);
-        eliminar_paquete(paquetePageFault);
+    if(cop == ENVIO_MARCO){
+        printf("ESTA EN MEMORIA\n");
+        int direccion_fisica;
+        recv_marco(fd, &direccion_fisica);
+        return direccion_fisica;
+    }else if(cop == PCB_PAGEFAULT){
+        printf("HAY PAGE FAULT\n");
+        send_pcb_page_fault(fd_dispatch, contexto, numeroPagina);
         return -1;
     }
     return -2;
@@ -134,9 +130,9 @@ void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisic
         if(direccionFisica>0){
         //escribirMemoria(DirFisica);
         }
-        }else{
+    }else{
         log_error(logger,"Registro no reconocido en instruccion MOV_OUT");
-        }
+    }
 }
 
 void fOpenInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch, t_log* logger) {

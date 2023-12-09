@@ -731,19 +731,16 @@ void manejar_recibir_cpu(){
                     recibir_mensaje(logger_kernel, fd_cpu_dispatch);
                     break;
                 case PCB_PAGEFAULT:
-                    t_list* paquetePF = recibir_paquete(fd_cpu_dispatch);
-                    int cont = 0;
-                    proceso = desempaquetar_pcb(paquetePF, &cont);
-                    int paginaFault = *(int*)list_get(paquetePF, cont);
-                    list_destroy(paquetePF);
+                    int pagina_fault;
+                    recv_pcb_page_fault(fd_cpu_dispatch, &proceso, &pagina_fault);
                     pcb_a_borrar = sacar_de_exec();
-                    //pcb_destroyer(pcb_a_borrar);
+                    pcb_destroyer(pcb_a_borrar);
                     //MANEJO DE PAGE FAULT
                     pthread_t hilo_page_fault;
                     // Crear la estructura de argumentos
                     HiloArgs2* args2 = malloc(sizeof(HiloArgs));
                     args2->proceso = proceso;
-                    args2->pagina = paginaFault;
+                    args2->pagina = pagina_fault;
                     pthread_create(&hilo_page_fault, NULL, manejar_page_fault, args2);
                     pthread_detach(hilo_page_fault);
                     break;
@@ -1110,21 +1107,20 @@ void* manejar_page_fault(void * args){
 
     sem_post(&puedo_ejecutar_proceso);
 
-    t_paquete *paquete = crear_paquete(CARGAR_PAGINA);
-    agregar_a_paquete(paquete, &proceso->pid, sizeof(int));
-    agregar_a_paquete(paquete, &pagina, sizeof(int));
-    enviar_paquete(paquete, fd_memoria);
-    eliminar_paquete(paquete);
+    send_cargar_pagina(fd_memoria, proceso->pid, pagina);
 
-    op_code cop = recibir_operacion(fd_memoria);  
-    if(cop == PAGINA_CARGADA){
+    char *respuesta = recv_pagina_cargada(fd_memoria);
+
+    if(strcmp(respuesta, "OK") == 0){
         log_info(logger_kernel, ANSI_COLOR_PINK "PID: %d - PAGINA CARGADA", proceso->pid);
         proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
         agregar_a_ready(proceso);
     }
     else{
-        printf("Error al recibir mensaje %d \n", cop);
+        printf("Error al recibir mensaje %s \n", respuesta);
     } 
+
+    free(respuesta);
 
     // Libera la memoria de la estructura de argumentos
     free(hiloArgs);

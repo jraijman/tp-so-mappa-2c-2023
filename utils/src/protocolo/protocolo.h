@@ -285,5 +285,12 @@ t_list* recv_reserva_swap(int fd_modulo);
 int recv_tam_pagina(int fd_modulo);
 char * recv_leido_swap(int fd_modulo);
 
+void send_pedido_marco(int fd_modulo, int pid, int pagina);
+void recv_pedido_marco(int fd_modulo, int *pid, int *pagina);
+void send_marco(int fd_modulo, int memoria_fisica);
+void recv_marco(int fd_modulo, int *memoria_fisica);
+void send_pcb_page_fault(int fd_modulo, pcb* contexto, int pagina);
+void recv_pcb_page_fault(int fd_modulo, pcb** contexto, int *pagina);
+
 
 #endif
