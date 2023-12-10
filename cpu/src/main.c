@@ -93,13 +93,13 @@ static void procesar_conexion_dispatch(void* void_args) {
                 break;
 		    case PAQUETE:
                 t_list *paquete_recibido = recibir_paquete(cliente_socket_dispatch);
-                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
+                //log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 break;
             case ENVIO_PCB: 
                 flag_ciclo = true;
                 contexto = recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
-                    log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
+                    //log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
                     pcb_destroyer(contexto);
                     break;    
@@ -145,7 +145,7 @@ void levantar_config(char* ruta){
 }
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
-    log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
+    //log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
     while (cliente_socket_dispatch != -1 && !recibio_interrupcion && flag_ciclo) {
     Instruccion * instruccion = malloc(sizeof(Instruccion));
     int direccionFisica;    
@@ -269,7 +269,7 @@ bool fetchInstruccion(int fd, pcb* contexto, Instruccion *instruccion, t_log* lo
     free(aux.operando1);
     free(aux.operando2);
     if(instruccion!=NULL) {
-        log_info(logger,ANSI_COLOR_BLUE "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
+        //log_info(logger,ANSI_COLOR_BLUE "Instrucción recibida: %s %s %s", instruccion->opcode, instruccion->operando1, instruccion->operando2);
         log_info(logger, "PID: %d - FETCH - Program Counter: %d", contexto->pid, contexto->pc);
         return true;
     } else {

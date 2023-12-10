@@ -16,6 +16,8 @@
 
 int fd_memoria;
 
+t_list* paginas_en_memoria;
+
 
 
 // Memoria fisica
@@ -67,9 +69,9 @@ t_list* obtenerMarcosAsignados( int pid);
 int paginas_necesarias(pcb *proceso);
 Instruccion armar_estructura_instruccion(char* instruccion_leida);
 char *armar_path_instruccion(char *path_consola);
-int usar_algoritmo(int pid);
-uint32_t algoritmo_fifo(int pid_actual);
-void algoritmo_lru(t_list* tabla_De_Paginas);
+int usar_algoritmo(int pid, int num_pagina);
+int algoritmo_fifo(int pid, int num_pagina);
+int algoritmo_lru(int pid, int num_pagina);
 bool masVieja(void *unaPag, void *otraPag);
 void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd);
 void eliminar_tabla_paginas(int pid);
@@ -79,6 +81,8 @@ int tratar_page_fault(int num_pagina, int pid_actual);
 void escribir_bloque_en_memoria(char* bloque_swap, int nro_marco);
 char* leer_marco_de_memoria(int nro_marco);
 uint32_t* leer_registro_de_memoria_uint(int nro_marco);
+entrada_pagina * buscar_en_tabla_por_direccionfisica(int direccionfisica);
+void marcar_pagina_modificada(int dirFisica);
 
 
 

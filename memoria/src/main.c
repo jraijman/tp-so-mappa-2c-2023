@@ -185,7 +185,8 @@ static void procesar_conexion(void *void_args) {
             break;
             }
         case MOV_IN:{
-            //leer valor de direccion fisica recibido de cpu y lee de memoria y enviar
+            sleep(RETARDO_REPUESTA/1000);
+            //leer valor de direccion fisica recibido de cpu y enviar
             t_list* paquete1 = recibir_paquete(cliente_socket);
             int* puntero = list_get(paquete1, 0);
             int direccionFisica = *puntero;
@@ -197,11 +198,12 @@ static void procesar_conexion(void *void_args) {
             agregar_a_paquete(paquete,valor,sizeof(uint32_t));
             enviar_paquete(paquete, cliente_socket);
             eliminar_paquete(paquete);
-            log_info(logger_memoria, "Valor enviado a cpu");
+            //log_info(logger_memoria, "Valor enviado a cpu");
             break;
             }
         case MOV_OUT:{
-            //leer valor de direccion fisica recibido de cpu y lee de memoria y enviar
+            sleep(RETARDO_REPUESTA/1000);
+            //escribir en memoria el valor recibido de cpu, en la dir fisica recibida de cpu
             t_list* paquete = recibir_paquete(cliente_socket);
             int* puntero = list_get(paquete, 0);
             int direccionFisica = *puntero;
@@ -211,7 +213,10 @@ static void procesar_conexion(void *void_args) {
             free(puntero2);
             list_destroy(paquete);
             //marcar bit de modificado en 1
+            marcar_pagina_modificada(direccionFisica);
             escribir_marco_en_memoria(direccionFisica, &valor);
+            //TIENE Q MANDAR UN OK A CPU
+           
             break;
             }
         default:
@@ -244,6 +249,7 @@ void inicializar_memoria(){
 	memoria = malloc(tam_memoria);
 
 	lista_tablas_de_procesos = list_create();
+    paginas_en_memoria = list_create();
 
     int cantidad_paginas = tam_memoria / tam_pagina;
 	bitarray_marcos_ocupados = malloc(cantidad_paginas);
@@ -263,6 +269,7 @@ int obtener_nro_marco_memoria(int num_pagina, int pid_actual){
         if(entrada->pid==pid_actual){
             entrada_pagina* pagina = list_get(tabla_pagina, num_pagina);
             if(pagina->en_memoria == 1){
+                log_info(logger_memoria, "PID: %d - Pagina: %d - Marco: %d",pid_actual, num_pagina, pagina->num_marco);
                 return pagina->num_marco;
             }
         }
@@ -270,7 +277,30 @@ int obtener_nro_marco_memoria(int num_pagina, int pid_actual){
     return -1;
 }
 
+void marcar_pagina_modificada(int dirFisica){
+    entrada_pagina* entrada = buscar_en_tabla_por_direccionfisica(dirFisica);
+    if(entrada == NULL){
+        log_info(logger_memoria, "No se encontro la pagina");
+        return;
+    }
+    entrada->modificado = 1;
+    return;
+}
 
+entrada_pagina * buscar_en_tabla_por_direccionfisica(int direccionfisica){
+    for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
+        t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
+        for(int j = 0; j < list_size(tabla_pagina); j++){
+            entrada_pagina * entrada = list_get(tabla_pagina, j);
+            if(entrada->num_marco==direccionfisica && entrada->en_memoria == 1){
+                return entrada;
+            }
+        }
+    }
+    return NULL;
+}
+
+//escribe en el frame q le llega desde cpu
 void escribir_marco_en_memoria(uint32_t nro_marco, uint32_t* valor){
     log_info(logger_memoria, "Escribiendo en marco %d", nro_marco);
     uint32_t marco_en_memoria = nro_marco * tam_pagina;
@@ -335,12 +365,14 @@ t_list* inicializar_proceso(pcb* proceso, t_list* bloques_reservados) {
 		pagina->modificado=0;
 		pagina->en_memoria=0;
         pagina->pid= proceso->pid;
+        pagina->num_pagina = i;
+        pagina->tiempo_uso = 0;
         int *posSwap = list_get(bloques_reservados,i);
         pagina->posicion_swap = *posSwap;
 		list_add(tabla_de_paginas, pagina);
         free(posSwap);
 	}
-    
+    log_info(logger_memoria, "PID: %d - Tamaño: %d", proceso->pid,list_size(tabla_de_paginas));
 	return tabla_de_paginas;
 }
 
@@ -410,7 +442,7 @@ t_list* buscar_tabla_pagina(int pid_actual){
     }
     return NULL;
 }
-
+//escribe en memoria el bloque que le llega del swap en memoria
 void escribir_bloque_en_memoria(char* bloque_swap,int nro_marco){
     int marco_en_memoria = nro_marco * tam_pagina;
     pthread_mutex_lock(&mx_memoria);
@@ -428,7 +460,7 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
     entrada_pagina* pagina = list_get(tabla_de_proceso, num_pagina);
 
     // Log: Page fault detectado
-    log_info(logger_memoria, ANSI_COLOR_LIME " PAGE FAULT!!!");
+    log_info(logger_memoria, ANSI_COLOR_LIME "PAGE FAULT");
 
     // Obtener el número de marco en el swap
     //Lo obtenemos desde filesystem
@@ -442,21 +474,19 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
 
     if (nro_marco == -1) // estan todas ocupadas
     {
-        //nro_marco = usar_algoritmo(pid_actual);
+        nro_marco = usar_algoritmo(pid_actual, num_pagina);
         
-        // Log: Información sobre el reemplazo
-        log_info(logger_memoria, "REEMPLAZO - PID: <%d> - Marco: <%d> - Page In: <PAGINA %d>",
-                 pid_actual, nro_marco, num_pagina);
-
+        //escribir_bloque_en_memoria(bloque_swap, nro_marco);
         //escribir en tabla de pagina que se pone en ese frame
         pagina->num_marco = nro_marco;
         pagina->en_memoria = 1;
+
+        escribir_bloque_en_memoria(bloque_swap, nro_marco);
         // Marcar el nuevo marco como ocupado
         pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
         bitarray_marcos_ocupados[nro_marco] = 1;
         pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
     } else {
-        
         escribir_bloque_en_memoria(bloque_swap, nro_marco);
         //escribir en tabla de pagina que se pone en ese frame
         pagina->num_marco = nro_marco;
@@ -466,32 +496,10 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
         bitarray_marcos_ocupados[nro_marco] = 1;
         pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
 
+        //agrego en la lista de paginas cargadas en memoria
+        list_add(paginas_en_memoria, pagina);
+
     }
-    
-
-    // Si la memoria tiene todos los marcos ocupados
-    /*
-
-    // Marcar el nuevo marco como ocupado
-    
-
-    // Actualizar la información de la página
-    pagina->nro_marco = nro_marco;
-    pagina->en_memoria = 1;
-
-
-    // Escribir el contenido del marco en memoria
-    escribir_marco_en_memoria(pagina->nro_marco, marco);
-
-    // Liberar la memoria utilizada para almacenar el contenido leído desde el swap
-    free(marco);
-    */
-
-    // Log: SWAP IN
-    /*log_info(logger_memoria, "[CPU] LECTURA EN SWAP: SWAP IN - PID: <%d> - Marco: <%d> - Page In:<PÁGINA %d>",
-             pid_actual, nro_marco, num_pagina);*/
-
-    // Devolver el número de marco utilizado
     return nro_marco;
 }
 
@@ -615,23 +623,25 @@ void log_valor_espacio_usuario(char* valor, int tamanio){
 	int tamanio_valor = strlen(valor_log);
 	log_info(logger_memoria, "se leyo/escribio %s de tamaño %d en el espacio de usuario", valor_log, tamanio_valor);
 }
-/*
-int usar_algoritmo(int pid){//ESTO ESTA BIEN
-	if (strcmp(algoritmo, "FIFO") == 0){
-		log_info(logger, "Reemplazo por FIFO");
-		return algoritmo_fifo(pid);
+
+
+// ----------------------FUNCIONES DE REEMPLAZO----------------------------}
+
+int usar_algoritmo(int pid, int num_pagina){
+	if (strcmp(algoritmo_reemplazo, "FIFO") == 0){
+		return algoritmo_fifo(pid, num_pagina);
 	}
-	else if (strcmp(algoritmo, "LRU") == 0){
-		log_info(logger, "Reemplazo por LRU");
-		return algoritmo_lru(pid);
+	else if (strcmp(algoritmo_reemplazo, "LRU") == 0){
+		//return algoritmo_lru(pid, num_pagina);
 	}
 	else{
-		exit(-1);
+	    return -1;
 	}
 }
+
 //LRU
 // Función para reemplazar una página utilizando el algoritmo LRU
-int algoritmo_lru(t_list* tabla_De_Paginas) {
+/*int algoritmo_lru(int pid, int num_pagina) {
     if (list_is_empty(tabla_De_Paginas)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
         return;
@@ -674,43 +684,47 @@ void actualizarTiempoDeUso(t_list* tabla_De_Paginas) {
         entrada_pagina* pagina = list_get(tabla_De_Paginas, i);
         pagina->tiempo_uso++;
     }
+}*/
+t_list* buscar_paginas_en_memoria(){
+    t_list* lista_de_paginas_en_memoria = list_create();
+    for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
+        t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
+        for(int j = 0; j < list_size(tabla_pagina); j++){
+            entrada_pagina * entrada = list_get(tabla_pagina, j);
+            if(entrada->en_memoria == 1){
+                list_add(lista_de_paginas_en_memoria, entrada);
+            }
+        }
+    }
+    return lista_de_paginas_en_memoria;
 }
 // Función para reemplazar una página utilizando el algoritmo FIFO
-int algoritmo_fifo(t_list* tabla_De_Paginas) {
-    if (list_is_empty(tabla_De_Paginas)) {
+int algoritmo_fifo(int pid, int num_pagina) {
+    if (list_is_empty(lista_tablas_de_procesos)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
         return;
     }
 
-    // Obtener la página más antigua (la primera que entró)
-    entrada_pagina* paginaReemplazo = list_get(tabla_De_Paginas, 0);
-    log_info(logger_memoria, "Voy a reemplazar la página %d que estaba en el frame %d", paginaReemplazo->pid, paginaReemplazo->num_marco);
+    entrada_pagina* paginaReemplazo = list_get(paginas_en_memoria, 0);
+    t_list* tabla_de_proceso = buscar_tabla_pagina(pid);
+    entrada_pagina* paginaEntrante = list_get(tabla_de_proceso, num_pagina);
+
+    log_info(logger_memoria, "REEMPLAZO - Marco: %d - Page Out: %d - %d - Page In: %d - %d", paginaReemplazo->num_marco, paginaReemplazo->pid, paginaReemplazo->num_pagina, pid, paginaEntrante->num_pagina);
 
     // Guardar en memoria virtual si está modificada
     if (paginaReemplazo->modificado == 1) {
         //guardarMemoriaVirtual(paginaReemplazo);
+        paginaReemplazo->modificado = 0;
     }
-
-    // Desocupar el frame en el bitmap
-    //desocuparFrameEnBitmap(paginaReemplazo->num_marco);
 
     // Actualizar el bit de presencia
     paginaReemplazo->en_memoria = 0;
 
     // Liberar memoria de la página reemplazada
-    free(paginaReemplazo);
+    //free(paginaReemplazo); CREO Q ROMPE
 
-    // Mover las demás páginas hacia arriba en la lista
-    for (int i = 0; i < list_size(tabla_De_Paginas) - 1; ++i) {
-        entrada_pagina* paginaActual = list_get(tabla_De_Paginas, i);
-        entrada_pagina* paginaSiguiente = list_get(tabla_De_Paginas, i + 1);
-        *paginaActual = *paginaSiguiente;
-    }
-
-    // Actualizar el tiempo de uso de la última página (la más nueva)
-    entrada_pagina* ultimaPagina = list_get(tabla_De_Paginas, list_size(tabla_De_Paginas) - 1);
-    ultimaPagina->tiempo_uso++;
+    // Actualizar el tiempo de uso de la pagina entrante
+    paginaEntrante->tiempo_uso ++;
 
     return paginaReemplazo->num_marco;
 }
-*/

@@ -133,6 +133,7 @@ typedef struct
     bool modificado; // bit de modificado
     int pid;
     int posicion_swap; 
+    int num_pagina;
 } entrada_pagina;
 
 // Definición de estructura para representar un proceso (PCB)
@@ -285,6 +286,7 @@ void recv_f_close(int fd,char** nombre_archivo);
 t_list* recv_reserva_swap(int fd_modulo);
 int recv_tam_pagina(int fd_modulo);
 char * recv_leido_swap(int fd_modulo);
+void recv_cargar_pagina(int fd_modulo, int *pid, int *pagina);
 
 void send_pedido_marco(int fd_modulo, int pid, int pagina);
 void recv_pedido_marco(int fd_modulo, int *pid, int *pagina);

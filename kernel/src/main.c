@@ -1112,7 +1112,7 @@ void* manejar_page_fault(void * args){
     char *respuesta = recv_pagina_cargada(fd_memoria);
 
     if(strcmp(respuesta, "OK") == 0){
-        log_info(logger_kernel, ANSI_COLOR_PINK "PID: %d - PAGINA CARGADA", proceso->pid);
+        log_info(logger_kernel, ANSI_COLOR_PINK "PID: %d - PAGINA CARGADA: %d", proceso->pid, pagina);
         proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
         agregar_a_ready(proceso);
     }

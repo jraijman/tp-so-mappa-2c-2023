@@ -767,7 +767,7 @@ void send_crear_archivo(char* nombre_archivo, int fd_modulo){
 
 //----------------------------------PAGE FAULT-----------------------------------------
 void send_pedido_swap(int fd, int posicion_swap){
-	printf("Enviando pedido de swap\n");
+	//printf("Enviando pedido de swap\n");
 	t_paquete* paquete = crear_paquete(PEDIDO_SWAP);
 	agregar_a_paquete(paquete, &posicion_swap, sizeof(int));
 	enviar_paquete(paquete, fd);
@@ -775,7 +775,7 @@ void send_pedido_swap(int fd, int posicion_swap){
 }
 
 char* recv_pedido_swap(int fd_modulo){
-	printf("Recibiendo pedido de swap\n");
+	//printf("Recibiendo pedido de swap\n");
 	t_list* paquete = recibir_paquete(fd_modulo);
 	char* valor = list_get(paquete, 0);
 	list_destroy(paquete);
@@ -783,7 +783,7 @@ char* recv_pedido_swap(int fd_modulo){
 }
 
 void send_leido_swap(int fd, char * leido, int tam_pagina){
-	printf("Enviando leido de swap\n");
+	//printf("Enviando leido de swap\n");
 	t_paquete* paquete = crear_paquete(PEDIDO_SWAP);
 	agregar_a_paquete(paquete, leido, tam_pagina);
 	enviar_paquete(paquete, fd);
@@ -791,7 +791,7 @@ void send_leido_swap(int fd, char * leido, int tam_pagina){
 }
 
 char * recv_leido_swap(int fd_modulo){
-	printf("Recibiendo leido de swap\n");
+	//printf("Recibiendo leido de swap\n");
     op_code cop = recibir_operacion(fd_modulo);
 	t_list* paquete = recibir_paquete(fd_modulo);
 	char* leido = list_get(paquete, 0);
@@ -800,7 +800,7 @@ char * recv_leido_swap(int fd_modulo){
 }
 
 void send_pedido_marco(int fd_modulo, int pid, int pagina){
-	printf("Enviando pedido de marco\n");
+	//printf("Enviando pedido de marco\n");
 	t_paquete* paquete = crear_paquete(PEDIDO_MARCO);
 	agregar_a_paquete(paquete, &pid, sizeof(int));
 	agregar_a_paquete(paquete, &pagina, sizeof(int));
@@ -816,7 +816,7 @@ void recv_pedido_marco(int fd_modulo, int *pid, int *pagina){
 }
 
 void send_marco(int fd_modulo, int memoria_fisica){
-	printf("Enviando marco\n");
+	//printf("Enviando marco\n");
 	t_paquete* paquete = crear_paquete(ENVIO_MARCO);
 	agregar_a_paquete(paquete, &memoria_fisica, sizeof(int));
 	enviar_paquete(paquete, fd_modulo);
@@ -824,7 +824,7 @@ void send_marco(int fd_modulo, int memoria_fisica){
 }
 
 int recv_marco(int fd_modulo){
-	printf("Recibiendo marco\n");
+	//printf("Recibiendo marco\n");
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int* tiempo = list_get(paquete, 0);
 	int ret = *tiempo;
@@ -834,7 +834,7 @@ int recv_marco(int fd_modulo){
 }
 
 void send_pcb_page_fault(int fd_modulo, pcb* contexto, int pagina){
-	printf("\n ENVIANDO POR PAGE FAULT PCB \n");
+	//printf("\n ENVIANDO POR PAGE FAULT PCB \n");
 	t_paquete* paquete = crear_paquete(PCB_PAGEFAULT);
 	empaquetar_pcb(paquete, contexto);
 	agregar_a_paquete(paquete, &pagina, sizeof(int));
@@ -843,7 +843,7 @@ void send_pcb_page_fault(int fd_modulo, pcb* contexto, int pagina){
 }
 
 void recv_pcb_page_fault(int fd_modulo, pcb** contexto, int *pagina){
-	printf("\n RECIBIENDO POR PAGE FAULT PCB \n");
+	//printf("\n RECIBIENDO POR PAGE FAULT PCB \n");
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int counter = 0;
 	*contexto = desempaquetar_pcb(paquete, &counter);
@@ -852,7 +852,7 @@ void recv_pcb_page_fault(int fd_modulo, pcb** contexto, int *pagina){
 }
 
 void send_cargar_pagina(int fd_modulo, int pid, int pagina){
-	printf("\n ENVIANDO CARGAR PAGINA \n");
+	//printf("\n ENVIANDO CARGAR PAGINA \n");
 	t_paquete* paquete = crear_paquete(CARGAR_PAGINA);
 	agregar_a_paquete(paquete, &pid, sizeof(int));
 	agregar_a_paquete(paquete, &pagina, sizeof(int));
@@ -861,7 +861,7 @@ void send_cargar_pagina(int fd_modulo, int pid, int pagina){
 }
 
 void recv_cargar_pagina(int fd_modulo, int *pid, int *pagina){
-	printf("\n RECIBIENDO CARGAR PAGINA \n");
+	//printf("\n RECIBIENDO CARGAR PAGINA \n");
 	t_list* paquete = recibir_paquete(fd_modulo);
 	*pid = *(int*)list_get(paquete, 0);
 	*pagina = *(int*)list_get(paquete, 1);

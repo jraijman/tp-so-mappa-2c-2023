@@ -5,18 +5,16 @@ int traducir(int direccion_logica, int fd, int pid, int fd_dispatch) {
     int numeroPagina = floor(direccion_logica / tamPaginaGlobal);
     int desplazamiento = direccion_logica - numeroPagina * tamPaginaGlobal;
     send_pedido_marco(fd, pid, numeroPagina);
-
-    printf("SE PIDE TRADUCIR UNA INSTUCCION\n");
     
     op_code cop = recibir_operacion(fd);
     if(cop == ENVIO_MARCO){
-        printf("ESTA EN MEMORIA\n");
+        //printf("ESTA EN MEMORIA\n");
         int direccion_fisica = recv_marco(fd);
+        log_info(logger_cpu, ANSI_COLOR_YELLOW "PID: %d - OBTENER MARCO - Página: %d- Marco: %d",pid,numeroPagina, direccion_fisica);
         return direccion_fisica;
     }else if(cop == PCB_PAGEFAULT){
-        printf("HAY PAGE FAULT\n");
-        //usa la misma funcion de recibir peor no es un marco
         int pagefault = recv_marco(fd);
+        log_info(logger_cpu, ANSI_COLOR_PINK "Page Fault PID: %d - Página: %d", pid, numeroPagina);
         send_pcb_page_fault(fd_dispatch, contexto, numeroPagina);
         return -1;
     }
@@ -127,11 +125,11 @@ void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
 	free(puntero);
 	list_destroy(paquete);
     *registro_destino = valor;
+    log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %d - Valor: %d", contexto->pid, direccionFisica,valor);
     }else{
         log_error(logger, "Registro no reconocido en instruccion MOV_IN");
     }
 }
-
 void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_memoria, t_log* logger) {
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_OUT");
     // MOV_OUT (Dirección Lógica, Registro): Lee el valor del Registro y lo escribe en 
@@ -145,6 +143,7 @@ void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisic
         agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
         agregar_a_paquete(paquete,registro_origen,sizeof(uint32_t));
         enviar_paquete(paquete, fd_memoria);
+        log_info(logger,ANSI_COLOR_YELLOW "PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", contexto->pid, direccionFisica,*registro_origen);
         }
     }else{
         log_error(logger,"Registro no reconocido en instruccion MOV_OUT");
