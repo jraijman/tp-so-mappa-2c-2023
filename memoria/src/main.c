@@ -83,27 +83,23 @@ static void procesar_conexion(void *void_args) {
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
             //enviar_mensaje("OK inicio proceso", cliente_socket);
             int cant_paginas_necesarias = paginas_necesarias(proceso);
-            printf("cant paginas necesarias: %d\n", cant_paginas_necesarias);
             //mandar aca a fs para recibir pos en swap 
             send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
             //bloquear con recv hasta recibir la lista de swap 
-            printf("bloqueado esperando a swap\n");
             op_code cop2 = recibir_operacion(conexion_memoria_filesystem);
             t_list* bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
             //log_info(logger_memoria, "Recibí la lista de swap %s");
             t_list* tabla_paginas = inicializar_proceso(proceso, bloques_reservados);
             list_add(lista_tablas_de_procesos, tabla_paginas);
             //VER TEMA DE Q NO EJECUTE INSTRUCCIONES SIN ANTES RECIBIR LA LISTA DE SWAP
-            
             pcb_destroyer(proceso);
             break;
             }
 			
 		case FINALIZAR_PROCESO:{
             int pid_fin = recv_terminar_proceso(cliente_socket);
-            //enviar_mensaje("OK fin proceso", cliente_socket);
 			log_info(logger_memoria, "Eliminación de Proceso PID: %d", pid_fin);
-			//terminar_proceso(pid_fin);
+			terminar_proceso(pid_fin);
 			break;
         }			
         case PEDIDO_MARCO:{
@@ -165,7 +161,7 @@ static void procesar_conexion(void *void_args) {
         case ENVIO_INSTRUCCION:{
             char* path;
             int* pc;
-            sleep(RETARDO_REPUESTA/1000);
+            usleep(RETARDO_REPUESTA *1000);
             recv_fetch_instruccion(cliente_socket, &path,&pc);
             leer_instruccion_por_pc_y_enviar(path,*pc, cliente_socket);
             free(path); // Liberar memoria de la variable path
@@ -185,7 +181,7 @@ static void procesar_conexion(void *void_args) {
             break;
             }
         case MOV_IN:{
-            sleep(RETARDO_REPUESTA/1000);
+            usleep(RETARDO_REPUESTA *1000);
             //leer valor de direccion fisica recibido de cpu y enviar
             t_list* paquete1 = recibir_paquete(cliente_socket);
             int* puntero = list_get(paquete1, 0);
@@ -198,11 +194,13 @@ static void procesar_conexion(void *void_args) {
             agregar_a_paquete(paquete,valor,sizeof(uint32_t));
             enviar_paquete(paquete, cliente_socket);
             eliminar_paquete(paquete);
-            //log_info(logger_memoria, "Valor enviado a cpu");
+            //actualizamos tiempo de uso de pagina
+            entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccionFisica);
+            pagina->ultimo_tiempo_uso = time(NULL);
             break;
             }
         case MOV_OUT:{
-            sleep(RETARDO_REPUESTA/1000);
+            usleep(RETARDO_REPUESTA *1000);
             //escribir en memoria el valor recibido de cpu, en la dir fisica recibida de cpu
             t_list* paquete = recibir_paquete(cliente_socket);
             int* puntero = list_get(paquete, 0);
@@ -215,6 +213,9 @@ static void procesar_conexion(void *void_args) {
             //marcar bit de modificado en 1
             marcar_pagina_modificada(direccionFisica);
             escribir_marco_en_memoria(direccionFisica, &valor);
+            //actualizamos tiempo de uso de pagina
+            entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccionFisica);
+            pagina->ultimo_tiempo_uso = time(NULL);
             //TIENE Q MANDAR UN OK A CPU
            
             break;
@@ -245,6 +246,7 @@ void inicializar_memoria(){
     sem_init(&swap_asignado, 0, 0);
     pthread_mutex_init(&mx_memoria, NULL);
     pthread_mutex_init(&mx_bitarray_marcos_ocupados, NULL);
+    pthread_mutex_init(&mx_paginas_en_memoria, NULL);
 
 	memoria = malloc(tam_memoria);
 
@@ -351,11 +353,6 @@ int calcular_cant_marcos(uint16_t tamanio){
 }
 
 
-void eliminar_proceso_memoria(int pid) {
-    
-}
-
-
 t_list* inicializar_proceso(pcb* proceso, t_list* bloques_reservados) {
     int entradas_por_tabla = paginas_necesarias(proceso);
     t_list* tabla_de_paginas = list_create();
@@ -366,7 +363,7 @@ t_list* inicializar_proceso(pcb* proceso, t_list* bloques_reservados) {
 		pagina->en_memoria=0;
         pagina->pid= proceso->pid;
         pagina->num_pagina = i;
-        pagina->tiempo_uso = 0;
+        pagina->ultimo_tiempo_uso = NULL;
         int *posSwap = list_get(bloques_reservados,i);
         pagina->posicion_swap = *posSwap;
 		list_add(tabla_de_paginas, pagina);
@@ -378,42 +375,54 @@ t_list* inicializar_proceso(pcb* proceso, t_list* bloques_reservados) {
 
 void terminar_proceso(int pid){
     //borrar tabla paginas, mandar terminar a fs
+    eliminar_espacio_memoria(pid);
+    t_list* tabla = buscar_tabla_pagina(pid);
+    int cant = list_size(tabla);
+    int bloques_reservados[list_size(tabla)];
+    for(int i = 0; i < list_size(tabla); i++){
+        entrada_pagina * entrada = list_get(tabla, i);
+        bloques_reservados[i] = entrada->posicion_swap;
+    }
     eliminar_tabla_paginas(pid);
-    //liberar_recursos(proceso); Consultar con ayudante
-    send_liberacion_swap(conexion_memoria_filesystem,pid);
+    send_liberacion_swap(conexion_memoria_filesystem,cant,bloques_reservados);
 }
 
 int paginas_necesarias(pcb *proceso){
     return proceso->size / tam_pagina;
 }
 
+void eliminar_espacio_memoria(int pid){
+    int tam = list_size(paginas_en_memoria);
+    for(int i = tam - 1; i >= 0; i--){
+        entrada_pagina * entrada1 = list_get(paginas_en_memoria, i);
+		if(entrada1->pid==pid){
+            entrada_pagina * entrada= list_remove(paginas_en_memoria, i);
+            pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
+            bitarray_marcos_ocupados[entrada->num_marco] = 0;
+            pthread_mutex_unlock(&mx_bitarray_marcos_ocupados);
+        }
+	}
+    return;
+}
+
 void eliminar_tabla_paginas(int pid){
-for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
+    for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
 		t_list * tabla_pagina = list_get(lista_tablas_de_procesos, i);
-        entrada_pagina * entrada = list_get(tabla_pagina, 0);//Siempre va a ser el mismo pid
-		if(entrada->pid==pid){
+        entrada_pagina * pagina = list_get(tabla_pagina, 0);//Siempre va a ser el mismo pid
+		if(pagina->pid==pid){
             for(int j = 0; j < list_size(tabla_pagina); j++){
-                list_remove(tabla_pagina, j);
+                entrada_pagina* pagina_actual = list_remove(tabla_pagina, j);
                 //ver si hace falta free
+                free(pagina_actual);//memory leaks
+                j--;
             }
             list_remove_element(lista_tablas_de_procesos, tabla_pagina);
+            i--;
+            free(tabla_pagina);
 		}
-	}
-	return;
-}
-void liberar_recursos(pcb* proceso) {
-
-    if (proceso->registros) {
-        free(proceso->registros);
     }
-    for (int i = 0; i < list_size(proceso->archivos); i++) {
-        t_archivo* archivo = list_get(proceso->archivos, i);
-        fclose((FILE*) archivo->nombre_archivo);
-        free(archivo);
-    }
-    list_destroy(proceso->archivos);
+    return;
 }
-
 
 int get_memory_and_page_size() {
   return (tam_memoria / tam_pagina);
@@ -491,6 +500,8 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
         //escribir en tabla de pagina que se pone en ese frame
         pagina->num_marco = nro_marco;
         pagina->en_memoria = 1;
+        //actualizar timpo de uso
+        pagina->ultimo_tiempo_uso = time(NULL);
         // Marcar el nuevo marco como ocupado
         pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
         bitarray_marcos_ocupados[nro_marco] = 1;
@@ -632,7 +643,7 @@ int usar_algoritmo(int pid, int num_pagina){
 		return algoritmo_fifo(pid, num_pagina);
 	}
 	else if (strcmp(algoritmo_reemplazo, "LRU") == 0){
-		//return algoritmo_lru(pid, num_pagina);
+		return algoritmo_lru(pid, num_pagina);
 	}
 	else{
 	    return -1;
@@ -649,10 +660,10 @@ int algoritmo_lru(int pid, int num_pagina) {
     list_sort(paginas_en_memoria, (void*) compararTiempoUso);
     
     // Encontrar la página con el tiempo de uso más antiguo
-    entrada_pagina* paginaReemplazo = list_get(paginas_en_memoria, (void*)compararTiempoUso);
+    entrada_pagina* paginaReemplazo = list_remove(paginas_en_memoria, 0);
     t_list* tabla_de_proceso = buscar_tabla_pagina(pid);
     entrada_pagina* paginaEntrante = list_get(tabla_de_proceso, num_pagina);
-    log_info(logger_memoria, "Voy a reemplazar la página %d que estaba en el frame %d", paginaReemplazo->pid, paginaReemplazo->num_marco);
+    log_info(logger_memoria, "REEMPLAZO - Marco: %d - Page Out: %d - %d - Page In: %d - %d", paginaReemplazo->num_marco, paginaReemplazo->pid, paginaReemplazo->num_pagina, pid, paginaEntrante->num_pagina);
 
     // Guardar en memoria virtual si está modificada
     if (paginaReemplazo->modificado == 1) {
@@ -676,34 +687,27 @@ int algoritmo_lru(int pid, int num_pagina) {
 
         paginaReemplazo->modificado = 0;
     }
-    else{
-    // Desocupar el frame en el bitmap
-    //desocuparFrameEnBitmap(paginaReemplazo->num_marco);
 
     // Actualizar el bit de presencia
     paginaReemplazo->en_memoria = 0;
-    }
-    // Actualizar el tiempo de uso de la página reemplazada
-    actualizarTiempoDeUso(paginas_en_memoria);
-    
+
     // Liberar memoria de la página reemplazada
-    free(paginaReemplazo);
+    //free(paginaReemplazo); CREO Q ROMPE
+
+    // Actualizar el tiempo de uso de la pagina entrante
+    time_t tiempo_actual = time(NULL);
+    paginaEntrante->ultimo_tiempo_uso = tiempo_actual;
 
     return paginaReemplazo->num_marco;
 }
 bool compararTiempoUso(void *unaPag, void *otraPag) { 
     entrada_pagina* pa = unaPag;
     entrada_pagina* pb = otraPag;
-    int intA = pa->tiempo_uso; int intB = pb->tiempo_uso; 
-    return intA < intB; 
+    time_t tiempo1 = pa->ultimo_tiempo_uso;
+    time_t tiempo2 = pb->ultimo_tiempo_uso;
+    return tiempo1 < tiempo2; 
 }
-// Función para actualizar el tiempo de uso de todas las páginas
-void actualizarTiempoDeUso(t_list* paginas_en_memoria) {
-    for (int i = 0; i < list_size(paginas_en_memoria); ++i) {
-        entrada_pagina* pagina = list_get(paginas_en_memoria, i);
-        pagina->tiempo_uso++;
-    }
-}
+
 t_list* buscar_paginas_en_memoria(){
     t_list* lista_de_paginas_en_memoria = list_create();
     for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
@@ -760,7 +764,8 @@ int algoritmo_fifo(int pid, int num_pagina) {
     //free(paginaReemplazo); CREO Q ROMPE
 
     // Actualizar el tiempo de uso de la pagina entrante
-    paginaEntrante->tiempo_uso ++;
+    time_t tiempo_actual = time(NULL);
+    paginaEntrante->ultimo_tiempo_uso = tiempo_actual;
 
     return paginaReemplazo->num_marco;
 }

@@ -108,7 +108,7 @@ void exitInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int 
 }
 
 void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica, t_log* logger, int fd_memoria) {
-    log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_IN");
+    //log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_IN");
     // MOV_IN (Registro, Dirección Lógica): Lee el valor de memoria correspondiente a la Dirección Lógica y lo almacena en el Registro.
     char* registro = instruccion.operando1;
     uint32_t* registro_destino = obtener_registro(contexto, registro);
@@ -131,7 +131,7 @@ void movInInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
     }
 }
 void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica,int fd_memoria, t_log* logger) {
-    log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_OUT");
+    //log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION MOV_OUT");
     // MOV_OUT (Dirección Lógica, Registro): Lee el valor del Registro y lo escribe en 
     //la dirección física de memoria obtenida a partir de la Dirección Lógica.
     char* registro = instruccion.operando2;

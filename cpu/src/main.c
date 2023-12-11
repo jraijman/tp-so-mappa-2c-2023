@@ -218,6 +218,9 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,int dir
         flag_ciclo = false;
         fTruncateInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     }
+    else if (strcmp(instruccion.opcode, "JNZ") == 0) {
+        jnzInstruccion(contexto_ejecucion, instruccion, logger_cpu);
+    }
 }
 
 int decodeInstruccion(Instruccion *instruccion, pcb* contexto, int fd_dispatch){

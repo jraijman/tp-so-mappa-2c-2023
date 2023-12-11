@@ -28,6 +28,7 @@ void* memoria;
 sem_t swap_asignado;
 pthread_mutex_t mx_memoria;
 pthread_mutex_t mx_bitarray_marcos_ocupados;
+pthread_mutex_t mx_paginas_en_memoria;
 
 char* server_name;
 
@@ -51,7 +52,6 @@ void inicializar_memoria();
 void liberar_marco(t_marco*);
 t_marco* marco_create(uint32_t, uint32_t,bool);
 int reservar_primer_marco_libre(int);
-void eliminar_proceso_memoria(int);
 int calcularMarco(int pid, t_marco* marcos, int num_marcos);
 int obtenerCantidadPaginasAsignadas(int pid);
 int server_escuchar(int fd_memoria);
@@ -59,8 +59,6 @@ void terminar_proceso(int pid);
 t_list* inicializar_proceso(pcb* pcb, t_list* bloques);
 pcb* encontrar_proceso(int pid);
 void* obtener_marco(uint32_t nro_marco); 
-void eliminar_proceso(int pid);
-void liberar_recursos(pcb* proceso);
 void escribir_marco_en_memoria(uint32_t nro_marco, uint32_t* marco);
 int get_memory_and_page_size();
 int buscar_marco_libre();
@@ -75,6 +73,7 @@ bool compararTiempoUso(void *unaPag, void *otraPag);
 void actualizarTiempoDeUso(t_list* paginas_en_memoria);
 void leer_instruccion_por_pc_y_enviar(char *path_consola, int pc, int fd);
 void eliminar_tabla_paginas(int pid);
+void eliminar_espacio_memoria(int pid);
 void log_valor_espacio_usuario(char* valor, int tamanio);
 int obtener_nro_marco_memoria(int num_pagina, int pid_actual);
 int tratar_page_fault(int num_pagina, int pid_actual);
@@ -83,6 +82,7 @@ char* leer_marco_de_memoria(int nro_marco);
 uint32_t* leer_registro_de_memoria_uint(int nro_marco);
 entrada_pagina * buscar_en_tabla_por_direccionfisica(int direccionfisica);
 void marcar_pagina_modificada(int dirFisica);
+t_list* buscar_tabla_pagina(int pid_actual);
 
 
 

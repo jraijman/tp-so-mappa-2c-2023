@@ -28,7 +28,7 @@ bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap){
         strcpy(bloque.info,"0");
         for(int i=0;i<cantidad;i++){
             fseek(f,tam_bloque*bloques[i],SEEK_SET);
-            sleep(retardo_acceso_bloque/1000);
+            //usleep(retardo_acceso_bloque * 1000);
             log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f)/tam_bloque);
             bitmap[bloques[i]]=0;
             fwrite(bloque.info,tam_bloque,1,f);
@@ -83,20 +83,18 @@ char* leer_bloque(int num_bloque){
 	FILE* f=fopen(path_bloques, "rb");
     if(f!=NULL){
         char* info = malloc(tam_bloque);
-        sleep(retardo_acceso_bloque / 1000);
+        usleep(retardo_acceso_bloque * 1000);
         if(num_bloque<cant_bloques_swap){
-        fseek(f, tam_bloque * num_bloque, SEEK_SET);
-        log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
-        fread(info, tam_bloque,1,f);
-        fclose(f);
+            fseek(f, tam_bloque * num_bloque, SEEK_SET);
+            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+            fread(info, tam_bloque,1,f);
+            fclose(f);
         }else{
             fseek(f, tam_bloque * num_bloque, SEEK_SET);
             log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld",ftell(f) / tam_bloque-cant_bloques_swap);
             fread(info, tam_bloque,1,f);
-            fclose(f):
+            fclose(f);
         }
-            char* info = malloc(tam_bloque);
-            sleep(retardo_acceso_bloque / 1000);
         //log_info(logger_filesystem, "LA INFO LEIDA ES: %s", info);
         return info;
     }
@@ -108,18 +106,19 @@ char* leer_bloque(int num_bloque){
 void escribir_bloque(int num_bloque, char* info){
 	FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
-        sleep(retardo_acceso_bloque / 1000);
+        usleep(retardo_acceso_bloque * 1000);
         fseek(f, tam_bloque * num_bloque, SEEK_SET);
         if(num_bloque<cant_bloques_swap){
-        log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
-        fwrite(info, tam_bloque,1,f);
-    }else{
-        sleep(retardo_acceso_bloque / 1000);
-        fseek(f, tam_bloque * num_bloque, SEEK_SET);
-        if(num_bloque<cant_bloques_swap){
+            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+            fwrite(info, tam_bloque,1,f);
+        }else{
+            usleep(retardo_acceso_bloque * 1000);
+            fseek(f, tam_bloque * num_bloque, SEEK_SET);
+        }
+        /*else if(num_bloque<cant_bloques_swap){
         log_info(logger_filesystem, "ACCESO A BLOQUE %ld",ftell(f) / tam_bloque);
         fwrite(info, tam_bloque,1,f);   
-        }
+        }*/
         //log_info(logger_filesystem, "LA INFO ESCRITA ES: %s", info);
         fclose(f);
         return info;
@@ -206,7 +205,7 @@ void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap) {
     BLOQUE reservado;
     reservado.info = malloc(tam_bloque);
     strcpy(reservado.info, "\0");
-    sleep(retardo_acceso_bloque / 1000);
+    //usleep(retardo_acceso_bloque * 1000);
     log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
     fwrite(reservado.info, tam_bloque, 1, f);
     bitmap[bloque-cant_bloques_swap] = 1;
@@ -221,7 +220,7 @@ void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap) {
     BLOQUE bloque;
     bloque.info = malloc(tam_bloque);
     strcpy(bloque.info, "0");
-    sleep(retardo_acceso_bloque / 1000);
+    //usleep(retardo_acceso_bloque * 1000);
     log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
     fwrite(bloque.info, tam_bloque, 1, f);
     bitmap[bloqueLib-cant_bloques_swap] = 0;

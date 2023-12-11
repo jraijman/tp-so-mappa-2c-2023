@@ -590,12 +590,17 @@ int recv_fetch_instruccion(int fd_modulo, char** path, int** pc) {
 }
 
 
-void send_liberacion_swap(int fd, int pid){
-    t_paquete* paquete = crear_paquete(LIBERACION_SWAP);
-    agregar_a_paquete(paquete, &pid, sizeof(int));
+void send_liberacion_swap(int fd, int cantidad,int bloques[]){
+    t_paquete* paquete = crear_paquete(FINALIZAR_PROCESO);
+	agregar_a_paquete(paquete, &cantidad, sizeof(int));
+    for(int i=0; i<cantidad;i++){
+		int bloque = bloques[i];
+		agregar_a_paquete(paquete, &bloque, sizeof(int));
+	}
     enviar_paquete(paquete, fd);
     eliminar_paquete(paquete);
 }
+
 int recv_liberacion_swap(int fd_modulo){
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int* pid = list_get(paquete, 0);
@@ -647,11 +652,10 @@ void send_bloques_reservados(int fd, t_list* bloques_reservados) {
     eliminar_paquete(paquete_bloques);
 }
 
-t_list* recv_bloques_reservados(t_log* logger, int fd_modulo) {
+t_list* recv_bloques_reservados(int fd_modulo) {
     t_list* paquete = recibir_paquete(fd_modulo);
     t_list* lista_bloques_reservados = desempaquetar_bloques(paquete, 0);
     list_destroy(paquete);
-    log_info(logger,ANSI_COLOR_YELLOW "Se recibió una lista de bloques SWAP asignados.");
     return lista_bloques_reservados;
 }
 

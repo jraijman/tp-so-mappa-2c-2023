@@ -129,7 +129,7 @@ t_list* lista_tablas_de_procesos;
 typedef struct 
 {
     int num_marco;
-    int tiempo_uso;
+    time_t ultimo_tiempo_uso;
     bool en_memoria; //bit de presencia
     bool modificado; // bit de modificado
     int pid;
@@ -224,7 +224,7 @@ int recibir_operacion(int socket_cliente);
 void* recibir_buffer(int* size, int socket_cliente);
 void recibir_mensaje(t_log* logger, int socket_cliente);
 void crear_buffer(t_paquete* paquete);
-void send_liberacion_swap(int fd, int pid);
+void send_liberacion_swap(int fd,int cantidad, int bloques[]);
 void send_fin_escritura(int fd_modulo);
 void send_pcbDesalojado(pcb* contexto, char* instruccion, char* extra, int fd, t_log* logger);
 void recv_pcbDesalojado(int fd,pcb** contexto, char** extra);
@@ -246,6 +246,7 @@ void empaquetar_registros(t_paquete* paquete, t_registros* registros);
 t_registros* desempaquetar_registros(t_list* paquete, int comienzo);
 void empaquetar_instruccion(t_paquete* paquete, Instruccion instruccion);
 Instruccion desempaquetar_instruccion(t_list* paquete);
+t_list* recv_bloques_reservados(int fd_modulo);
 
 
 //send

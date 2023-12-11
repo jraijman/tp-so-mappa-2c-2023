@@ -238,9 +238,12 @@ void cambiar_multiprogramacion(char* nuevo_grado_multiprogramacion){
     // Código para actualizar el grado de multiprogramación configurado inicialmente
     // por archivo de configuración y desalojar o finalizar los procesos si es necesario
     log_info(logger_kernel, "Grado Anterior: %d - Grado Actual: %d", grado_multiprogramacion, atoi(nuevo_grado_multiprogramacion));
-    grado_multiprogramacion = atoi(nuevo_grado_multiprogramacion);
-    
+    while (grado_multiprogramacion > atoi(nuevo_grado_multiprogramacion)) {
+        sem_wait(&cantidad_multiprogramacion);
+        grado_multiprogramacion--;
+    }
 }
+    
 void proceso_estado(){
     // Código para mostrar por consola el listado de los estados con los procesos que se encuentran dentro de cada uno de ellos
     printf("Procesos por estado:\n");

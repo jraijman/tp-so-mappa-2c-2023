@@ -114,7 +114,7 @@ static void procesar_conexion(void* void_args) {
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int cantidad_bloques=*(int*)list_get(paquete,0);
                 int bloques_a_liberar [cantidad_bloques];
-                for(int i=1; i<cantidad_bloques; i++){
+                for(int i=1; i<cantidad_bloques+1; i++){
                     bloques_a_liberar[i-1]=*(int*)list_get(paquete,i);
                 }
                 if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques,bitmapSwap)){
@@ -149,9 +149,13 @@ static void procesar_conexion(void* void_args) {
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int num_bloque=*(int*)list_get(paquete,0);
                 list_destroy(paquete);
-                char* info_leida = leer_bloque(num_bloque);
-                send_leido_swap(cliente_socket,info_leida,tam_bloque);
-                free(info_leida);
+                pthread_t hiloSwap;
+                t_pedido_swap_args* argsSwap = malloc(sizeof(t_pedido_swap_args));
+                argsSwap->fd = cliente_socket;
+                argsSwap->num_bloque = num_bloque;
+
+                pthread_create(&hiloSwap, NULL, (void*) manejar_pedido_swap, (void*) argsSwap);
+                pthread_detach(hiloSwap);
                 break;
             }
             case ESCRIBIR_SWAP:{
@@ -161,8 +165,13 @@ static void procesar_conexion(void* void_args) {
                 free(puntero);
                 char* info_a_escribir=list_get(paquete,1);
                 list_destroy(paquete);
-                log_info(logger, "Recibí el mensaje: %s", info_a_escribir);
-                escribir_bloque(num_bloque,info_a_escribir);
+                pthread_t hiloEscribir;
+                t_pedido_escribir_swap_args* argsSwap = malloc(sizeof(t_pedido_escribir_swap_args));
+                argsSwap->fd = cliente_socket;
+                argsSwap->num_bloque = num_bloque;
+                argsSwap->info_a_escribir=info_a_escribir;
+                pthread_create(&hiloEscribir, NULL, (void*) manejar_escribir_swap, (void*) argsSwap);
+                pthread_detach(hiloEscribir);
                 break;
             }
            
@@ -191,4 +200,26 @@ int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket
         return 1;
     }
     return 0;
+}
+
+void* manejar_pedido_swap(void* arg){
+    t_pedido_swap_args* args = (t_pedido_swap_args*) arg;
+    int num_bloque = args->num_bloque;
+    int cliente = args->fd;
+
+    char* info_leida = leer_bloque(num_bloque);
+    send_leido_swap(cliente,info_leida,tam_bloque);
+    free(info_leida);
+    free(args); 
+}
+
+void* manejar_escribir_swap(void* arg){
+    t_pedido_escribir_swap_args* args = (t_pedido_escribir_swap_args*) arg;
+    int num_bloque = args->num_bloque;
+    int cliente = args->fd;
+    char* info_a_escribir = args->info_a_escribir;
+
+    escribir_bloque(num_bloque,info_a_escribir);
+    free(info_a_escribir);
+    free(args); 
 }
