@@ -72,6 +72,44 @@ static void procesar_conexion(void* void_args) {
                 }
                 break;
             }
+            case F_WRITE:{
+                t_list* paquete=recibir_paquete(cliente_socket);
+                int dirFisica=*(int*)list_get(paquete, 0);
+                int puntero=*(int*)list_get(paquete,1);
+                t_paquete* peticionMemoria=crear_paquete(F_WRITE);
+                agregar_a_paquete(peticionMemoria, &dirFisica,sizeof(uint32_t));
+                t_list* infoEscribir=recibir_paquete(conexion_filesystem_memoria);
+                char* info=list_get(infoEscribir,0);
+                int bloque=puntero/tam_bloque;
+                free(info);
+                escribir_bloque(bloque,info);
+                list_destroy(paquete);
+                eliminar_paquete(peticionMemoria);
+                list_destroy(infoEscribir);
+                break;
+            }
+            case F_READ:{
+                t_list* paquete=recibir_paquete(cliente_socket);
+                int dirFisica=*(int*)list_get(paquete, 0);
+                int puntero=*(int*)list_get(paquete,1);
+                char* info=leer_bloque(puntero/tam_bloque);
+                t_paquete* escribir=crear_paquete(F_READ);
+                agregar_a_paquete(escribir,info,tam_bloque);
+                enviar_paquete(escribir,conexion_filesystem_memoria);
+                t_list* confirmacion=recibir_paquete(conexion_filesystem_memoria);
+                int confirma=*(int*)list_get(confirmacion,0);
+                if(confirma==1){
+                    enviar_mensaje("Lectura realizada correctamente",cliente_socket);
+                }
+                else{
+                    enviar_mensaje("La lectura falló",cliente_socket);
+                }
+                free(info);
+                list_destroy(paquete);
+                list_destroy(confirmacion);
+                eliminar_paquete(escribir);
+                break;
+            }
             case FINALIZAR_PROCESO:{   
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int cantidad_bloques=*(int*)list_get(paquete,0);
