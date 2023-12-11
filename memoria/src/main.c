@@ -641,50 +641,69 @@ int usar_algoritmo(int pid, int num_pagina){
 
 //LRU
 // Función para reemplazar una página utilizando el algoritmo LRU
-/*int algoritmo_lru(int pid, int num_pagina) {
-    if (list_is_empty(tabla_De_Paginas)) {
+int algoritmo_lru(int pid, int num_pagina) {
+    if (list_is_empty(lista_tablas_de_procesos)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
         return;
     }
-
-    // Filtrar y ordenar de más vieja a más nueva
-    list_sort(tabla_De_Paginas, (void*)masVieja);
+    list_sort(paginas_en_memoria, (void*) compararTiempoUso);
     
-    // Obtener la página más antigua
-    entrada_pagina* paginaReemplazo = list_get(tabla_De_Paginas, 0);
+    // Encontrar la página con el tiempo de uso más antiguo
+    entrada_pagina* paginaReemplazo = list_get(paginas_en_memoria, (void*)compararTiempoUso);
+    t_list* tabla_de_proceso = buscar_tabla_pagina(pid);
+    entrada_pagina* paginaEntrante = list_get(tabla_de_proceso, num_pagina);
     log_info(logger_memoria, "Voy a reemplazar la página %d que estaba en el frame %d", paginaReemplazo->pid, paginaReemplazo->num_marco);
 
     // Guardar en memoria virtual si está modificada
     if (paginaReemplazo->modificado == 1) {
-        //guardarMemoriaVirtual(paginaReemplazo);
-    }
+        t_paquete* paquete = crear_paquete(ESCRIBIR_SWAP);
+        uint32_t* leido = leer_registro_de_memoria_uint(paginaReemplazo->num_marco);
+        // Convertir el uint32_t a una cadena de caracteres
+        char valorStr[tam_pagina]; // Suficiente espacio para almacenar el valor como cadena
+        sprintf(valorStr, "%u", *leido);
 
+        // Asignar memoria dinámicamente para el char* y copiar la cadena
+        char* valorChar = malloc(tam_pagina);
+        strcpy(valorChar, valorStr);
+        
+        agregar_a_paquete(paquete, &paginaReemplazo->posicion_swap, tam_pagina);
+        agregar_a_paquete(paquete, valorChar, tam_pagina);
+        enviar_paquete(paquete, conexion_memoria_filesystem);
+        eliminar_paquete(paquete);
+
+        // Liberar la memoria asignada para el char*
+        free(valorChar);
+
+        paginaReemplazo->modificado = 0;
+    }
+    else{
     // Desocupar el frame en el bitmap
     //desocuparFrameEnBitmap(paginaReemplazo->num_marco);
 
     // Actualizar el bit de presencia
     paginaReemplazo->en_memoria = 0;
-
+    }
+    // Actualizar el tiempo de uso de la página reemplazada
+    actualizarTiempoDeUso(paginas_en_memoria);
+    
     // Liberar memoria de la página reemplazada
     free(paginaReemplazo);
 
-    // Actualizar el tiempo de uso de las demás páginas
-    actualizarTiempoDeUso(tabla_De_Paginas);
     return paginaReemplazo->num_marco;
 }
-bool masVieja(void *unaPag, void *otraPag) { 
+bool compararTiempoUso(void *unaPag, void *otraPag) { 
     entrada_pagina* pa = unaPag;
     entrada_pagina* pb = otraPag;
     int intA = pa->tiempo_uso; int intB = pb->tiempo_uso; 
     return intA < intB; 
 }
 // Función para actualizar el tiempo de uso de todas las páginas
-void actualizarTiempoDeUso(t_list* tabla_De_Paginas) {
-    for (int i = 0; i < list_size(tabla_De_Paginas); ++i) {
-        entrada_pagina* pagina = list_get(tabla_De_Paginas, i);
+void actualizarTiempoDeUso(t_list* paginas_en_memoria) {
+    for (int i = 0; i < list_size(paginas_en_memoria); ++i) {
+        entrada_pagina* pagina = list_get(paginas_en_memoria, i);
         pagina->tiempo_uso++;
     }
-}*/
+}
 t_list* buscar_paginas_en_memoria(){
     t_list* lista_de_paginas_en_memoria = list_create();
     for(int i = 0; i < list_size(lista_tablas_de_procesos); i++){
