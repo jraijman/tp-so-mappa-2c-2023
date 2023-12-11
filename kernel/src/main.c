@@ -1112,7 +1112,7 @@ void* manejar_page_fault(void * args){
 
     send_cargar_pagina(fd_memoria, proceso->pid, pagina);
     op_code codigo = recibir_operacion(fd_memoria);
-    char *respuesta = recv_pagina_cargada(fd_memoria);
+    char *respuesta = recibir_mensaje_fs(fd_memoria);
 
     if(strcmp(respuesta, "OK") == 0){
         log_info(logger_kernel, ANSI_COLOR_PINK "PID: %d - PAGINA CARGADA: %d", proceso->pid, pagina);

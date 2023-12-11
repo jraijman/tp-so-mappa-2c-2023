@@ -232,11 +232,7 @@ void send_archivos(int fd_modulo, t_list* lista_archivos) {
 }
 
 void send_pagina_cargada(int fd){
-	t_paquete* paquete_archivos = crear_paquete(PAGINA_CARGADA);
-	char* valor = "OK";
-	agregar_a_paquete(paquete_archivos, valor, strlen(valor) + 1);
-    enviar_paquete(paquete_archivos, fd);
-    eliminar_paquete(paquete_archivos);
+	enviar_mensaje("OK", fd);
 }
 
 char *recv_pagina_cargada(int fd_modulo){
@@ -851,7 +847,9 @@ void recv_pcb_page_fault(int fd_modulo, pcb** contexto, int *pagina){
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int counter = 0;
 	*contexto = desempaquetar_pcb(paquete, &counter);
-	*pagina = *(int*)list_get(paquete, counter);
+	int* puntero = list_get(paquete, counter);
+	*pagina = *puntero;
+	free(puntero);	
 	list_destroy(paquete);
 }
 

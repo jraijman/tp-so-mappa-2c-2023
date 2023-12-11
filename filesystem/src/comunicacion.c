@@ -118,10 +118,11 @@ static void procesar_conexion(void* void_args) {
                     bloques_a_liberar[i-1]=*(int*)list_get(paquete,i);
                 }
                 if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques,bitmapSwap)){
-                    enviar_mensaje("SWAP LIBERADO",cliente_socket);
+                    //enviar_mensaje("SWAP LIBERADO",cliente_socket);
+                    log_info(logger, "Se liberaron los bloques SWAP");
                 }else{
                     log_error(logger, "Error al liberar los bloques SWAP");
-                    enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
+                    //enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
                 }
                 break;
             }
