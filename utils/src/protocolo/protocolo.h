@@ -60,6 +60,7 @@ typedef enum
     CARGAR_PAGINA,
     PAGINA_CARGADA,
     PEDIDO_SWAP,
+    ESCRIBIR_SWAP,
     //INSTRUCCIONES
     SET,
     ADD,

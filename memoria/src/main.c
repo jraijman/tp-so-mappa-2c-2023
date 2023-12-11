@@ -310,7 +310,7 @@ void escribir_marco_en_memoria(uint32_t nro_marco, uint32_t* valor){
 }
 
 uint32_t* leer_registro_de_memoria_uint(int nro_marco){
-    log_info(logger_memoria, "Leyendo marco %d", nro_marco);
+    //log_info(logger_memoria, "Leyendo marco %d", nro_marco);
     uint32_t* leido = malloc(tam_pagina);
     int marco_en_memoria = nro_marco * tam_pagina;
     pthread_mutex_lock(&mx_memoria);
@@ -320,7 +320,7 @@ uint32_t* leer_registro_de_memoria_uint(int nro_marco){
 }
 
 char* leer_marco_de_memoria(int nro_marco){
-    log_info(logger_memoria, "Leyendo marco %d", nro_marco);
+    //log_info(logger_memoria, "Leyendo marco %d", nro_marco);
     char* leido = malloc(tam_pagina);
     int marco_en_memoria = nro_marco * tam_pagina;
     pthread_mutex_lock(&mx_memoria);
@@ -476,12 +476,12 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
     {
         nro_marco = usar_algoritmo(pid_actual, num_pagina);
         
-        //escribir_bloque_en_memoria(bloque_swap, nro_marco);
+        escribir_bloque_en_memoria(bloque_swap, nro_marco);
+        //agrego a la lista de marcos en memoria
+        list_add(paginas_en_memoria, pagina);
         //escribir en tabla de pagina que se pone en ese frame
         pagina->num_marco = nro_marco;
         pagina->en_memoria = 1;
-
-        escribir_bloque_en_memoria(bloque_swap, nro_marco);
         // Marcar el nuevo marco como ocupado
         pthread_mutex_lock(&mx_bitarray_marcos_ocupados);
         bitarray_marcos_ocupados[nro_marco] = 1;
@@ -705,7 +705,7 @@ int algoritmo_fifo(int pid, int num_pagina) {
         return;
     }
 
-    entrada_pagina* paginaReemplazo = list_get(paginas_en_memoria, 0);
+    entrada_pagina* paginaReemplazo = list_remove(paginas_en_memoria, 0);
     t_list* tabla_de_proceso = buscar_tabla_pagina(pid);
     entrada_pagina* paginaEntrante = list_get(tabla_de_proceso, num_pagina);
 
@@ -713,7 +713,24 @@ int algoritmo_fifo(int pid, int num_pagina) {
 
     // Guardar en memoria virtual si está modificada
     if (paginaReemplazo->modificado == 1) {
-        //guardarMemoriaVirtual(paginaReemplazo);
+        t_paquete* paquete = crear_paquete(ESCRIBIR_SWAP);
+        uint32_t* leido = leer_registro_de_memoria_uint(paginaReemplazo->num_marco);
+        // Convertir el uint32_t a una cadena de caracteres
+        char valorStr[tam_pagina]; // Suficiente espacio para almacenar el valor como cadena
+        sprintf(valorStr, "%u", *leido);
+
+        // Asignar memoria dinámicamente para el char* y copiar la cadena
+        char* valorChar = malloc(tam_pagina);
+        strcpy(valorChar, valorStr);
+        
+        agregar_a_paquete(paquete, &paginaReemplazo->posicion_swap, tam_pagina);
+        agregar_a_paquete(paquete, valorChar, tam_pagina);
+        enviar_paquete(paquete, conexion_memoria_filesystem);
+        eliminar_paquete(paquete);
+
+        // Liberar la memoria asignada para el char*
+        free(valorChar);
+
         paginaReemplazo->modificado = 0;
     }
 

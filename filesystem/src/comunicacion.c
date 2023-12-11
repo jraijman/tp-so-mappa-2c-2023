@@ -116,6 +116,17 @@ static void procesar_conexion(void* void_args) {
                 free(info_leida);
                 break;
             }
+            case ESCRIBIR_SWAP:{
+                t_list* paquete=recibir_paquete(cliente_socket);
+                int * puntero=list_get(paquete,0);
+                int num_bloque=*puntero;
+                free(puntero);
+                char* info_a_escribir=list_get(paquete,1);
+                list_destroy(paquete);
+                log_info(logger, "Recibí el mensaje: %s", info_a_escribir);
+                escribir_bloque(num_bloque,info_a_escribir);
+                break;
+            }
            
             default:
                 log_error(logger, "MESNAJE DESCONOCIDO OPCODE: %d", cop);
