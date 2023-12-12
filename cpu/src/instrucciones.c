@@ -158,8 +158,9 @@ void fOpenInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatch
     char* modo_apertura = instruccion.operando2;
     //send_f_open(nombre_archivo, modo_apertura, fd_cpu_dispatch, logger);
     t_paquete* paquete = crear_paquete(F_OPEN);
-    agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
-    agregar_a_paquete(paquete,&modo_apertura,(sizeof(char)*string_length(modo_apertura)));
+    empaquetar_pcb(paquete, contexto);
+    agregar_a_paquete(paquete,nombre_archivo, strlen(nombre_archivo) + 1);
+    agregar_a_paquete(paquete,modo_apertura, strlen(modo_apertura) + 1);
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
     //VER QUE HACER ACA (DEBO ESPERAR A QUE DEVUELVA UN MENSAJE DE CONFIRMACIÓN O ALGO DEL ESTILO?)    
@@ -170,7 +171,7 @@ void fCloseInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatc
     // F_CLOSE (Nombre Archivo): Esta instrucción solicita al kernel que cierre el archivo pasado por parámetro.
     char* nombre_archivo = instruccion.operando1;
     t_paquete* paquete = crear_paquete(F_CLOSE);
-    agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
+    agregar_a_paquete(paquete, &nombre_archivo, strlen(nombre_archivo) + 1);
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
     //LO MISMO, TENGO QUE ESPERAR ALGO O SIGO NORMAL?
@@ -183,7 +184,7 @@ void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
     char* nombre_archivo = instruccion.operando1;
     int posicion = direccionFisica;
     t_paquete* paquete = crear_paquete(F_SEEK);
-    agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
+    agregar_a_paquete(paquete,&nombre_archivo,strlen(nombre_archivo) + 1);
     agregar_a_paquete(paquete,&posicion,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
@@ -195,7 +196,7 @@ void fReadInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
     char* nombre_archivo = instruccion.operando1;
     int direccion_logica = atoi(instruccion.operando2);
     t_paquete* paquete = crear_paquete(F_READ);
-    agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
+    agregar_a_paquete(paquete,&nombre_archivo,strlen(nombre_archivo) + 1);
     agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
@@ -206,7 +207,7 @@ void fWriteInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisic
     // F_WRITE (Nombre Archivo, Dirección Lógica): Esta instrucción solicita al Kernel que se escriba en el archivo indicado la información que es obtenida a partir de la dirección física de Memoria.
     char* nombre_archivo = instruccion.operando1;
     t_paquete* paquete = crear_paquete(F_WRITE);
-    agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
+    agregar_a_paquete(paquete,&nombre_archivo,strlen(nombre_archivo) + 1);
     agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
@@ -219,7 +220,8 @@ void fTruncateInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_disp
     char* nombre_archivo = instruccion.operando1;
     int tamano = atoi(instruccion.operando2);
     t_paquete* paquete = crear_paquete(F_TRUNCATE);
-    agregar_a_paquete(paquete,&nombre_archivo,(sizeof(char)*string_length(nombre_archivo)));
+    empaquetar_pcb(paquete, contexto);
+    agregar_a_paquete(paquete,nombre_archivo, strlen(nombre_archivo) + 1);
     agregar_a_paquete(paquete,&tamano,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);

@@ -2,11 +2,10 @@
 
  t_config* iniciar_config(char * ruta)
     {
-    
         t_config* nuevo_config;
         if ((nuevo_config = config_create(ruta)) == NULL) {
             // ¡No se pudo crear el config! 
-            exit(2);
+           return NULL;
         }
         return nuevo_config;
     }

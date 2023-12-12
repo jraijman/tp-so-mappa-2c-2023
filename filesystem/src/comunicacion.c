@@ -123,20 +123,22 @@ static void procesar_conexion(void* void_args) {
                 t_list *paqueteRecibido = recibir_paquete(cliente_socket);
                 char* nombre = list_get(paqueteRecibido, 0);
                 int tamano = abrir_archivo(nombre);
+                list_destroy(paqueteRecibido);
+                t_paquete* paqueteEnviar;
                 if(tamano!=-1){
-                    t_paquete* paqueteEnviar = crear_paquete(ARCHIVO_EXISTE);
-                    agregar_a_paquete(paqueteEnviar,&tamano,sizeof(int));
-                    enviar_paquete(paqueteEnviar,cliente_socket);
+                    paqueteEnviar = crear_paquete(ARCHIVO_EXISTE);
                 }else{
-                    enviar_mensaje("El archivo solicitado no existe",cliente_socket);
-                    t_paquete* paqueteEnviar = crear_paquete(ARCHIVO_NO_EXISTE);
-                    enviar_paquete(paqueteEnviar,cliente_socket);
+                    paqueteEnviar = crear_paquete(ARCHIVO_NO_EXISTE);
                 }
+                agregar_a_paquete(paqueteEnviar,&tamano,sizeof(int));
+                enviar_paquete(paqueteEnviar,cliente_socket);
+                eliminar_paquete(paqueteEnviar);
                 break;
             }
             case CREAR_ARCHIVO:{   
-                t_list* paquete=recibir_paquete(cliente_socket);
-                char* nombre=list_get(paquete,0);
+                t_list* paquete = recibir_paquete(cliente_socket);
+                char* nombre = list_get(paquete,0);
+                list_destroy(paquete);
                 crear_archivo(nombre);
                 enviar_mensaje("OK crear archivo",cliente_socket);
                 break;
@@ -144,7 +146,9 @@ static void procesar_conexion(void* void_args) {
             case TRUNCAR_ARCHIVO:{
                 t_list* paquete=recibir_paquete(cliente_socket);
                 char* nombre=list_get(paquete,0);
-                int tamano=*(int*)list_get(paquete,1);
+                int* puntero = (int*)list_get(paquete,1);
+                int tamano=*puntero;
+                free(puntero);
                 list_destroy(paquete);
                 truncarArchivo(nombre,tamano,bitmapBloques);
                 enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);

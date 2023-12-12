@@ -232,9 +232,10 @@ void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap) {
 bool crear_archivo(char* nombre) {
     char nombreArchivo[strlen(nombre) + 1];
     strcpy(nombreArchivo, nombre);
-    int tam = strlen(path_fcb) + strlen(nombre) + 4;
+    int tam = strlen(path_fcb) + strlen(nombre) + 6;
     char ruta[tam];
     strcpy(ruta, path_fcb);
+    strcat(ruta,"/");
     strcat(ruta, nombre);
     strcat(ruta, ".fcb");
     t_config* nuevoFCB=config_create(ruta);
@@ -256,18 +257,19 @@ bool crear_archivo(char* nombre) {
 }
 
 int abrir_archivo(char* nombre){
-    int tamRuta=strlen(path_fcb)+strlen(nombre)+5;
+    int tamRuta=strlen(path_fcb)+strlen(nombre)+6;
     char* ruta = (char*)malloc(tamRuta);
     strcpy(ruta,path_fcb);
+    strcat(ruta,"/");
     strcat(ruta,nombre);
     strcat(ruta,".fcb");
-    config = iniciar_config(ruta);
+    t_config *config = iniciar_config(ruta);
     if(config!=NULL){
     int tamano=config_get_int_value(config,"TAMANIO_ARCHIVO");
     config_destroy(config);
     return tamano;
     }
-    config_destroy(config);
+    //config_destroy(config);
     return -1;
 }
 

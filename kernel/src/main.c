@@ -644,11 +644,11 @@ t_archivo* buscar_archivo_en_pcb(char* nombre_archivo, pcb* pcb){
 	return NULL;
 }
 
-t_archivo* crear_archivo(char* nombre_archivo, int tamanio_archivo){
+t_archivo* crear_archivo(char* nombre_archivo){
 	t_archivo* archivo = malloc(sizeof(t_archivo));
 	archivo->nombre_archivo = nombre_archivo;
 	archivo->puntero = 0;
-    archivo->tam_archivo = tamanio_archivo;
+    //archivo->tam_archivo = tamanio_archivo;  POR SI NECECITO EL TAMAÑO
 	archivo->bloqueados_archivo = queue_create();
     archivo->abierto_w = 0;
     archivo->cant_abierto_r = 0;
@@ -672,15 +672,16 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
 
     if (archivo == NULL){
         //crear archivo y agregarlo a la lista de archivos abiertos
-        send_abrir_archivo(fd_filesystem);
+        send_abrir_archivo(nombre_archivo, fd_filesystem);
         int tamanio_archivo = recv_respuesta_abrir_archivo(fd_filesystem); //la respuesta es la cantidad de bytes
         if (tamanio_archivo == -1)
         {
-            send_crear_archivo(fd_filesystem);
-            char *mensaje = recibir_mensaje_fs(fd_filesystem);
+            send_crear_archivo(nombre_archivo, fd_filesystem);
+            op_code codigo = recibir_operacion(fd_filesystem);
+            recibir_mensaje(logger_kernel,fd_filesystem);
             tamanio_archivo = 0;
         }
-        archivo = crear_archivo(nombre_archivo, tamanio_archivo);
+        archivo = crear_archivo(nombre_archivo);
         list_add(archivos_abiertos, archivo);
     }
 
@@ -715,6 +716,22 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
     }
 }
 
+void ejecutar_f_truncate(char* nombre_archivo, int* tamanio_archivo, pcb* proceso){
+
+    agregar_a_block(proceso);
+    pcb* a_borrar = sacar_de_exec();
+    pcb_destroyer(a_borrar);
+    sem_post(&puedo_ejecutar_proceso);
+
+    send_truncar(nombre_archivo,tamanio_archivo, fd_filesystem);
+
+    op_code codigo = recibir_operacion(fd_filesystem);
+    recibir_mensaje(logger_kernel,fd_filesystem);
+
+    agregar_a_ready(proceso);
+    
+}
+
 //--------------FUNCIONES DE RECIBIR MENSAJES-----------------
 
 void manejar_recibir_cpu(){
@@ -727,7 +744,8 @@ void manejar_recibir_cpu(){
             pcb* proceso = NULL;
             pcb* pcb_a_borrar = NULL;
             char * extra = NULL;
-            char *nombre_archivo;
+            char *nombre_archivo = NULL;
+            int tamanio_archivo;
             op_code cop = recibir_operacion(fd_cpu_dispatch);
             switch (cop) {
                 case MENSAJE:
@@ -799,21 +817,20 @@ void manejar_recibir_cpu(){
                     break;
                 case F_OPEN:
                     char* modo_apertura;
-                    //NECESITO PCB PARA EL ARCIVO
-                    recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura);
-                    //NO SE SI SE PUEDE ASI??????
-                    recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
-                    ejecutar_f_open(nombre_archivo,modo_apertura,proceso);
+                    recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura, &proceso);
+                    ejecutar_f_open(nombre_archivo, modo_apertura, proceso);
                     log_info(logger_kernel, "PID: %d - Abrir Archivo: %s", proceso->pid, nombre_archivo);
                     break;
                 case F_CLOSE:
                     recv_f_close(fd_cpu_dispatch, &nombre_archivo);
-                    
+                    //ejecutar_f_close(nombre_archivo, proceso);
                     break;
                 case F_SEEK:
                     
                     break;
                 case F_TRUNCATE:
+                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &tamanio_archivo, &proceso);
+                    ejecutar_f_truncate(&nombre_archivo, &tamanio_archivo, &proceso);
                     break;
                 case F_READ:
                     break;
@@ -850,7 +867,7 @@ void manejar_recibir_memoria(){
 }
 
 void manejar_recibir_fs(){
-    while(1){
+    /*while(1){
         if(fd_filesystem == 0 || fd_filesystem == -1){
             printf("Error al recibir mensaje de filesystem\n");
             return;
@@ -880,7 +897,7 @@ void manejar_recibir_fs(){
                     break;
             }
         }   
-    }    
+    }  */  
 }
 
 

@@ -738,10 +738,25 @@ void send_fin_escritura(int fd_modulo){
 	eliminar_paquete(paquete);
 }
 
-void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura){
+void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura, pcb**contexto){
 	t_list* paquete = recibir_paquete(fd);
-	*nombre_archivo = (char*) list_get(paquete, 0);
-	*modo_apertura = (char*) list_get(paquete, 1);
+	int counter = 0;
+    *contexto = desempaquetar_pcb(paquete, &counter);
+	*nombre_archivo = (char*) list_get(paquete, counter);
+	counter++;
+	*modo_apertura = (char*) list_get(paquete, counter);
+	list_destroy(paquete);
+}
+
+void recv_f_truncate(int fd,char** nombre_archivo, int* tam, pcb** contexto){
+	t_list* paquete = recibir_paquete(fd);
+	int counter = 0;
+    *contexto = desempaquetar_pcb(paquete, &counter);
+	*nombre_archivo = (char*) list_get(paquete, counter);
+	counter++;
+	int* puntero = list_get(paquete, counter);
+	*tam = *puntero;
+	free(puntero);	
 	list_destroy(paquete);
 }
 
@@ -755,6 +770,12 @@ void send_abrir_archivo(char* nombre_archivo, int fd_modulo){
 	t_paquete* paquete = crear_paquete(ABRIR_ARCHIVO);
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
 	enviar_paquete(paquete, fd_modulo);
+}
+void send_truncar(char*nombre_archivo,int tamanio_archivo,int fd){
+	t_paquete* paquete = crear_paquete(TRUNCAR_ARCHIVO);
+	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
+	agregar_a_paquete(paquete, &tamanio_archivo, sizeof(int));
+	enviar_paquete(paquete, fd);
 }
 
 void send_crear_archivo(char* nombre_archivo, int fd_modulo){
@@ -882,18 +903,10 @@ void recv_cargar_pagina(int fd_modulo, int *pid, int *pagina){
 int recv_respuesta_abrir_archivo(int fd){
 	op_code cop = recibir_operacion(fd);
 	int tamanio;
-
-	if (cop == ARCHIVO_EXISTE)
-	{
-		t_list* paquete = recibir_paquete(fd);
-		int* respuesta = list_get(paquete, 0);
-		tamanio = *respuesta;
-		free(respuesta);
-		list_destroy(paquete);
-	} else if (cop == ARCHIVO_NO_EXISTE)
-	{
-		tamanio = -1;
-	}
-	
+	t_list* paquete = recibir_paquete(fd);
+	int* respuesta = list_get(paquete, 0);
+	tamanio = *respuesta;
+	free(respuesta);
+	list_destroy(paquete);
 	return tamanio;
 }

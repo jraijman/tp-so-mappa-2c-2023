@@ -114,7 +114,7 @@ typedef struct
 typedef struct {
     char* nombre_archivo;
 	int puntero;
-    int tam_archivo;
+    //int tam_archivo;
 	t_queue* bloqueados_archivo;
 	//pthread_mutex_t mutex_w;
     //pthread_mutex_t mutex_r;
@@ -284,7 +284,7 @@ Instruccion recv_instruccion(int socket_cliente);
 int recv_fetch_instruccion(int fd_modulo, char** path, int** pc);
 void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo);
-void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura);
+void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura, pcb ** contexto);
 void recv_f_close(int fd,char** nombre_archivo);
 t_list* recv_reserva_swap(int fd_modulo);
 int recv_tam_pagina(int fd_modulo);
@@ -300,5 +300,6 @@ void recv_pcb_page_fault(int fd_modulo, pcb** contexto, int *pagina);
 char *recv_pagina_cargada(int fd_modulo);
 
 int recv_respuesta_abrir_archivo(int fd_filesystem);
+void recv_f_truncate(int fd,char** nombre_archivo, int* tam, pcb** contexto);
 
 #endif
