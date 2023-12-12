@@ -143,6 +143,7 @@ void movOutInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisic
         agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
         agregar_a_paquete(paquete,registro_origen,sizeof(uint32_t));
         enviar_paquete(paquete, fd_memoria);
+        eliminar_paquete(paquete);
         log_info(logger,ANSI_COLOR_YELLOW "PID: %d - Acción: ESCRIBIR - Dirección Física: %d - Valor: %d", contexto->pid, direccionFisica,*registro_origen);
         }
     }else{

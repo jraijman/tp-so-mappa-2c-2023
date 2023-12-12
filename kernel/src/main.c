@@ -385,11 +385,18 @@ void* planif_corto_plazo(void* args){
         pthread_mutex_lock(&mutex_plani_corta);
         sem_wait(&sem_plan_corto);
 
-        pcb *proceso_a_ejecutar = obtener_siguiente_proceso(algoritmo_planificacion);
+        pcb *proceso_a_ejecutar = NULL;
         
+        // Verificar si la planificación está activa y hay procesos en la cola de ready
+        if (planificacion_activa && !list_is_empty(cola_ready->elements)) {
+            proceso_a_ejecutar = obtener_siguiente_proceso(algoritmo_planificacion);
+        }
+
         if (proceso_a_ejecutar != NULL) {
             agregar_a_exec(proceso_a_ejecutar);
             send_pcb(proceso_a_ejecutar, fd_cpu_dispatch);
+        }else{
+            sem_post(&puedo_ejecutar_proceso);  
         }
 
         sem_post(&sem_plan_corto);
@@ -429,11 +436,13 @@ void controlar_interrupcion_rr(){
     while(1){
         sem_wait(&control_interrupciones_rr);
         cpu_disponible=false;
-        sleep(quantum/1000);
+        usleep(quantum * 1000);
 		if(!cpu_disponible){
             if(list_size(cola_exec->elements) > 0 & list_size(cola_ready->elements) > 0){
                 if(hay_exit == false){
+                    pthread_mutex_lock(&mutex_exec);
                     pcb * proceso = queue_peek(cola_exec);
+                    pthread_mutex_unlock(&mutex_exec);
                     log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
                     hay_interrupcion=true;
                     send_interrupcion(proceso->pid,fd_cpu_interrupt);
@@ -909,6 +918,7 @@ void iniciar_semaforos(){
     pthread_mutex_init(&mutex_block, NULL);
 	pthread_mutex_init(&mutex_exit, NULL);
     pthread_mutex_init(&manejar_recibir_mem, NULL);
+    pthread_mutex_init(&mutex_page_fault, NULL);
 
     //mutex para pausar planificacion
     pthread_mutex_init(&mutex_plani_corta, NULL);
@@ -1104,6 +1114,9 @@ void* manejar_page_fault(void * args){
     HiloArgs2* hiloArgs = args;
     pcb* proceso = hiloArgs->proceso;
     int pagina = hiloArgs->pagina;
+
+     // Bloquear el mutex para asegurar exclusión mutua
+    pthread_mutex_lock(&mutex_page_fault);
     
     log_info(logger_kernel, ANSI_COLOR_CYAN "Page Fault PID: %d - Pagina: %d", proceso->pid,pagina);
     agregar_a_block(proceso);
@@ -1124,9 +1137,11 @@ void* manejar_page_fault(void * args){
     } 
 
     free(respuesta);
-
     // Libera la memoria de la estructura de argumentos
     free(hiloArgs);
+
+    // Desbloquear el mutex al finalizar el manejo
+    pthread_mutex_unlock(&mutex_page_fault);
     // Termina el hilo
     pthread_exit(NULL);
 } 

@@ -105,6 +105,7 @@ pthread_mutex_t mutex_exit;
 pthread_mutex_t mutex_plani_corta;
 pthread_mutex_t mutex_plani_larga;
 pthread_mutex_t manejar_recibir_mem;
+pthread_mutex_t mutex_page_fault;
 
 // hilos
 pthread_t hilo_consola;

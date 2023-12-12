@@ -810,8 +810,12 @@ void send_pedido_marco(int fd_modulo, int pid, int pagina){
 
 void recv_pedido_marco(int fd_modulo, int *pid, int *pagina){
 	t_list* paquete = recibir_paquete(fd_modulo);
-	*pid = *(int*)list_get(paquete, 0);
-	*pagina = *(int*)list_get(paquete, 1);
+	int* puntero = list_get(paquete, 0);
+	*pid = *puntero;
+	free(puntero);	
+	puntero = list_get(paquete, 1);
+	*pagina = *puntero;
+	free(puntero);//memory leaks
 	list_destroy(paquete);
 }
 
@@ -865,7 +869,11 @@ void send_cargar_pagina(int fd_modulo, int pid, int pagina){
 void recv_cargar_pagina(int fd_modulo, int *pid, int *pagina){
 	//printf("\n RECIBIENDO CARGAR PAGINA \n");
 	t_list* paquete = recibir_paquete(fd_modulo);
-	*pid = *(int*)list_get(paquete, 0);
-	*pagina = *(int*)list_get(paquete, 1);
+	int* puntero = list_get(paquete, 0);
+	*pid = *puntero;//memory leaks
+	free(puntero);
+	puntero = list_get(paquete, 1);
+	*pagina = *puntero;//memory leaks
+	free(puntero);	
 	list_destroy(paquete);
 }

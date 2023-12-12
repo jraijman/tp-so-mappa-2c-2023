@@ -81,18 +81,15 @@ static void procesar_conexion(void *void_args) {
 		case INICIALIZAR_PROCESO:{
             pcb* proceso = recv_pcb(cliente_socket); //void* memoriaFisica = malloc();
             log_info(logger_memoria, "Creación de Proceso PID: %d, path: %s", proceso->pid, proceso->path);
-            //enviar_mensaje("OK inicio proceso", cliente_socket);
             int cant_paginas_necesarias = paginas_necesarias(proceso);
-            //mandar aca a fs para recibir pos en swap 
             send_reserva_swap(conexion_memoria_filesystem, cant_paginas_necesarias);
-            //bloquear con recv hasta recibir la lista de swap 
             op_code cop2 = recibir_operacion(conexion_memoria_filesystem);
             t_list* bloques_reservados = recv_reserva_swap(conexion_memoria_filesystem);
-            //log_info(logger_memoria, "Recibí la lista de swap %s");
             t_list* tabla_paginas = inicializar_proceso(proceso, bloques_reservados);
             list_add(lista_tablas_de_procesos, tabla_paginas);
             //VER TEMA DE Q NO EJECUTE INSTRUCCIONES SIN ANTES RECIBIR LA LISTA DE SWAP
             pcb_destroyer(proceso);
+            list_destroy(bloques_reservados);//memory leaks
             break;
             }
 			
@@ -197,6 +194,8 @@ static void procesar_conexion(void *void_args) {
             //actualizamos tiempo de uso de pagina
             entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccionFisica);
             pagina->ultimo_tiempo_uso = time(NULL);
+            // Liberar la memoria asignada para leido
+            free(valor);
             break;
             }
         case MOV_OUT:{
@@ -511,6 +510,7 @@ int tratar_page_fault(int num_pagina, int pid_actual) {
         list_add(paginas_en_memoria, pagina);
 
     }
+    free(bloque_swap);//memory leaks
     return nro_marco;
 }
 
@@ -684,6 +684,8 @@ int algoritmo_lru(int pid, int num_pagina) {
 
         // Liberar la memoria asignada para el char*
         free(valorChar);
+        // Liberar la memoria asignada para leido
+        free(leido);
 
         paginaReemplazo->modificado = 0;
     }
@@ -753,6 +755,8 @@ int algoritmo_fifo(int pid, int num_pagina) {
 
         // Liberar la memoria asignada para el char*
         free(valorChar);
+        // Liberar la memoria asignada para leido
+        free(leido);
 
         paginaReemplazo->modificado = 0;
     }

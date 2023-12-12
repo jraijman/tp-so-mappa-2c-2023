@@ -54,7 +54,9 @@ static void procesar_conexion(void* void_args) {
             }
             case INICIALIZAR_PROCESO:{
                 t_list* paquete=recibir_paquete(cliente_socket);
-                int cantidad_bloques=*(int*)list_get(paquete, 0);
+                int* puntero=list_get(paquete, 0);
+                int cantidad_bloques = *puntero;
+                free(puntero);//memory leak
                 list_destroy(paquete);
                 int bloques_reservados[cantidad_bloques];
                 if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados,bitmapSwap)){
@@ -112,10 +114,15 @@ static void procesar_conexion(void* void_args) {
             }
             case FINALIZAR_PROCESO:{   
                 t_list* paquete=recibir_paquete(cliente_socket);
-                int cantidad_bloques=*(int*)list_get(paquete,0);
+                int*puntero = list_get(paquete,0);
+                int cantidad_bloques=*puntero;
+                free(puntero);
+               
                 int bloques_a_liberar [cantidad_bloques];
                 for(int i=1; i<cantidad_bloques+1; i++){
-                    bloques_a_liberar[i-1]=*(int*)list_get(paquete,i);
+                    int*puntero2 = list_get(paquete,i);
+                    bloques_a_liberar[i-1]=* puntero2;
+                    free(puntero2);//memory leak
                 }
                 if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques,bitmapSwap)){
                     //enviar_mensaje("SWAP LIBERADO",cliente_socket);
@@ -124,6 +131,7 @@ static void procesar_conexion(void* void_args) {
                     log_error(logger, "Error al liberar los bloques SWAP");
                     //enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
                 }
+                list_destroy(paquete);
                 break;
             }
             case CREAR_ARCHIVO:{   
@@ -148,7 +156,9 @@ static void procesar_conexion(void* void_args) {
             }
             case PEDIDO_SWAP:{
                 t_list* paquete=recibir_paquete(cliente_socket);
-                int num_bloque=*(int*)list_get(paquete,0);
+                int*puntero = list_get(paquete,0);
+                int num_bloque=*puntero;
+                free(puntero);
                 list_destroy(paquete);
                 pthread_t hiloSwap;
                 t_pedido_swap_args* argsSwap = malloc(sizeof(t_pedido_swap_args));
