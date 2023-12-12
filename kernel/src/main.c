@@ -644,10 +644,11 @@ t_archivo* buscar_archivo_en_pcb(char* nombre_archivo, pcb* pcb){
 	return NULL;
 }
 
-t_archivo* crear_archivo(char* nombre_archivo){
+t_archivo* crear_archivo(char* nombre_archivo, int tamanio_archivo){
 	t_archivo* archivo = malloc(sizeof(t_archivo));
 	archivo->nombre_archivo = nombre_archivo;
 	archivo->puntero = 0;
+    archivo->tam_archivo = tamanio_archivo;
 	archivo->bloqueados_archivo = queue_create();
     archivo->abierto_w = 0;
     archivo->cant_abierto_r = 0;
@@ -669,6 +670,22 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
     //VER TEMA LOCKS
     t_archivo* archivo = buscar_archivo_global(nombre_archivo);
 
+    if (archivo == NULL){
+        //crear archivo y agregarlo a la lista de archivos abiertos
+        send_abrir_archivo(fd_filesystem);
+        int tamanio_archivo = recv_respuesta_abrir_archivo(fd_filesystem); //la respuesta es la cantidad de bytes
+        if (tamanio_archivo == -1)
+        {
+            send_crear_archivo(fd_filesystem);
+            char *mensaje = recibir_mensaje_fs(fd_filesystem);
+            tamanio_archivo = 0;
+        }
+        archivo = crear_archivo(nombre_archivo, tamanio_archivo);
+        list_add(archivos_abiertos, archivo);
+    }
+
+    list_add(proceso->archivos, archivo);
+
     if(strcmp(modo_apertura, "R") == 0){
         //validar si hay lock de escritura activo
         if(archivo->abierto_w == 1){
@@ -678,20 +695,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             sacar_de_exec();
             sem_post(&puedo_ejecutar_proceso);
         }else{
-            if(archivo == NULL){
-                //crear archivo y agregarlo a la lista de archivos abiertos
-                archivo = crear_archivo(nombre_archivo);
-                send_abrir_archivo(nombre_archivo,fd_filesystem);
-                //necesito esperar a respuesta de fs si existe o no el archivo
-                if(archivo_no_existe){
-                    send_crear_archivo(nombre_archivo,fd_filesystem);   
-                }
-                sem_wait(&archivo_abierto);
-                list_add(archivos_abiertos, archivo);
-                list_add(proceso->archivos, archivo);   
-            }else{
-                list_add(proceso->archivos, archivo);  
-            }
+            //manda el pcb a cpu para seguir ejecutando
             send_pcb(proceso,fd_cpu_dispatch);
             archivo->cant_abierto_r ++;
         }
@@ -704,20 +708,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             sacar_de_exec();
             sem_post(&puedo_ejecutar_proceso);
         }else{
-            if(archivo == NULL){
-                //crear archivo y agregarlo a la lista de archivos abiertos
-                archivo = crear_archivo(nombre_archivo);
-                send_abrir_archivo(nombre_archivo,fd_filesystem);
-                //necesito esperar a respuesta de fs si existe o no el archivo
-                if(archivo_no_existe){
-                    send_crear_archivo(nombre_archivo,fd_filesystem);   
-                }
-                sem_wait(&archivo_abierto);
-                list_add(archivos_abiertos, archivo);
-                list_add(proceso->archivos, archivo);   
-            }else{
-                list_add(proceso->archivos, archivo);  
-            }
+            //manda el pcb a cpu para seguir ejecutando
             send_pcb(proceso,fd_cpu_dispatch);
             archivo->abierto_w = 1;
         }

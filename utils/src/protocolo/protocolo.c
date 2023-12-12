@@ -877,3 +877,23 @@ void recv_cargar_pagina(int fd_modulo, int *pid, int *pagina){
 	free(puntero);	
 	list_destroy(paquete);
 }
+
+
+int recv_respuesta_abrir_archivo(int fd){
+	op_code cop = recibir_operacion(fd);
+	int tamanio;
+
+	if (cop == ARCHIVO_EXISTE)
+	{
+		t_list* paquete = recibir_paquete(fd);
+		int* respuesta = list_get(paquete, 0);
+		tamanio = *respuesta;
+		free(respuesta);
+		list_destroy(paquete);
+	} else if (cop == ARCHIVO_NO_EXISTE)
+	{
+		tamanio = -1;
+	}
+	
+	return tamanio;
+}

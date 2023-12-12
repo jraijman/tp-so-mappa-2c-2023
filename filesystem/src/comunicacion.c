@@ -37,21 +37,6 @@ static void procesar_conexion(void* void_args) {
                 log_info(logger, ANSI_COLOR_YELLOW "Recibí un paquete con los siguientes valores: ");
                 //list_iterate(paquete_recibido, (void*) iterator);
                 break;
-            case ABRIR_ARCHIVO:{
-                t_list *paqueteRecibido=recibir_paquete(cliente_socket);
-                char* nombre = list_get(paqueteRecibido, 0);
-                int tamano=abrir_archivo(nombre);
-                if(tamano!=-1){
-                    t_paquete* paqueteEnviar=crear_paquete(ABRIR_ARCHIVO);
-                    agregar_a_paquete(paqueteEnviar,&tamano,sizeof(int));
-                    enviar_paquete(paqueteEnviar,cliente_socket);
-                }else{
-                    enviar_mensaje("El archivo solicitado no existe",cliente_socket);
-                    t_paquete* paqueteEnviar=crear_paquete(ARCHIVO_NO_EXISTE);
-                    enviar_paquete(paqueteEnviar,cliente_socket);
-                }
-                break;
-            }
             case INICIALIZAR_PROCESO:{
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int* puntero=list_get(paquete, 0);
@@ -134,15 +119,26 @@ static void procesar_conexion(void* void_args) {
                 list_destroy(paquete);
                 break;
             }
+            case ABRIR_ARCHIVO:{
+                t_list *paqueteRecibido = recibir_paquete(cliente_socket);
+                char* nombre = list_get(paqueteRecibido, 0);
+                int tamano = abrir_archivo(nombre);
+                if(tamano!=-1){
+                    t_paquete* paqueteEnviar = crear_paquete(ARCHIVO_EXISTE);
+                    agregar_a_paquete(paqueteEnviar,&tamano,sizeof(int));
+                    enviar_paquete(paqueteEnviar,cliente_socket);
+                }else{
+                    enviar_mensaje("El archivo solicitado no existe",cliente_socket);
+                    t_paquete* paqueteEnviar = crear_paquete(ARCHIVO_NO_EXISTE);
+                    enviar_paquete(paqueteEnviar,cliente_socket);
+                }
+                break;
+            }
             case CREAR_ARCHIVO:{   
                 t_list* paquete=recibir_paquete(cliente_socket);
                 char* nombre=list_get(paquete,0);
                 crear_archivo(nombre);
                 enviar_mensaje("OK crear archivo",cliente_socket);
-                t_paquete* paqueteEnviar=crear_paquete(ARCHIVO_CREADO);
-                enviar_paquete(paqueteEnviar,cliente_socket);
-                eliminar_paquete(paqueteEnviar);
-                list_destroy(paquete);
                 break;
             }
             case TRUNCAR_ARCHIVO:{

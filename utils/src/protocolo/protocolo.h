@@ -53,6 +53,7 @@ typedef enum
     PEDIDO_ESCRITURA_FS,
     FIN_ESCRITURA,
     INTERRUPCION_FINALIZAR,
+    ARCHIVO_EXISTE,
     ARCHIVO_NO_EXISTE,
     ARCHIVO_CREADO,
     TAMANIO_PAGINA,
@@ -113,6 +114,7 @@ typedef struct
 typedef struct {
     char* nombre_archivo;
 	int puntero;
+    int tam_archivo;
 	t_queue* bloqueados_archivo;
 	//pthread_mutex_t mutex_w;
     //pthread_mutex_t mutex_r;
@@ -297,5 +299,6 @@ void send_pcb_page_fault(int fd_modulo, pcb* contexto, int pagina);
 void recv_pcb_page_fault(int fd_modulo, pcb** contexto, int *pagina);
 char *recv_pagina_cargada(int fd_modulo);
 
+int recv_respuesta_abrir_archivo(int fd_filesystem);
 
 #endif
