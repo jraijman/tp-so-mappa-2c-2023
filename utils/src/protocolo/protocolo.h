@@ -285,7 +285,7 @@ int recv_fetch_instruccion(int fd_modulo, char** path, int** pc);
 void send_interrupcion(int pid, int fd_modulo);
 int recv_interrupcion(int fd_modulo);
 void recv_f_open(int fd,char** nombre_archivo, char ** modo_apertura, pcb ** contexto);
-void recv_f_close(int fd,char** nombre_archivo);
+void recv_f_close(int fd,char** nombre_archivo, pcb ** contexto);
 t_list* recv_reserva_swap(int fd_modulo);
 int recv_tam_pagina(int fd_modulo);
 char * recv_leido_swap(int fd_modulo);

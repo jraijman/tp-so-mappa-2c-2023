@@ -67,6 +67,12 @@ typedef struct {
 	int pagina;
 } HiloArgs2;
 
+typedef struct {
+	pcb* proceso;
+	char* nombre;
+	int tamanio;
+} HiloArgs3;
+
 typedef struct{
     t_list *recursos_en_posecion;
     t_list *recursos_en_espera;

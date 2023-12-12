@@ -655,7 +655,7 @@ int usar_algoritmo(int pid, int num_pagina){
 int algoritmo_lru(int pid, int num_pagina) {
     if (list_is_empty(lista_tablas_de_procesos)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
-        return;
+        return -1;
     }
     list_sort(paginas_en_memoria, (void*) compararTiempoUso);
     
@@ -727,7 +727,7 @@ t_list* buscar_paginas_en_memoria(){
 int algoritmo_fifo(int pid, int num_pagina) {
     if (list_is_empty(lista_tablas_de_procesos)) {
         log_info(logger_memoria, "No hay páginas para reemplazar.");
-        return;
+        return -1;
     }
 
     entrada_pagina* paginaReemplazo = list_remove(paginas_en_memoria, 0);

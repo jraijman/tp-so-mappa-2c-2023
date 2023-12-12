@@ -760,9 +760,11 @@ void recv_f_truncate(int fd,char** nombre_archivo, int* tam, pcb** contexto){
 	list_destroy(paquete);
 }
 
-void recv_f_close(int fd,char** nombre_archivo){
+void recv_f_close(int fd,char** nombre_archivo, pcb**contexto){
 	t_list* paquete = recibir_paquete(fd);
-	*nombre_archivo = (char*) list_get(paquete, 0);
+	int counter = 0;
+    *contexto = desempaquetar_pcb(paquete, &counter);
+	*nombre_archivo = (char*) list_get(paquete, counter);
 	list_destroy(paquete);
 }
 

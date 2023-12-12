@@ -147,10 +147,10 @@ static void procesar_conexion(void* void_args) {
                 t_list* paquete=recibir_paquete(cliente_socket);
                 char* nombre=list_get(paquete,0);
                 int* puntero = (int*)list_get(paquete,1);
-                int tamano=*puntero;
+                int tamanio=*puntero;
                 free(puntero);
                 list_destroy(paquete);
-                truncarArchivo(nombre,tamano,bitmapBloques);
+                truncarArchivo(nombre,tamanio,bitmapBloques);
                 enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
                 break;
             }

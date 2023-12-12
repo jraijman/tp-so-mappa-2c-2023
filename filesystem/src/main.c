@@ -347,16 +347,20 @@ void actualizarFAT(FILE* f, uint32_t ultimoBloque, uint32_t nuevoBloque){
     fwrite(&eof,sizeof(uint32_t),1,f);
 }
 void bloquesArchivo(FILE* fat,int inicio,int tamano,uint32_t* bloques){
+    //no se como hacer aca 
+    if(inicio == -1){
+        return;
+    }
     fseek(fat, sizeof(uint32_t) * inicio, SEEK_SET);
     uint32_t siguiente=0;
     uint32_t bloqueSig=0;
     int i=0;
     while (siguiente != __UINT32_MAX__) {
-         bloques[i]=ftell(fat)/sizeof(uint32_t);
-        sleep(retardo_acceso_fat / 1000);
+        bloques[i]=ftell(fat)/sizeof(uint32_t);
+        usleep(retardo_acceso_fat * 1000);
         fread(&siguiente, sizeof(uint32_t), 1, fat);
         log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)));
-        fseek(fat, siguiente, SEEK_SET);
+        fseek(fat, siguiente * sizeof(uint32_t), SEEK_SET);
         i++;
     }
 }

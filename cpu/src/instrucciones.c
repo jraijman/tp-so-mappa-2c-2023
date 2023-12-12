@@ -171,6 +171,7 @@ void fCloseInstruccion(pcb* contexto, Instruccion instruccion,int fd_cpu_dispatc
     // F_CLOSE (Nombre Archivo): Esta instrucción solicita al kernel que cierre el archivo pasado por parámetro.
     char* nombre_archivo = instruccion.operando1;
     t_paquete* paquete = crear_paquete(F_CLOSE);
+    empaquetar_pcb(paquete, contexto);
     agregar_a_paquete(paquete, &nombre_archivo, strlen(nombre_archivo) + 1);
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);
@@ -184,7 +185,8 @@ void fSeekInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
     char* nombre_archivo = instruccion.operando1;
     int posicion = direccionFisica;
     t_paquete* paquete = crear_paquete(F_SEEK);
-    agregar_a_paquete(paquete,&nombre_archivo,strlen(nombre_archivo) + 1);
+    empaquetar_pcb(paquete, contexto);
+    agregar_a_paquete(paquete,nombre_archivo,strlen(nombre_archivo) + 1);
     agregar_a_paquete(paquete,&posicion,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);
     eliminar_paquete(paquete);

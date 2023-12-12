@@ -691,6 +691,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
         //validar si hay lock de escritura activo
         if(archivo->abierto_w == 1){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
+            log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
             agregar_a_block(proceso);
             queue_push(archivo->bloqueados_archivo, &proceso->pid);
             sacar_de_exec();
@@ -704,6 +705,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
     else if(strcmp(modo_apertura, "W") == 0){
         if(archivo->abierto_w == 1 || archivo->cant_abierto_r > 0){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
+            log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
             agregar_a_block(proceso);
             queue_push(archivo->bloqueados_archivo, &proceso->pid);
             sacar_de_exec();
@@ -715,9 +717,13 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
         }
     }
 }
+void* ejecutar_f_truncate(void * args){
+    HiloArgs3* argumentos = args;
+    char* nombre_archivo = argumentos->nombre;
+    int tamanio_archivo = argumentos->tamanio;
+    pcb* proceso = argumentos->proceso;
 
-void ejecutar_f_truncate(char* nombre_archivo, int* tamanio_archivo, pcb* proceso){
-
+    log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
     agregar_a_block(proceso);
     pcb* a_borrar = sacar_de_exec();
     pcb_destroyer(a_borrar);
@@ -728,8 +734,36 @@ void ejecutar_f_truncate(char* nombre_archivo, int* tamanio_archivo, pcb* proces
     op_code codigo = recibir_operacion(fd_filesystem);
     recibir_mensaje(logger_kernel,fd_filesystem);
 
+    proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
     agregar_a_ready(proceso);
-    
+
+
+    // Libera la memoria de la estructura de argumentos
+    free(argumentos);
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
+    t_archivo* archivo = buscar_archivo_en_pcb(nombre_archivo, proceso);
+    if(archivo != NULL){
+        archivo->puntero = posicion;
+        send_pcb(proceso,fd_cpu_dispatch);
+        pcb_destroyer(proceso);//no se si va o no
+    }
+    else{
+        log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
+    }
+}
+
+void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
+    t_archivo* archivo = buscar_archivo_en_pcb(nombre_archivo, proceso);
+    if (archivo != NULL) {
+        
+        
+    } else {
+        log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
+    }
 }
 
 //--------------FUNCIONES DE RECIBIR MENSAJES-----------------
@@ -751,7 +785,7 @@ void manejar_recibir_cpu(){
                 case MENSAJE:
                     recibir_mensaje(logger_kernel, fd_cpu_dispatch);
                     break;
-                case PCB_PAGEFAULT:
+                case PCB_PAGEFAULT:{
                     int pagina_fault;
                     recv_pcb_page_fault(fd_cpu_dispatch, &proceso, &pagina_fault);
                     pcb_a_borrar = sacar_de_exec();
@@ -765,17 +799,20 @@ void manejar_recibir_cpu(){
                     pthread_create(&hilo_page_fault, NULL, manejar_page_fault, args2);
                     pthread_detach(hilo_page_fault);
                     break;
-                case PCB_WAIT:
+                }
+                case PCB_WAIT:{
                     //printf("\n manejo wait \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_wait(proceso, extra);
                     break;
-                case PCB_SIGNAL:
+                }
+                case PCB_SIGNAL:{
                     //printf("\n manejo signal \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_signal(proceso, extra);
                     break;
-                case PCB_EXIT:
+                }
+                case PCB_EXIT:{
                     hay_exit = true;
                     //printf("\n manejo exit \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
@@ -792,7 +829,8 @@ void manejar_recibir_cpu(){
                     //mandar mensaje a memoria para que libere
                     send_terminar_proceso(proceso->pid,fd_memoria);
                     break;
-                case PCB_SLEEP:
+                }
+                case PCB_SLEEP:{
                     //printf("\n manejo sleep \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     pcb_a_borrar = sacar_de_exec();
@@ -805,37 +843,58 @@ void manejar_recibir_cpu(){
                     pthread_create(&hilo_sleep, NULL, manejar_sleep, args);
                     pthread_detach(hilo_consola);
                     break;
-                case PCB_INTERRUPCION:
+                }
+                case PCB_INTERRUPCION:{
                     //printf("\n manejo interrupcion \n");
                     //ver bien coom hacer el interupt
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
-                    log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
+                    //log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
                     pcb_a_borrar = sacar_de_exec();
                     pcb_destroyer(pcb_a_borrar);
                     agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
                     break;
-                case F_OPEN:
+                }
+                case F_OPEN:{
                     char* modo_apertura;
                     recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura, &proceso);
                     ejecutar_f_open(nombre_archivo, modo_apertura, proceso);
                     log_info(logger_kernel, "PID: %d - Abrir Archivo: %s", proceso->pid, nombre_archivo);
                     break;
-                case F_CLOSE:
-                    recv_f_close(fd_cpu_dispatch, &nombre_archivo);
-                    //ejecutar_f_close(nombre_archivo, proceso);
+                }
+                case F_CLOSE:{
+                    recv_f_close(fd_cpu_dispatch, &nombre_archivo, &proceso);
+                    ejecutar_f_close(nombre_archivo, proceso);
+                    log_info(logger_kernel, "PID: %d - Cerrar Archivo: %s", proceso->pid, nombre_archivo);
                     break;
-                case F_SEEK:
-                    
+                }
+                case F_SEEK:{
+                    int posicion;
+                    //hago recv truncate porq es lo mismo pero en vez de tamanio manda posicion
+                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &posicion, &proceso);
+                    ejecutar_f_seek(nombre_archivo, posicion, proceso);
+                    log_info(logger_kernel, "PID: %d -  Actualizar puntero Archivo: %s - Puntero: %d", proceso->pid, nombre_archivo, posicion);
                     break;
-                case F_TRUNCATE:
+                }
+                case F_TRUNCATE:{
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &tamanio_archivo, &proceso);
-                    ejecutar_f_truncate(&nombre_archivo, &tamanio_archivo, &proceso);
+                    pthread_t hilo_truncate;
+                    // Crear la estructura de argumentos
+                    HiloArgs3* args = malloc(sizeof(HiloArgs3));
+                    args->proceso = proceso;
+                    args->nombre = nombre_archivo;
+                    args->tamanio = tamanio_archivo;
+                    pthread_create(&hilo_truncate, NULL, ejecutar_f_truncate, args);
+                    pthread_detach(hilo_consola);
+                    log_info(logger_kernel, "PID: %d - Archivo: %s - Tamaño: %d", proceso->pid, nombre_archivo, tamanio_archivo);
                     break;
-                case F_READ:
+                }
+                case F_READ:{
                     break;
-                case F_WRITE:
+                }
+                case F_WRITE:{
                     break;
+                }
                 default:
                     printf("Error al recibir mensaje %d \n", cop);
                     break;
