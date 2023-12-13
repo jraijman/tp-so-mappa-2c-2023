@@ -34,6 +34,7 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int ampliacion,bool* bitm
 void actualizarFAT(FILE* f, uint32_t ultimoBloque, uint32_t nuevoBloque);
 void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap);
 char* escribir_bloque(int num_bloque, char* info);
+void escribir_bloque_void(int num_bloque, void* info);
 int obtener_bloqueInicial(char* nombre);
 int obtener_bloque(int bloqueInicial,int nroBloque);
 uint32_t buscarBloqueLibre(bool* bitmap);

@@ -60,48 +60,62 @@ static void procesar_conexion(void* void_args) {
                 break;
             }
             case F_WRITE:{
+                DireccionFisica direccion;
                 t_list* paquete=recibir_paquete(cliente_socket);
-                int*p = list_get(paquete,0);
-                int dirFisica=*p;
+                int* p = list_get(paquete,0);
+                direccion.marco = *p;
                 free(p);
                 p = list_get(paquete,1);
+                direccion.desplazamiento = *p;
+                free(p);
+                p = list_get(paquete,2);
                 int puntero=*p;
                 free(p);
-                char* nombre=list_get(paquete,2);
+                char* nombre=list_get(paquete,3);
                 int nroBloque=puntero/tam_bloque;
-                int bloqueInicial=obtener_bloqueInicial(nombre);
+                int bloqueInicial=obtener_bloqueInicial(nombre) + cant_bloques_swap;
                 int bloqueArchivo=obtener_bloque(bloqueInicial,nroBloque);
                 //Le solicita a memoria la informacion en la direccion fisica para escribir en el archivo
                 t_paquete* peticionMemoria=crear_paquete(F_WRITE);
-                agregar_a_paquete(peticionMemoria, &dirFisica,sizeof(uint32_t));
+                agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
+                agregar_a_paquete(peticionMemoria, &(direccion.desplazamiento), sizeof(int));
                 enviar_paquete(peticionMemoria,conexion_filesystem_memoria);
 
+                recibir_operacion(conexion_filesystem_memoria);                
                 t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
-                char* info=list_get(infoEscribir,0);
+                void* info=list_get(infoEscribir,0);
                 int bloque=puntero/tam_bloque;
-                escribir_bloque(bloqueArchivo,info);
+                escribir_bloque_void(bloqueArchivo,info);
                 list_destroy(paquete);
                 eliminar_paquete(peticionMemoria);
                 list_destroy(infoEscribir);
                 free(info);
+                char* leido = leer_bloque(bloqueArchivo);
+                log_info(logger, "Se escribio en el bloque %d la informacion: %s", bloque, leido);
+                enviar_mensaje("OK F_WRITE",cliente_socket);
                 break;
             }
             case F_READ:{
+                DireccionFisica direccion;
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int*p = list_get(paquete,0);
-                int dirFisica=*p;
+                direccion.marco=*p;
                 free(p);
-                p=list_get(paquete,1);
+                p = list_get(paquete,1);
+                direccion.desplazamiento=*p;
+                free(p);
+                p=list_get(paquete,2);
                 int puntero=*p;
                 free(p);
-                char* nombre= list_get(paquete,2);
+                char* nombre= list_get(paquete,3);
                 int bloqueInicial= obtener_bloqueInicial(nombre);
                 int bloqueArchivo= obtener_bloque(bloqueInicial, puntero/tam_bloque);
                 char* info=leer_bloque(bloqueArchivo);
                 //creo paquete para mandar a memoria dir fisica y leido
                 t_paquete* escribir=crear_paquete(F_READ);
-                agregar_a_paquete(escribir,info,tam_bloque);
-                agregar_a_paquete(escribir,&dirFisica,sizeof(int));
+                agregar_a_paquete(escribir, info, tam_bloque);
+                agregar_a_paquete(escribir, &(direccion.marco), sizeof(int));
+                agregar_a_paquete(escribir, &(direccion.desplazamiento), sizeof(int));
                 enviar_paquete(escribir,conexion_filesystem_memoria);
                 //recibo confirmacion de memoria
                 t_list* confirmacion=recibir_paquete(conexion_filesystem_memoria);

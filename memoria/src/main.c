@@ -136,7 +136,7 @@ static void procesar_conexion(void *void_args) {
             // Escribe el valor en el espacio de usuario en la posición especificada.
             escribir_marco_en_memoria(direccion, infoUint);
             // Registra información sobre la lectura en el logger.
-            log_info(logger_obligatorio, "ESCRIBIR ARCHIVO EN MEMORIA - Dirección física: %d | %d, escrito: %d", direccion.marco, direccion.desplazamiento, *infoUint);
+            log_info(logger_memoria, "ESCRIBIR ARCHIVO EN MEMORIA - Dirección física: %d | %d, escrito: %d", direccion.marco, direccion.desplazamiento, *infoUint);
             // Registra el valor leído en el logger y lo envía de vuelta al módulo cliente (FS).
             //log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
 
@@ -150,7 +150,7 @@ static void procesar_conexion(void *void_args) {
             direccion.marco=*p;
             free(p);
             p = list_get(infoLeer,1);
-            direccion.desplazamiento=*p;
+            direccion.desplazamiento = *p;
             free(p);
             list_destroy(infoLeer);
 
@@ -158,9 +158,15 @@ static void procesar_conexion(void *void_args) {
             usleep(RETARDO_REPUESTA * 1000);
 
             // Lee el valor del espacio de usuario en la posición especificada.
-            uint32_t* valor = leer_registro_de_memoria_uint(direccion);
-            log_info(logger_obligatorio, "LEER ARCHIVO EN MEMORIA - Dirección física: %d | %d, leido: %d", direccion.marco, direccion.desplazamiento,*valor);
-        
+            void* valor = leer_marco_de_memoria(direccion.marco);
+
+            imprimir_contenido(valor, 16);
+            //log_info(logger_memoria, "ESCRIBIR ARCHIVO EN MEMORIA - Dirección física: %d | %d, leido: %d", direccion.marco, direccion.desplazamiento,*valor);
+
+            t_paquete* paquete=crear_paquete(F_WRITE);
+            agregar_a_paquete(paquete, valor, tam_pagina);
+            enviar_paquete(paquete,cliente_socket);
+            eliminar_paquete(paquete);
         }
         break;
         case ENVIO_INSTRUCCION:{
@@ -241,6 +247,14 @@ static void procesar_conexion(void *void_args) {
 	return;
         }
     }
+}
+
+void imprimir_contenido(void* puntero, size_t tamano) {
+    unsigned char* bytes = (unsigned char*) puntero;
+    for (size_t i = 0; i < tamano; i++) {
+        printf("%d", bytes[i]);
+    }
+    printf("\n");
 }
 
 int server_escuchar(int fd_memoria) {
@@ -336,9 +350,9 @@ uint32_t* leer_registro_de_memoria_uint(DireccionFisica direccion){
     return leido;
 }
 
-char* leer_marco_de_memoria(int nro_marco){
+void* leer_marco_de_memoria(int nro_marco){
     //log_info(logger_memoria, "Leyendo marco %d", nro_marco);
-    char* leido = malloc(tam_pagina);
+    void* leido = malloc(tam_pagina);
     int marco_en_memoria = nro_marco * tam_pagina;
     pthread_mutex_lock(&mx_memoria);
     memcpy(leido, memoria + marco_en_memoria, tam_pagina);

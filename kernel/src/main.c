@@ -883,7 +883,7 @@ void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
 void* ejecutar_f_read(void * args) {
     HiloArgs3* argumentos = args;
     char* nombre_archivo = argumentos->nombre;
-    int dir_fisica = argumentos->tamanio;
+    DireccionFisica dir_fisica = argumentos->dir;
     pcb* proceso = argumentos->proceso;
 
     //bloqueamos el proceso
@@ -914,7 +914,7 @@ void* ejecutar_f_read(void * args) {
 void* ejecutar_f_write(void * args) {
     HiloArgs3* argumentos = args;
     char* nombre_archivo = argumentos->nombre;
-    int dir_fisica = argumentos->tamanio;
+    DireccionFisica dir_fisica = argumentos->dir;
     pcb* proceso = argumentos->proceso;
 
     //bloqueamos el proceso
@@ -1067,15 +1067,14 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_READ:{
-                    int dirFisica;
-                    //hago recv truncate porq es lo mismo pero en vez de tamanio manda dir fisica
-                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso); //truncate y read reciben lo mismo (int fd, char* nombre, int tamanio|dirFisica, pcb* proceso)
+                    DireccionFisica dirFisica;
+                    recv_f_write(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
                     pthread_t hilo_read;
                     // Crear la estructura de argumentos
                     HiloArgs3* args = malloc(sizeof(HiloArgs3));
                     args->proceso = proceso;
                     args->nombre = nombre_archivo;
-                    args->tamanio = dirFisica;
+                    args->dir = dirFisica;
                     pthread_create(&hilo_read, NULL, ejecutar_f_read, args);
                     pthread_detach(hilo_consola);
                     int puntero = buscar_archivo_en_pcb(nombre_archivo, proceso)->puntero;
@@ -1083,9 +1082,8 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_WRITE:{
-                    int dirFisica;
-                    //misma funcionhace lo mismo
-                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
+                    DireccionFisica dirFisica;
+                    recv_f_write(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
                     t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
 
                     if(strcmp(archivo_proceso->modo_apertura, "W") == 0){
@@ -1094,7 +1092,7 @@ void manejar_recibir_cpu(){
                         HiloArgs3* args = malloc(sizeof(HiloArgs3));
                         args->proceso = proceso;
                         args->nombre = nombre_archivo;
-                        args->tamanio = dirFisica;
+                        args->dir = dirFisica;
                         pthread_create(&hilo_write, NULL, ejecutar_f_write, args);
                         pthread_detach(hilo_consola);
                     }

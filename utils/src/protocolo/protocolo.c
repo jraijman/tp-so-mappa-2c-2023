@@ -739,6 +739,21 @@ void recv_f_truncate(int fd,char** nombre_archivo, int* tam, pcb** contexto){
 	list_destroy(paquete);
 }
 
+// LA UTILIZA F_READ Y F_WRITE YA QUE RECIBEN LO MISMO
+void recv_f_write(int fd,char** nombre_archivo, DireccionFisica* direccion, pcb** contexto){
+	t_list* paquete = recibir_paquete(fd);
+	int counter = 0;
+    *contexto = desempaquetar_pcb(paquete, &counter);
+	*nombre_archivo = (char*) list_get(paquete, counter);
+	counter++;
+	int* puntero = list_get(paquete, counter);
+	direccion->marco = *puntero;
+	puntero = list_get(paquete, counter);
+	direccion->desplazamiento = *puntero;
+	free(puntero);
+	list_destroy(paquete);
+}
+
 void recv_f_close(int fd,char** nombre_archivo, pcb**contexto){
 	t_list* paquete = recibir_paquete(fd);
 	int counter = 0;
@@ -768,18 +783,20 @@ void send_crear_archivo(char* nombre_archivo, int fd_modulo){
 	eliminar_paquete(paquete);
 }
 
-void send_leer_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero){
+void send_leer_archivo(int fd_modulo, char* nombre_archivo, DireccionFisica direccion, int puntero){
 	t_paquete* paquete = crear_paquete(F_READ);
-	agregar_a_paquete(paquete, &direccion_fisica, sizeof(int));
+	agregar_a_paquete(paquete, &(direccion.marco), sizeof(int));
+	agregar_a_paquete(paquete, &(direccion.desplazamiento), sizeof(int));
 	agregar_a_paquete(paquete, &puntero, sizeof(int));
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
 	enviar_paquete(paquete, fd_modulo);
 	eliminar_paquete(paquete);
 }
 
-void send_escribir_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero){
+void send_escribir_archivo(int fd_modulo, char* nombre_archivo, DireccionFisica direccion, int puntero){
 	t_paquete* paquete = crear_paquete(F_WRITE);
-	agregar_a_paquete(paquete, &direccion_fisica, sizeof(int));
+	agregar_a_paquete(paquete, &(direccion.marco), sizeof(int));
+	agregar_a_paquete(paquete, &(direccion.desplazamiento), sizeof(int));
 	agregar_a_paquete(paquete, &puntero, sizeof(int));
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
 	enviar_paquete(paquete, fd_modulo);

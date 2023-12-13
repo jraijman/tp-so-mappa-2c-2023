@@ -71,6 +71,7 @@ typedef struct {
 	pcb* proceso;
 	char* nombre;
 	int tamanio;
+	DireccionFisica dir;
 } HiloArgs3;
 
 typedef struct{

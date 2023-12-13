@@ -103,6 +103,27 @@ char* leer_bloque(int num_bloque){
         return NULL;
     }
 }
+void escribir_bloque_void(int num_bloque, void* info){
+	FILE* f=fopen(path_bloques, "rb+");
+    if(f!=NULL){
+        usleep(retardo_acceso_bloque * 1000);
+        fseek(f, tam_bloque * num_bloque, SEEK_SET);
+        if(num_bloque<cant_bloques_swap){
+            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+            fwrite(info, tam_bloque, 1, f);
+        }
+        else{
+        log_info(logger_filesystem, "ACCESO A BLOQUE %ld",ftell(f) / tam_bloque);
+        fwrite(info, tam_bloque,1,f);   
+        }
+        //log_info(logger_filesystem, "LA INFO ESCRITA ES: %s", info);
+        fclose(f);
+    }
+    else{
+        fclose(f);
+    }
+}
+
 char* escribir_bloque(int num_bloque, char* info){
 	FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
@@ -110,7 +131,7 @@ char* escribir_bloque(int num_bloque, char* info){
         fseek(f, tam_bloque * num_bloque, SEEK_SET);
         if(num_bloque<cant_bloques_swap){
             log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
-            fwrite(info, tam_bloque,1,f);
+            fwrite(info, tam_bloque, 1, f);
         }else{
             usleep(retardo_acceso_bloque * 1000);
             fseek(f, tam_bloque * num_bloque, SEEK_SET);
@@ -310,21 +331,23 @@ int obtener_bloqueInicial(char* nombre){
     }
     return -1;
 }
+
 int obtener_bloque(int bloqueInicial,int nroBloque){
-FILE* fat = fopen(path_fat,"rb");
-fseek(fat,(sizeof(uint32_t))*bloqueInicial,SEEK_SET);
-uint32_t siguiente;
-for(int i=0; i<nroBloque-1; i++){
-    if(siguiente==__UINT32_MAX__){
-        fclose(fat);
-        return -1;
+    FILE* fat = fopen(path_fat,"rb");
+    fseek(fat, (sizeof(uint32_t))* bloqueInicial, SEEK_SET);
+    uint32_t siguiente = bloqueInicial;
+
+    for(int i = 0; i < nroBloque; i++){
+        if(siguiente==__UINT32_MAX__){
+            fclose(fat);
+            return -1;
+        }
+        sleep(retardo_acceso_fat / 1000);
+        fread(&siguiente, sizeof(uint32_t), 1, fat);
+        log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)));
     }
-    sleep(retardo_acceso_fat / 1000);
-    fread(&siguiente, sizeof(uint32_t), 1, fat);
-    log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)));
-}
-fclose(fat);
-return siguiente;
+    fclose(fat);
+    return siguiente;
 }
 
 uint32_t buscarBloqueLibre(bool* bitmap){
@@ -456,11 +479,11 @@ int asignarBloque(char* nombre, bool* bitmap){
     FILE* bloques= fopen(path_bloques,"rb+");
     reservarBloque(bloques, bloque, bitmap);
     fclose(bloques);
-    uint32_t eof=__UINT32_MAX__;
+    uint32_t eof = __UINT32_MAX__;
     FILE* fat= fopen(path_fat,"rb+");
     fseek(fat,(bloque)*sizeof(uint32_t),SEEK_SET);
-    fwrite(&eof,sizeof(uint32_t),1,fat);
-    log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",(ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t));
+    fwrite(&eof, sizeof(uint32_t), 1, fat);
+    log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", (ftell(fat)-sizeof(uint32_t))/sizeof(uint32_t));
     fclose(fat);
     actualizarFcb(nombre,1024,bloque);
     return bloque;
