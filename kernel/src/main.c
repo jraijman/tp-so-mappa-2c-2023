@@ -695,7 +695,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             op_code codigo = recibir_operacion(fd_filesystem);
             recibir_mensaje(logger_kernel,fd_filesystem);
         }
-        archivo = crear_archivo_global(nombre_archivo);
+        archivo = crear_archivo_general(nombre_archivo);
         list_add(archivos_abiertos, archivo);
     }
 
@@ -810,7 +810,7 @@ void abrir_proceso_encolado(t_archivo* archivo){
             //agregar a la lista de archivos del proceso
 
             //abre el archivo y lo agrega a la lista de archivos del proceso
-            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
             list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
             archivo->modo_apertura = "R";
@@ -830,7 +830,7 @@ void abrir_proceso_encolado(t_archivo* archivo){
                     //agregar a la lista de archivos del proceso
 
                     //abre el archivo y lo agrega a la lista de archivos del proceso
-                    t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+                    t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
                     list_add(proceso->archivos, archivo_proceso);
                     //manda el pcb a cpu para seguir ejecutando
                     archivo->modo_apertura = "R";
@@ -844,7 +844,7 @@ void abrir_proceso_encolado(t_archivo* archivo){
             //agregar a la lista de archivos del proceso
 
             //abre el archivo y lo agrega a la lista de archivos del proceso
-            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
             list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
             archivo->modo_apertura = "W";
@@ -858,7 +858,7 @@ void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
     t_archivo* archivo = buscar_archivo_global(nombre_archivo);
 
     if (archivo != NULL) {
-        t_archivo_proceso* archivo_proceso = eliminar_y_devolver_archivo_de_proceso(archivo_proceso, proceso);
+        t_archivo_proceso* archivo_proceso = eliminar_y_devolver_archivo_en_proceso(archivo_proceso, proceso);
         if (archivo_proceso != NULL) {
             if(strcmp(archivo->modo_apertura, "R") == 0){
                archivo->cant_abierto_r --;
@@ -898,6 +898,38 @@ void* ejecutar_f_read(void * args) {
     send_leer_archivo(fd_filesystem, nombre_archivo, dir_fisica, puntero);
     //fs manda a memoria q escriba a partir de la dir fisica
     //le devuelve ok a fs
+    //fs nos devuelve ok
+    op_code codigo = recibir_operacion(fd_filesystem);
+    recibir_mensaje(logger_kernel,fd_filesystem);
+    //proceso a ready
+    agregar_a_ready(proceso);
+
+
+    // Libera la memoria de la estructura de argumentos
+    free(argumentos);
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void* ejecutar_f_write(void * args) {
+    HiloArgs3* argumentos = args;
+    char* nombre_archivo = argumentos->nombre;
+    int dir_fisica = argumentos->tamanio;
+    pcb* proceso = argumentos->proceso;
+
+    //bloqueamos el proceso
+    agregar_a_block(proceso);
+    log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
+    pcb* a_borrar = sacar_de_exec();
+    pcb_destroyer(a_borrar);
+    sem_post(&puedo_ejecutar_proceso);
+    
+    //mandamos a fs q escriba
+    int puntero = (buscar_archivo_en_pcb(nombre_archivo, proceso))->puntero;
+    send_escribir_archivo(fd_filesystem, nombre_archivo, dir_fisica, puntero);
+    //fs le pide a memoria lo q esta en la dir fisica
+    //le devuelve lo leido a fs
+    //fs escribe en el archivo
     //fs nos devuelve ok
     op_code codigo = recibir_operacion(fd_filesystem);
     recibir_mensaje(logger_kernel,fd_filesystem);
@@ -1037,7 +1069,7 @@ void manejar_recibir_cpu(){
                 case F_READ:{
                     int dirFisica;
                     //hago recv truncate porq es lo mismo pero en vez de tamanio manda dir fisica
-                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
+                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso); //truncate y read reciben lo mismo (int fd, char* nombre, int tamanio|dirFisica, pcb* proceso)
                     pthread_t hilo_read;
                     // Crear la estructura de argumentos
                     HiloArgs3* args = malloc(sizeof(HiloArgs3));
@@ -1051,6 +1083,29 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_WRITE:{
+                    int dirFisica;
+                    //misma funcionhace lo mismo
+                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
+                    t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
+
+                    if(strcmp(archivo_proceso->modo_apertura, "W") == 0){
+                        pthread_t hilo_write;
+                        // Crear la estructura de argumentos
+                        HiloArgs3* args = malloc(sizeof(HiloArgs3));
+                        args->proceso = proceso;
+                        args->nombre = nombre_archivo;
+                        args->tamanio = dirFisica;
+                        pthread_create(&hilo_write, NULL, ejecutar_f_write, args);
+                        pthread_detach(hilo_consola);
+                    }
+                    else{
+                        log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso: %d - Motivo: INVALID_WRITE",proceso->pid);
+                        pcb* a_borrar = sacar_de_exec();
+                        pcb_destroyer(a_borrar);
+                        agregar_a_exit(proceso);
+                        sem_post(&puedo_ejecutar_proceso);
+                        send_terminar_proceso(proceso->pid, fd_memoria);  
+                    }
                     break;
                 }
                 default:

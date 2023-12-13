@@ -145,23 +145,11 @@ void empaquetar_archivos(t_paquete* paquete_archivos, t_list* lista_archivos) {
     agregar_a_paquete(paquete_archivos, &cantidad_archivos, sizeof(int));
 
     for (int i = 0; i < cantidad_archivos; i++) {
-        t_archivo* archivo = list_get(lista_archivos, i);
+        t_archivo_proceso* archivo = list_get(lista_archivos, i);
 
         agregar_a_paquete(paquete_archivos, archivo->nombre_archivo, strlen(archivo->nombre_archivo) + 1);
         agregar_a_paquete(paquete_archivos, &archivo->puntero, sizeof(int));
-
-		// Agregar la lista de Procesos bloqueados
-		int cantidad_procesos_bloqueados = queue_size(archivo->bloqueados_archivo);
-		agregar_a_paquete(paquete_archivos, &cantidad_procesos_bloqueados, sizeof(int));
-		for (int j = 0; j < cantidad_procesos_bloqueados; j++) {
-			int* pid_bloqueado = list_get(archivo->bloqueados_archivo->elements, j);
-			agregar_a_paquete(paquete_archivos, pid_bloqueado, sizeof(int));
-		}
-		// Agregar booleano de si esta abierto para escritura
-		agregar_a_paquete(paquete_archivos, &archivo->abierto_w, sizeof(int));
-
-		// Agregar int de cantidad de veces abierto para lectura
-        agregar_a_paquete(paquete_archivos, &archivo->cant_abierto_r, sizeof(int));
+		agregar_a_paquete(paquete_archivos, archivo->modo_apertura, strlen(archivo->nombre_archivo) + 1);
     }
 }
 t_queue* desempaquetar_procesos_bloqueados(t_list* paquete, int* comienzo) {
@@ -187,7 +175,7 @@ t_list* desempaquetar_archivos(t_list* paquete, int* comienzo) {
 	int i = *comienzo + 1;
 
 	while (i - *comienzo - 1 < (*cantidad_archivos * 2)) {
-		t_archivo* archivo = malloc(sizeof(t_archivo));
+		t_archivo_proceso* archivo = malloc(sizeof(t_archivo));
 
 		// Desempaquetar la ruta del archivo
 		char* path = (char*)list_get(paquete, i);
@@ -201,19 +189,10 @@ t_list* desempaquetar_archivos(t_list* paquete, int* comienzo) {
 		free(puntero);
 		i++;
 
-		// Desempaquetar la lista de Procesos bloqueados
-		archivo->bloqueados_archivo = desempaquetar_procesos_bloqueados(paquete, &i);
-		
-		// Desempaquetar booleano de si esta abierto para escritura
-		int * abierto_w = list_get(paquete, i);
-		archivo->abierto_w = *abierto_w;
-		free(abierto_w);
-		i++;
-
-		// Desempaquetar int de cantidad de veces abierto para lectura
-		int *cant_abierto_r = list_get(paquete, i);
-		archivo->cant_abierto_r = *cant_abierto_r;
-		free(cant_abierto_r);
+		// Desempaquetar el modo apertura
+		char* modo = (char*)list_get(paquete, i);
+		archivo->modo_apertura = strdup(modo);
+		free(modo);
 		i++;
 
 		list_add(lista_archivos, archivo);
@@ -791,6 +770,15 @@ void send_crear_archivo(char* nombre_archivo, int fd_modulo){
 
 void send_leer_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero){
 	t_paquete* paquete = crear_paquete(F_READ);
+	agregar_a_paquete(paquete, &direccion_fisica, sizeof(int));
+	agregar_a_paquete(paquete, &puntero, sizeof(int));
+	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
+	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
+}
+
+void send_escribir_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero){
+	t_paquete* paquete = crear_paquete(F_WRITE);
 	agregar_a_paquete(paquete, &direccion_fisica, sizeof(int));
 	agregar_a_paquete(paquete, &puntero, sizeof(int));
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);

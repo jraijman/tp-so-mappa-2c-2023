@@ -191,19 +191,12 @@ typedef struct
 } SolicitudLiberacionSwap;
 
 
-/*
-typedef struct
-{
-    int direccionLogica;
-    int tamano_pagina;
-    int desplazamiento;
-    int numeroPagina;
-    int direccionFisica;
+
+typedef struct {
     int marco;
-    int pageFault;
-} Direccion;
-*/
-///
+    int desplazamiento;
+} DireccionFisica;
+
 typedef struct
 {
     int tamano;
@@ -280,6 +273,8 @@ void send_pagina_cargada(int fd);
 void send_pedido_swap(int fd, int posicion_swap);
 void send_leido_swap(int fd, char * leido,int tam_pagina);
 void send_cargar_pagina(int fd_modulo, int pid, int pagina);
+void send_leer_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero);
+void send_escribir_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero);
 
 //recv
 t_list* recv_archivos(t_log* logger, int fd_modulo);

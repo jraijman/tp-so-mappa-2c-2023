@@ -116,44 +116,52 @@ static void procesar_conexion(void *void_args) {
             }
             break;
             }
-        case F_READ:
-         /*
-            valor_fs = malloc(*tamano_fs);
+        case F_READ:{
+            //recibo la info a escribir y la dir fisica
+            DireccionFisica direccion;
+            t_list* infoEscribir=recibir_paquete(cliente_socket);
+            char* info=list_get(infoEscribir,0);
+            int*p = list_get(infoEscribir,1);
+            direccion.marco=*p;
+            free(p);
+            p = list_get(infoEscribir,2);
+            direccion.desplazamiento=*p;
+            free(p);
 
+            list_destroy(infoEscribir);
             // Simula un retardo en el acceso a memoria según la configuración.
-            usleep(RETARDO_RESPUESTA * 1000);
-
-            // Copia el valor desde el espacio de usuario a la variable valor_fs.
-            memcpy(valor_fs, espacio_usuario + *posicion_fs, *tamano_fs);
-
-            // Registra información sobre la lectura en el logger.
-            log_info(logger_obligatorio, "PID: %d - Acción: LEER - Dirección física: %d - Tamaño: %d - Origen: FS", *pid_fs, *posicion_fs, *tamano_fs);
-
-            // Registra el valor leído en el logger y lo envía de vuelta al módulo cliente (FS).
-            log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
-            break;
-        */
-        case F_WRITE:
-            // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
-            /*parametros_escritura_fs = recibir_paquete(cliente_socket);
-            
-            char* valor_a_escribir_fs = list_get(parametros_escritura_fs, 0);
-            int* posicion_escritura_fs = list_get(parametros_escritura_fs, 1);
-            tam_esc_fs = list_get(parametros_escritura_fs, 2);
-            pid_escritura_fs = list_get(parametros_escritura_fs, 3);
-
-            // Registra información sobre el tamaño del valor a escribir en el logger.
-            log_info(logger_memoria, "el tamaño del valor a escribir es: %d", *tam_esc_fs);
-
-            // Simula un retardo en el acceso a memoria según la configuración.
-            usleep(RETARDO_REPUESTA);
-
+            usleep(RETARDO_REPUESTA * 1000);
+            uint32_t* infoUint = malloc(sizeof(uint32_t));
+            memcpy(infoUint, info, sizeof(uint32_t));
             // Escribe el valor en el espacio de usuario en la posición especificada.
-            memcpy(espacio_usuario + *posicion_escritura_fs, valor_a_escribir_fs, *tam_esc_fs);
+            escribir_marco_en_memoria(direccion, infoUint);
+            // Registra información sobre la lectura en el logger.
+            log_info(logger_obligatorio, "ESCRIBIR ARCHIVO EN MEMORIA - Dirección física: %d | %d, escrito: %d", direccion.marco, direccion.desplazamiento, *infoUint);
+            // Registra el valor leído en el logger y lo envía de vuelta al módulo cliente (FS).
+            //log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
 
-            // Registra información sobre la escritura en el logger y envía un mensaje indicando el fin de la operación de escritura al módulo cliente (FS).
-            log_info_y_enviar_fin_escritura(logger_obligatorio, *pid_escritura_fs, *posicion_escritura_fs, *tam_esc_fs, valor_a_escribir_fs, cliente_socket);*/
+            break;
+        }
+        case F_WRITE:{
+            DireccionFisica direccion;
+            // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
+            t_list* infoLeer=recibir_paquete(cliente_socket);
+            int*p = list_get(infoLeer,0);
+            direccion.marco=*p;
+            free(p);
+            p = list_get(infoLeer,1);
+            direccion.desplazamiento=*p;
+            free(p);
+            list_destroy(infoLeer);
 
+            // Simula un retardo en el acceso a memoria según la configuración.
+            usleep(RETARDO_REPUESTA * 1000);
+
+            // Lee el valor del espacio de usuario en la posición especificada.
+            uint32_t* valor = leer_registro_de_memoria_uint(direccion);
+            log_info(logger_obligatorio, "LEER ARCHIVO EN MEMORIA - Dirección física: %d | %d, leido: %d", direccion.marco, direccion.desplazamiento,*valor);
+        
+        }
         break;
         case ENVIO_INSTRUCCION:{
             char* path;
@@ -179,20 +187,24 @@ static void procesar_conexion(void *void_args) {
             }
         case MOV_IN:{
             usleep(RETARDO_REPUESTA *1000);
+            DireccionFisica direccion;
             //leer valor de direccion fisica recibido de cpu y enviar
             t_list* paquete1 = recibir_paquete(cliente_socket);
             int* puntero = list_get(paquete1, 0);
-            int direccionFisica = *puntero;
+            direccion.marco = *puntero;
+            free(puntero);
+            puntero = list_get(paquete1, 1);
+            direccion.desplazamiento = *puntero;
             free(puntero);
             list_destroy(paquete1);
-            uint32_t* valor = leer_registro_de_memoria_uint(direccionFisica);
+            uint32_t* valor = leer_registro_de_memoria_uint(direccion);
             log_info(logger_memoria, "Valor leido de memoria: %d", *valor);
             t_paquete* paquete = crear_paquete(MOV_IN);
             agregar_a_paquete(paquete,valor,sizeof(uint32_t));
             enviar_paquete(paquete, cliente_socket);
             eliminar_paquete(paquete);
             //actualizamos tiempo de uso de pagina
-            entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccionFisica);
+            entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccion.marco);
             pagina->ultimo_tiempo_uso = time(NULL);
             // Liberar la memoria asignada para leido
             free(valor);
@@ -200,20 +212,24 @@ static void procesar_conexion(void *void_args) {
             }
         case MOV_OUT:{
             usleep(RETARDO_REPUESTA *1000);
+            DireccionFisica direccion;
             //escribir en memoria el valor recibido de cpu, en la dir fisica recibida de cpu
             t_list* paquete = recibir_paquete(cliente_socket);
             int* puntero = list_get(paquete, 0);
-            int direccionFisica = *puntero;
-            uint32_t *puntero2 = list_get(paquete, 1);
+            direccion.marco = *puntero;
+            free(puntero);
+            puntero = list_get(paquete, 1);
+            direccion.desplazamiento = *puntero;
+            uint32_t *puntero2 = list_get(paquete, 2);
             uint32_t valor = *puntero2;
             free(puntero);
             free(puntero2);
             list_destroy(paquete);
             //marcar bit de modificado en 1
-            marcar_pagina_modificada(direccionFisica);
-            escribir_marco_en_memoria(direccionFisica, &valor);
+            marcar_pagina_modificada(direccion.marco);
+            escribir_marco_en_memoria(direccion, &valor);
             //actualizamos tiempo de uso de pagina
-            entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccionFisica);
+            entrada_pagina* pagina = buscar_en_tabla_por_direccionfisica(direccion.marco);
             pagina->ultimo_tiempo_uso = time(NULL);
             //TIENE Q MANDAR UN OK A CPU
            
@@ -302,20 +318,20 @@ entrada_pagina * buscar_en_tabla_por_direccionfisica(int direccionfisica){
 }
 
 //escribe en el frame q le llega desde cpu
-void escribir_marco_en_memoria(uint32_t nro_marco, uint32_t* valor){
-    log_info(logger_memoria, "Escribiendo en marco %d", nro_marco);
-    uint32_t marco_en_memoria = nro_marco * tam_pagina;
+void escribir_marco_en_memoria(DireccionFisica direccion, uint32_t* valor){
+    //log_info(logger_memoria, "Escribiendo en marco %d", nro_marco);
+    int marco_en_memoria = direccion.marco * tam_pagina;
 	pthread_mutex_lock(&mx_memoria);
-	memcpy(memoria + marco_en_memoria, valor, sizeof(uint32_t));
+	memcpy(memoria + marco_en_memoria + direccion.desplazamiento, valor, sizeof(uint32_t));
 	pthread_mutex_unlock(&mx_memoria);
 }
 
-uint32_t* leer_registro_de_memoria_uint(int nro_marco){
+uint32_t* leer_registro_de_memoria_uint(DireccionFisica direccion){
     //log_info(logger_memoria, "Leyendo marco %d", nro_marco);
     uint32_t* leido = malloc(tam_pagina);
-    int marco_en_memoria = nro_marco * tam_pagina;
+    int marco_en_memoria = direccion.marco * tam_pagina;
     pthread_mutex_lock(&mx_memoria);
-    memcpy(leido, memoria + marco_en_memoria, sizeof(uint32_t));
+    memcpy(leido, memoria + marco_en_memoria + direccion.desplazamiento, sizeof(uint32_t));
     pthread_mutex_unlock(&mx_memoria);
     return leido;
 }
@@ -668,7 +684,10 @@ int algoritmo_lru(int pid, int num_pagina) {
     // Guardar en memoria virtual si está modificada
     if (paginaReemplazo->modificado == 1) {
         t_paquete* paquete = crear_paquete(ESCRIBIR_SWAP);
-        uint32_t* leido = leer_registro_de_memoria_uint(paginaReemplazo->num_marco);
+        DireccionFisica direccion;
+        direccion.marco = paginaReemplazo->num_marco;
+        direccion.desplazamiento = 0;
+        uint32_t* leido = leer_registro_de_memoria_uint(direccion);
         // Convertir el uint32_t a una cadena de caracteres
         char valorStr[tam_pagina]; // Suficiente espacio para almacenar el valor como cadena
         sprintf(valorStr, "%u", *leido);
@@ -739,7 +758,10 @@ int algoritmo_fifo(int pid, int num_pagina) {
     // Guardar en memoria virtual si está modificada
     if (paginaReemplazo->modificado == 1) {
         t_paquete* paquete = crear_paquete(ESCRIBIR_SWAP);
-        uint32_t* leido = leer_registro_de_memoria_uint(paginaReemplazo->num_marco);
+        DireccionFisica direccion;
+        direccion.marco = paginaReemplazo->num_marco;
+        direccion.desplazamiento = 0;
+        uint32_t* leido = leer_registro_de_memoria_uint(direccion);
         // Convertir el uint32_t a una cadena de caracteres
         char valorStr[tam_pagina]; // Suficiente espacio para almacenar el valor como cadena
         sprintf(valorStr, "%u", *leido);

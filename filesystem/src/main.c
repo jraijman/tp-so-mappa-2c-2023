@@ -392,16 +392,21 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
     if(bloquesAmpliar<=bloquesLibres){
         FILE* bloques=fopen(path_bloques, "rb+");
         FILE* fat=fopen(path_fat,"rb+");
+        uint32_t libre=0;
+        uint32_t eof=__UINT32_MAX__;
+        uint32_t* bloquesOcupados = (uint32_t*)calloc(tamanoNuevo/tam_bloque,sizeof(uint32_t));
+        bloquesOcupados[0]=bloqueInicio;
         uint32_t bloqueLibre;
-        uint32_t ultimo=buscarUltimoBloque(fat,bloqueInicio);
-        for(int i=(tamanoActual/tam_bloque)-1;i<(tamanoNuevo/tam_bloque)-1;i++){
+        bloquesArchivo(fat,bloqueInicio,tamanoNuevo/tam_bloque,bloquesOcupados);
+        for(int i=(tamanoActual/tam_bloque)-1;i<tamanoNuevo/tam_bloque-1;i++){
             bloqueLibre=buscarBloqueLibre(bitmap);
-            actualizarFAT(fat,ultimo,bloqueLibre);
+            bloquesOcupados[i+1]=bloqueLibre;
+            actualizarFAT(fat,bloquesOcupados[i],bloquesOcupados[i+1]);
             reservarBloque(bloques,bloqueLibre,bitmap);
-            ultimo=buscarUltimoBloque(fat,ultimo);
         }
         fclose(fat);
         fclose(bloques);
+        free(bloquesOcupados);
     }
 }
 void achicarArchivo(int bloqueInicio, int tamanoActual, int tamanoNuevo, bool* bitmap){
@@ -426,9 +431,14 @@ void achicarArchivo(int bloqueInicio, int tamanoActual, int tamanoNuevo, bool* b
     free(bloquesOcupados);
 }
 
+
 bool truncarArchivo(char* nombre, int tamano, bool* bitmap){
     int bloqueInicio=obtener_bloqueInicial(nombre);
     int tamanoActual=abrir_archivo(nombre);
+    if(tamanoActual==0)
+    {
+        bloqueInicio=asignarBloque(nombre,bitmap);
+    }
     if(tamanoActual<tamano){
         ampliarArchivo(bloqueInicio, tamanoActual, tamano, bitmap);
         actualizarFcb(nombre,tamano,bloqueInicio);
@@ -441,7 +451,7 @@ bool truncarArchivo(char* nombre, int tamano, bool* bitmap){
     return false;
 }
 
-uint32_t asignarBloque(char* nombre, bool* bitmap){
+int asignarBloque(char* nombre, bool* bitmap){
     uint32_t bloque= buscarBloqueLibre(bitmap);
     FILE* bloques= fopen(path_bloques,"rb+");
     reservarBloque(bloques, bloque, bitmap);
