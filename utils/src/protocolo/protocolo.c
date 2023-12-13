@@ -772,20 +772,31 @@ void send_abrir_archivo(char* nombre_archivo, int fd_modulo){
 	t_paquete* paquete = crear_paquete(ABRIR_ARCHIVO);
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
 	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
 }
 void send_truncar(char*nombre_archivo,int tamanio_archivo,int fd){
 	t_paquete* paquete = crear_paquete(TRUNCAR_ARCHIVO);
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
 	agregar_a_paquete(paquete, &tamanio_archivo, sizeof(int));
 	enviar_paquete(paquete, fd);
+	eliminar_paquete(paquete);
 }
 
 void send_crear_archivo(char* nombre_archivo, int fd_modulo){
 	t_paquete* paquete = crear_paquete(CREAR_ARCHIVO);
 	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
 	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
 }
 
+void send_leer_archivo(int fd_modulo, char* nombre_archivo, int direccion_fisica, int puntero){
+	t_paquete* paquete = crear_paquete(F_READ);
+	agregar_a_paquete(paquete, &direccion_fisica, sizeof(int));
+	agregar_a_paquete(paquete, &puntero, sizeof(int));
+	agregar_a_paquete(paquete, nombre_archivo, strlen(nombre_archivo) + 1);
+	enviar_paquete(paquete, fd_modulo);
+	eliminar_paquete(paquete);
+}
 
 
 //----------------------------------PAGE FAULT-----------------------------------------

@@ -198,6 +198,7 @@ void fReadInstruccion(pcb* contexto, Instruccion instruccion,int direccionFisica
     char* nombre_archivo = instruccion.operando1;
     int direccion_logica = atoi(instruccion.operando2);
     t_paquete* paquete = crear_paquete(F_READ);
+    empaquetar_pcb(paquete, contexto);
     agregar_a_paquete(paquete,&nombre_archivo,strlen(nombre_archivo) + 1);
     agregar_a_paquete(paquete,&direccionFisica,sizeof(int));
     enviar_paquete(paquete, fd_cpu_dispatch);

@@ -263,20 +263,23 @@ int abrir_archivo(char* nombre){
     strcat(ruta,"/");
     strcat(ruta,nombre);
     strcat(ruta,".fcb");
-    t_config *config = iniciar_config(ruta);
+    config = iniciar_config(ruta);
     if(config!=NULL){
     int tamano=config_get_int_value(config,"TAMANIO_ARCHIVO");
     config_destroy(config);
+    free(ruta);
     return tamano;
     }
     //config_destroy(config);
+    free(ruta);
     return -1;
 }
 
 void actualizarFcb(char* nombre, int tamano, int bloque){
-    int tamRuta=strlen(path_fcb)+strlen(nombre)+5;
+    int tamRuta=strlen(path_fcb)+strlen(nombre)+6;
     char* ruta = (char*)malloc(tamRuta);
     strcpy(ruta,path_fcb);
+    strcat(ruta,"/");
     strcat(ruta,nombre);
     strcat(ruta,".fcb");   
     char str2[8];
@@ -293,16 +296,17 @@ void actualizarFcb(char* nombre, int tamano, int bloque){
 }
 
 int obtener_bloqueInicial(char* nombre){
-    int tamRuta=strlen(path_fcb)+strlen(nombre)+5;
+    int tamRuta=strlen(path_fcb)+strlen(nombre)+6;
     char* ruta = (char*)malloc(tamRuta);
     strcpy(ruta,path_fcb);
+    strcat(ruta,"/");
     strcat(ruta,nombre);
     strcat(ruta,".fcb");
     config = iniciar_config(ruta);
     free(ruta);
     if(config!=NULL){
-    int bloque=config_get_int_value(config,"BLOQUE_INICIAL");
-    return bloque;
+        int bloque=config_get_int_value(config,"BLOQUE_INICIAL");
+        return bloque;
     }
     return -1;
 }
@@ -376,8 +380,8 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
         uint32_t* bloquesOcupados = (uint32_t*)calloc(tamanoNuevo/tam_bloque,sizeof(uint32_t));
         bloquesOcupados[0]=bloqueInicio;
         uint32_t bloqueLibre;
-        bloquesArchivo(fat,bloqueInicio,tamanoNuevo/tam_bloque,bloquesOcupados);
-        for(int i=(tamanoActual/tam_bloque)-1;i<tamanoNuevo/tam_bloque-1;i++){
+        //bloquesArchivo(fat,bloqueInicio,tamanoNuevo/tam_bloque,bloquesOcupados);
+        for(int i=(tamanoActual/tam_bloque)-1;i<(tamanoNuevo/tam_bloque)-1;i++){
             bloqueLibre=buscarBloqueLibre(bitmap);
             bloquesOcupados[i+1]=bloqueLibre;
             actualizarFAT(fat,bloquesOcupados[i],bloquesOcupados[i+1]);
@@ -414,7 +418,7 @@ bool truncarArchivo(char* nombre, int tamano, bool* bitmap){
     int bloqueInicio=obtener_bloqueInicial(nombre);
     int tamanoActual=abrir_archivo(nombre);
     if(tamanoActual<tamano){
-        ampliarArchivo(bloqueInicio,tamanoActual , tamano,bitmap);
+        ampliarArchivo(bloqueInicio, tamanoActual, tamano, bitmap);
         actualizarFcb(nombre,tamano,bloqueInicio);
         return true;
     }else if(tamanoActual>tamano){

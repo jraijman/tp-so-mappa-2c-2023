@@ -116,7 +116,7 @@ static void procesar_conexion(void *void_args) {
             }
             break;
             }
-        case PEDIDO_LECTURA_FS:
+        case F_READ:
          /*
             valor_fs = malloc(*tamano_fs);
 
@@ -133,7 +133,7 @@ static void procesar_conexion(void *void_args) {
             log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
             break;
         */
-        case PEDIDO_ESCRITURA_FS:
+        case F_WRITE:
             // Recibe los parámetros de escritura del espacio de usuario desde el módulo cliente (FS).
             /*parametros_escritura_fs = recibir_paquete(cliente_socket);
             

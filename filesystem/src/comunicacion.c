@@ -63,6 +63,8 @@ static void procesar_conexion(void* void_args) {
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int dirFisica=*(int*)list_get(paquete, 0);
                 int puntero=*(int*)list_get(paquete,1);
+
+                //falta nombre archivo para saber desde donde leer
                 t_paquete* peticionMemoria=crear_paquete(F_WRITE);
                 agregar_a_paquete(peticionMemoria, &dirFisica,sizeof(uint32_t));
                 t_list* infoEscribir=recibir_paquete(conexion_filesystem_memoria);
@@ -79,6 +81,8 @@ static void procesar_conexion(void* void_args) {
                 t_list* paquete=recibir_paquete(cliente_socket);
                 int dirFisica=*(int*)list_get(paquete, 0);
                 int puntero=*(int*)list_get(paquete,1);
+
+                //falta nombre archivo para saber desde donde leer
                 char* info=leer_bloque(puntero/tam_bloque);
                 t_paquete* escribir=crear_paquete(F_READ);
                 agregar_a_paquete(escribir,info,tam_bloque);

@@ -634,9 +634,9 @@ t_archivo* buscar_archivo_global(char* nombre_archivo){
 	return NULL;
 }
 
-t_archivo* buscar_archivo_en_pcb(char* nombre_archivo, pcb* pcb){
+t_archivo_proceso* buscar_archivo_en_pcb(char* nombre_archivo, pcb* pcb){
 	for(int i = 0; i < list_size(pcb->archivos); i++){
-		t_archivo* archivo = list_get(pcb->archivos, i);
+		t_archivo_proceso* archivo = list_get(pcb->archivos, i);
 		if(strcmp(archivo->nombre_archivo, nombre_archivo) == 0){
 			return archivo;
 		}
@@ -644,30 +644,45 @@ t_archivo* buscar_archivo_en_pcb(char* nombre_archivo, pcb* pcb){
 	return NULL;
 }
 
-t_archivo* crear_archivo(char* nombre_archivo){
+t_archivo_proceso* eliminar_y_devolver_archivo_en_proceso(char* nombre_archivo, pcb* pcb){
+	for(int i = 0; i < list_size(pcb->archivos); i++){
+		t_archivo_proceso* archivo = list_get(pcb->archivos, i);
+		if(strcmp(archivo->nombre_archivo, nombre_archivo) == 0){
+			return list_remove(pcb->archivos, i);
+		}
+	}
+	return NULL;
+}
+
+t_archivo* crear_archivo_general(char* nombre_archivo){
 	t_archivo* archivo = malloc(sizeof(t_archivo));
 	archivo->nombre_archivo = nombre_archivo;
-	archivo->puntero = 0;
-    //archivo->tam_archivo = tamanio_archivo;  POR SI NECECITO EL TAMAÑO
 	archivo->bloqueados_archivo = queue_create();
+    archivo->modo_apertura = malloc(2);
+    archivo->modo_apertura = "";
     archivo->abierto_w = 0;
     archivo->cant_abierto_r = 0;
-	//pthread_mutex_init(&archivo->mutex_w, NULL);
-    //pthread_mutex_init(&archivo->mutex_r, NULL);
-    //pthread_rwlock_init(&archivo->rwlock, NULL);
+	pthread_mutex_init(&archivo->mutex_archivo, NULL);
 	return archivo;
 }
 
-t_archivo* quitar_archivo_de_proceso(char* nombre_archivo,pcb* pcb){
-	t_archivo* archivo = buscar_archivo_en_pcb(nombre_archivo, pcb);
+t_archivo_proceso* crear_archivo_proceso(char* nombre_archivo, char* modo_apertura){
+	t_archivo_proceso* archivo = malloc(sizeof(t_archivo_proceso));
+	archivo->nombre_archivo = nombre_archivo;
+	archivo->puntero = 0;
+    archivo->modo_apertura = malloc(2);
+    archivo->modo_apertura = modo_apertura;
+	return archivo;
+}
+
+t_archivo_proceso* quitar_archivo_de_proceso(char* nombre_archivo, pcb* pcb){
+	t_archivo_proceso* archivo = buscar_archivo_en_pcb(nombre_archivo, pcb);
 	list_remove_element(pcb->archivos, archivo);
 	log_info(logger_kernel, ANSI_COLOR_YELLOW "al proceso %d le quedan %d archivos abiertos", pcb->pid, list_size(pcb->archivos));
 	return archivo;
 }
 
 void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
-    //depende de si esta en modo lectura o escritura
-    //VER TEMA LOCKS
     t_archivo* archivo = buscar_archivo_global(nombre_archivo);
 
     if (archivo == NULL){
@@ -679,44 +694,68 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             send_crear_archivo(nombre_archivo, fd_filesystem);
             op_code codigo = recibir_operacion(fd_filesystem);
             recibir_mensaje(logger_kernel,fd_filesystem);
-            tamanio_archivo = 0;
         }
-        archivo = crear_archivo(nombre_archivo);
+        archivo = crear_archivo_global(nombre_archivo);
         list_add(archivos_abiertos, archivo);
     }
 
-    list_add(proceso->archivos, archivo);
 
     if(strcmp(modo_apertura, "R") == 0){
         //validar si hay lock de escritura activo
-        if(archivo->abierto_w == 1){
+        if(strcmp(archivo->modo_apertura, "W") == 0){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
             agregar_a_block(proceso);
-            queue_push(archivo->bloqueados_archivo, &proceso->pid);
-            sacar_de_exec();
+            
+            //Agregamos pcb a la cola de bloqueados del archivo
+            t_proceso_bloqueado_archivo* proceso_bloqueado = malloc(sizeof(t_proceso_bloqueado_archivo));
+            proceso_bloqueado->pid = proceso->pid;
+            proceso_bloqueado->modo_apertura = modo_apertura;
+            pthread_mutex_lock(&archivo->mutex_archivo);
+            queue_push(archivo->bloqueados_archivo, proceso_bloqueado);
+            pthread_mutex_unlock(&archivo->mutex_archivo);
+
+            pcb* pcb_a_borrar = sacar_de_exec();
+            pcb_destroyer(pcb_a_borrar);
             sem_post(&puedo_ejecutar_proceso);
         }else{
-            //manda el pcb a cpu para seguir ejecutando
-            send_pcb(proceso,fd_cpu_dispatch);
+           //abre el archivo y lo agrega a la lista de archivos del proceso
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            list_add(proceso->archivos, archivo_proceso);
+             //manda el pcb a cpu para seguir ejecutando
+            archivo->modo_apertura = "R";
             archivo->cant_abierto_r ++;
+            send_pcb(proceso,fd_cpu_dispatch);
         }
     }
     else if(strcmp(modo_apertura, "W") == 0){
-        if(archivo->abierto_w == 1 || archivo->cant_abierto_r > 0){
+        if(strcmp(archivo->modo_apertura, "W") == 0 || strcmp(archivo->modo_apertura, "R") == 0){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
             agregar_a_block(proceso);
-            queue_push(archivo->bloqueados_archivo, &proceso->pid);
-            sacar_de_exec();
+            
+            //Agregamos pcb a la cola de bloqueados del archivo
+            t_proceso_bloqueado_archivo* proceso_bloqueado = malloc(sizeof(t_proceso_bloqueado_archivo));
+            proceso_bloqueado->pid = proceso->pid;
+            proceso_bloqueado->modo_apertura = modo_apertura;
+            pthread_mutex_lock(&archivo->mutex_archivo);
+            queue_push(archivo->bloqueados_archivo, proceso_bloqueado);
+            pthread_mutex_unlock(&archivo->mutex_archivo);
+
+            pcb* pcb_a_borrar = sacar_de_exec();
+            pcb_destroyer(pcb_a_borrar);
             sem_post(&puedo_ejecutar_proceso);
         }else{
+            //abre el archivo y lo agrega a la lista de archivos del proceso
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
+            archivo->modo_apertura = "W";
             send_pcb(proceso,fd_cpu_dispatch);
-            archivo->abierto_w = 1;
         }
     }
 }
+
 void* ejecutar_f_truncate(void * args){
     HiloArgs3* argumentos = args;
     char* nombre_archivo = argumentos->nombre;
@@ -745,25 +784,131 @@ void* ejecutar_f_truncate(void * args){
 }
 
 void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
-    t_archivo* archivo = buscar_archivo_en_pcb(nombre_archivo, proceso);
-    if(archivo != NULL){
-        archivo->puntero = posicion;
+    t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
+    if(archivo_proceso != NULL){
+        archivo_proceso->puntero = posicion;
         send_pcb(proceso,fd_cpu_dispatch);
-        pcb_destroyer(proceso);//no se si va o no
+        //pcb_destroyer(proceso);//no se si va o no
     }
     else{
         log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
     }
 }
 
-void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
-    t_archivo* archivo = buscar_archivo_en_pcb(nombre_archivo, proceso);
-    if (archivo != NULL) {
+void abrir_proceso_encolado(t_archivo* archivo){
+   if(queue_size(archivo->bloqueados_archivo) > 0){
+        //sacar de bloqueado el sigueinte proceso
+        pthread_mutex_lock(&archivo->mutex_archivo);
+        t_proceso_bloqueado_archivo* siguiente_proceso = queue_pop(archivo->bloqueados_archivo);
+        pthread_mutex_unlock(&archivo->mutex_archivo);
+
+//  W R W
+
+        if (strcmp(siguiente_proceso->modo_apertura, "R") == 0)
+        {
+            pcb* proceso = buscar_y_remover_pcb_cola(cola_block, siguiente_proceso->pid, cantidad_block, mutex_block);
+            //agregar a la lista de archivos del proceso
+
+            //abre el archivo y lo agrega a la lista de archivos del proceso
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            list_add(proceso->archivos, archivo_proceso);
+            //manda el pcb a cpu para seguir ejecutando
+            archivo->modo_apertura = "R";
+            agregar_a_ready(proceso);
+
+            for(int i = 0; i <queue_size(archivo->bloqueados_archivo); i++){
+                pthread_mutex_lock(&archivo->mutex_archivo);
+                t_proceso_bloqueado_archivo* siguiente_siguiente_proceso = queue_peek(archivo->bloqueados_archivo);
+                pthread_mutex_unlock(&archivo->mutex_archivo);
+
+                if (strcmp(siguiente_siguiente_proceso->modo_apertura, "R") == 0){
+                    pthread_mutex_lock(&archivo->mutex_archivo);
+                    t_proceso_bloqueado_archivo* siguiente_proceso = queue_pop(archivo->bloqueados_archivo);
+                    pthread_mutex_unlock(&archivo->mutex_archivo);
+
+                    pcb* proceso = buscar_y_remover_pcb_cola(cola_block, siguiente_proceso->pid, cantidad_block, mutex_block);
+                    //agregar a la lista de archivos del proceso
+
+                    //abre el archivo y lo agrega a la lista de archivos del proceso
+                    t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+                    list_add(proceso->archivos, archivo_proceso);
+                    //manda el pcb a cpu para seguir ejecutando
+                    archivo->modo_apertura = "R";
+                    agregar_a_ready(proceso);
+                }
+                return;
+            }
+            
+        } else if (strcmp(siguiente_proceso->modo_apertura, "W") == 0) {
+            pcb* proceso = buscar_y_remover_pcb_cola(cola_block, siguiente_proceso->pid, cantidad_block, mutex_block);
+            //agregar a la lista de archivos del proceso
+
+            //abre el archivo y lo agrega a la lista de archivos del proceso
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            list_add(proceso->archivos, archivo_proceso);
+            //manda el pcb a cpu para seguir ejecutando
+            archivo->modo_apertura = "W";
+            agregar_a_ready(proceso);
+        }
         
+   }
+}
+
+void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
+    t_archivo* archivo = buscar_archivo_global(nombre_archivo);
+
+    if (archivo != NULL) {
+        t_archivo_proceso* archivo_proceso = eliminar_y_devolver_archivo_de_proceso(archivo_proceso, proceso);
+        if (archivo_proceso != NULL) {
+            if(strcmp(archivo->modo_apertura, "R") == 0){
+               archivo->cant_abierto_r --;
+               if(archivo->cant_abierto_r == 0){
+                    archivo->modo_apertura = "";
+                    abrir_proceso_encolado(archivo);
+                    //no sabemos si sacarlo de srchivos globales
+               }
+            }
+            else if(strcmp(archivo_proceso->modo_apertura, "W") == 0){
+               //si esta en modo lectura, ver si el siguiente proceso en modo lectura
+                archivo->modo_apertura = "";
+                abrir_proceso_encolado(archivo);
+            }
+        }
         
     } else {
         log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
     }
+}
+
+void* ejecutar_f_read(void * args) {
+    HiloArgs3* argumentos = args;
+    char* nombre_archivo = argumentos->nombre;
+    int dir_fisica = argumentos->tamanio;
+    pcb* proceso = argumentos->proceso;
+
+    //bloqueamos el proceso
+    agregar_a_block(proceso);
+    log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
+    pcb* a_borrar = sacar_de_exec();
+    pcb_destroyer(a_borrar);
+    sem_post(&puedo_ejecutar_proceso);
+    
+    //mandamos a fs q lea
+    int puntero = (buscar_archivo_en_pcb(nombre_archivo, proceso))->puntero;
+    send_leer_archivo(fd_filesystem, nombre_archivo, dir_fisica, puntero);
+    //fs manda a memoria q escriba a partir de la dir fisica
+    //le devuelve ok a fs
+    //fs nos devuelve ok
+    op_code codigo = recibir_operacion(fd_filesystem);
+    recibir_mensaje(logger_kernel,fd_filesystem);
+    //proceso a ready
+    agregar_a_ready(proceso);
+
+
+    // Libera la memoria de la estructura de argumentos
+    free(argumentos);
+    // Termina el hilo
+    pthread_exit(NULL);
 }
 
 //--------------FUNCIONES DE RECIBIR MENSAJES-----------------
@@ -890,6 +1035,19 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_READ:{
+                    int dirFisica;
+                    //hago recv truncate porq es lo mismo pero en vez de tamanio manda dir fisica
+                    recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
+                    pthread_t hilo_read;
+                    // Crear la estructura de argumentos
+                    HiloArgs3* args = malloc(sizeof(HiloArgs3));
+                    args->proceso = proceso;
+                    args->nombre = nombre_archivo;
+                    args->tamanio = dirFisica;
+                    pthread_create(&hilo_read, NULL, ejecutar_f_read, args);
+                    pthread_detach(hilo_consola);
+                    int puntero = buscar_archivo_en_pcb(nombre_archivo, proceso)->puntero;
+                    log_info(logger_kernel, "“PID: %d - Leer Archivo: %s - Puntero %d - Dirección Memoria %d - Tamaño %d", proceso->pid, nombre_archivo, puntero, dirFisica, tamanio_archivo);
                     break;
                 }
                 case F_WRITE:{

@@ -113,16 +113,24 @@ typedef struct
 
 typedef struct {
     char* nombre_archivo;
-	int puntero;
-    //int tam_archivo;
-	t_queue* bloqueados_archivo;
-	//pthread_mutex_t mutex_w;
-    //pthread_mutex_t mutex_r;
-    //pthread_rwlock_t rwlock;
+	//int puntero;  //no se usa, lo tiene cada proceso
+    char* modo_apertura;
+	t_queue* bloqueados_archivo;//lista de t_proceso_bloqueado_archivo
+	pthread_mutex_t mutex_archivo;
     int abierto_w;
     int cant_abierto_r;
 } t_archivo;
 
+typedef struct {
+    char* nombre_archivo;
+	int puntero;
+    char* modo_apertura;
+} t_archivo_proceso;
+
+typedef struct {
+    int pid;
+    char* modo_apertura;
+} t_proceso_bloqueado_archivo;
 
 
 
