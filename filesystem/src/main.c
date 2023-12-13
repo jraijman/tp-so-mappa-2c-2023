@@ -103,7 +103,7 @@ char* leer_bloque(int num_bloque){
         return NULL;
     }
 }
-void escribir_bloque(int num_bloque, char* info){
+char* escribir_bloque(int num_bloque, char* info){
 	FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
         usleep(retardo_acceso_bloque * 1000);
@@ -310,6 +310,23 @@ int obtener_bloqueInicial(char* nombre){
     }
     return -1;
 }
+int obtener_bloque(int bloqueInicial,int nroBloque){
+FILE* fat = fopen(path_fat,"rb");
+fseek(fat,(sizeof(uint32_t))*bloqueInicial,SEEK_SET);
+uint32_t siguiente;
+for(int i=0; i<nroBloque-1; i++){
+    if(siguiente==__UINT32_MAX__){
+        fclose(fat);
+        return -1;
+    }
+    sleep(retardo_acceso_fat / 1000);
+    fread(&siguiente, sizeof(uint32_t), 1, fat);
+    log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)));
+}
+fclose(fat);
+return siguiente;
+}
+
 uint32_t buscarBloqueLibre(bool* bitmap){
     uint32_t i=1;//Arranco en 1.El bloque 0 es para boot.
     while(i<(cant_bloques_total-cant_bloques_swap) && bitmap[i]!=0)
@@ -375,21 +392,16 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
     if(bloquesAmpliar<=bloquesLibres){
         FILE* bloques=fopen(path_bloques, "rb+");
         FILE* fat=fopen(path_fat,"rb+");
-        uint32_t libre=0;
-        uint32_t eof=__UINT32_MAX__;
-        uint32_t* bloquesOcupados = (uint32_t*)calloc(tamanoNuevo/tam_bloque,sizeof(uint32_t));
-        bloquesOcupados[0]=bloqueInicio;
         uint32_t bloqueLibre;
-        //bloquesArchivo(fat,bloqueInicio,tamanoNuevo/tam_bloque,bloquesOcupados);
+        uint32_t ultimo=buscarUltimoBloque(fat,bloqueInicio);
         for(int i=(tamanoActual/tam_bloque)-1;i<(tamanoNuevo/tam_bloque)-1;i++){
             bloqueLibre=buscarBloqueLibre(bitmap);
-            bloquesOcupados[i+1]=bloqueLibre;
-            actualizarFAT(fat,bloquesOcupados[i],bloquesOcupados[i+1]);
+            actualizarFAT(fat,ultimo,bloqueLibre);
             reservarBloque(bloques,bloqueLibre,bitmap);
+            ultimo=buscarUltimoBloque(fat,ultimo);
         }
         fclose(fat);
         fclose(bloques);
-        free(bloquesOcupados);
     }
 }
 void achicarArchivo(int bloqueInicio, int tamanoActual, int tamanoNuevo, bool* bitmap){
