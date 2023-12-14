@@ -73,26 +73,28 @@ static void procesar_conexion(void* void_args) {
                 free(p);
                 char* nombre=list_get(paquete,3);
                 int nroBloque=puntero/tam_bloque;
-                int bloqueInicial=obtener_bloqueInicial(nombre) + cant_bloques_swap;
+                int bloqueInicial=obtener_bloqueInicial(nombre);
+                int tamanoArchivo=abrir_archivo(nombre);
+                if(puntero>tamanoArchivo || puntero<0){
+                    log_info(logger_filesystem,"El puntero excede al tamaño del archivo o no es válido");
+                }else{
+                    log_info(logger_filesystem,"Puntero válido");
                 int bloqueArchivo=obtener_bloque(bloqueInicial,nroBloque);
-                //Le solicita a memoria la informacion en la direccion fisica para escribir en el archivo
                 t_paquete* peticionMemoria=crear_paquete(F_WRITE);
                 agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
                 agregar_a_paquete(peticionMemoria, &(direccion.desplazamiento), sizeof(int));
                 enviar_paquete(peticionMemoria,conexion_filesystem_memoria);
-
                 recibir_operacion(conexion_filesystem_memoria);                
                 t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
                 void* info=list_get(infoEscribir,0);
-                int bloque=puntero/tam_bloque;
-                escribir_bloque_void(bloqueArchivo,info);
+                log_info(logger_filesystem,"ESCRIBO UN BLOQUE");
+                escribir_bloque_void(bloqueArchivo+cant_bloques_swap,info);
+                log_info(logger_filesystem,"ESCRIBII UN BLOQUE");
                 list_destroy(paquete);
                 eliminar_paquete(peticionMemoria);
                 list_destroy(infoEscribir);
                 free(info);
-                char* leido = leer_bloque(bloqueArchivo);
-                log_info(logger, "Se escribio en el bloque %d la informacion: %s", bloque, leido);
-                enviar_mensaje("OK F_WRITE",cliente_socket);
+                enviar_mensaje("OK F_WRITE",cliente_socket);}
                 break;
             }
             case F_READ:{

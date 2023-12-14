@@ -27,6 +27,7 @@ bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap);
 bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[],bool* bitmap);
 int abrir_archivo(char* ruta);
 bool crear_archivo(char* nombre);
+int asignarBloque(char* nombre, bool* bitmap);
 bool truncarArchivo(char* nombre, int tamano, bool* bitmap);
 void achicarArchivo(int bloqueInicio, int tamanoActual, int reduccion, bool* bitmap);
 void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap);

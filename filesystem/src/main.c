@@ -113,7 +113,7 @@ void escribir_bloque_void(int num_bloque, void* info){
             fwrite(info, tam_bloque, 1, f);
         }
         else{
-        log_info(logger_filesystem, "ACCESO A BLOQUE %ld",ftell(f) / tam_bloque);
+        log_info(logger_filesystem, "ACCESO A BLOQUE %ld",ftell(f) / tam_bloque-cant_bloques_swap);
         fwrite(info, tam_bloque,1,f);   
         }
         //log_info(logger_filesystem, "LA INFO ESCRITA ES: %s", info);
@@ -154,7 +154,7 @@ char* escribir_bloque(int num_bloque, char* info){
 //----------------------------GESTION BLOQUES----------------------------------
 bool iniciar_bloques(int tamano_bloques, bool* bitmapBloques, bool* bitmapSwap) {
     BLOQUE bloque;
-    bloque.info = malloc(tamano_bloques);
+    bloque.info = calloc(1,tamano_bloques);
     strcpy(bloque.info,"0");  // Inicializa el bloque con el carácter '0'
 
     FILE* f = fopen(path_bloques, "rb+");
@@ -334,17 +334,14 @@ int obtener_bloqueInicial(char* nombre){
 
 int obtener_bloque(int bloqueInicial,int nroBloque){
     FILE* fat = fopen(path_fat,"rb");
-    fseek(fat, (sizeof(uint32_t))* bloqueInicial, SEEK_SET);
+    fseek(fat, (sizeof(uint32_t))*bloqueInicial, SEEK_SET);
     uint32_t siguiente = bloqueInicial;
-
     for(int i = 0; i < nroBloque; i++){
-        if(siguiente==__UINT32_MAX__){
-            fclose(fat);
-            return -1;
-        }
         sleep(retardo_acceso_fat / 1000);
         fread(&siguiente, sizeof(uint32_t), 1, fat);
-        log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)));
+        log_info(logger_filesystem, "LEYENDO EL OBTENER BLOQUE %d", siguiente);
+        log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t))/sizeof(uint32_t)));
+        fseek(fat,siguiente*sizeof(uint32_t),SEEK_SET);
     }
     fclose(fat);
     return siguiente;
@@ -369,7 +366,7 @@ uint32_t buscarUltimoBloque(FILE* fat, int inicio) {
     bloqueSig = ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t));
     while (siguiente != __UINT32_MAX__) {
         bloqueSig = (ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t);
-        fseek(fat, siguiente, SEEK_SET);
+        fseek(fat, siguiente*sizeof(uint32_t), SEEK_SET);
         sleep(retardo_acceso_fat / 1000);
         fread(&siguiente, sizeof(uint32_t), 1, fat);
         bloqueSig = (ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t);
@@ -383,7 +380,7 @@ void actualizarFAT(FILE* f, uint32_t ultimoBloque, uint32_t nuevoBloque){
     fseek(f,ultimoBloque*sizeof(uint32_t),SEEK_SET);
     sleep(retardo_acceso_fat / 1000);
     log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld",(ftell(f))/sizeof(uint32_t));
-    fwrite(&direccionNuevo,sizeof(uint32_t),1,f);
+    fwrite(&nuevoBloque,sizeof(uint32_t),1,f);
     fseek(f,direccionNuevo,SEEK_SET);
     uint32_t eof=__UINT32_MAX__;
     sleep(retardo_acceso_fat / 1000);
@@ -415,8 +412,6 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
     if(bloquesAmpliar<=bloquesLibres){
         FILE* bloques=fopen(path_bloques, "rb+");
         FILE* fat=fopen(path_fat,"rb+");
-        uint32_t libre=0;
-        uint32_t eof=__UINT32_MAX__;
         uint32_t* bloquesOcupados = (uint32_t*)calloc(tamanoNuevo/tam_bloque,sizeof(uint32_t));
         bloquesOcupados[0]=bloqueInicio;
         uint32_t bloqueLibre;
