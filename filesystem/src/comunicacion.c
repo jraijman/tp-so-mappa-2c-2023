@@ -56,8 +56,7 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hiloInicializar, NULL, (void*) manejar_iniciar_proceso, (void*) args);
                 pthread_detach(hiloInicializar);
-                free(args);
-                free(bloques_reservados);
+                //free(bloques_reservados);
                 break;
             }
             case F_WRITE:{
@@ -84,7 +83,6 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hilo_write, NULL, (void*) manejar_write_proceso, (void*) args);
                 pthread_detach(hilo_write);
-                free(args);//memory leak
                 break;
             }
             case F_READ:{
@@ -111,7 +109,6 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hilo_read, NULL, (void*) manejar_read_proceso, (void*) args);
                 pthread_detach(hilo_read);
-                free(args);//memory leak
                 break;
             }
             case FINALIZAR_PROCESO:{   
@@ -138,8 +135,7 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hiloFinalizar, NULL, (void*) manejar_finalizar_proceso, (void*) args);
                 pthread_detach(hiloFinalizar);
-                free(args);//memory leak
-                free(bloques_a_liberar); //memory leak
+                //free(bloques_a_liberar); //memory leak
                 break;
             }
             case ABRIR_ARCHIVO:{
@@ -185,7 +181,6 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hiloTruncar, NULL, (void*) manejar_truncar, (void*) args);
                 pthread_detach(hiloTruncar);
-                free(args);//memory leak
                 break;
             }
             case PEDIDO_SWAP:{
@@ -201,7 +196,6 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hiloSwap, NULL, (void*) manejar_pedido_swap, (void*) argsSwap);
                 pthread_detach(hiloSwap);
-                free(argsSwap);//memory leak
                 break;
             }
             case ESCRIBIR_SWAP:{
@@ -218,7 +212,6 @@ static void procesar_conexion(void* void_args) {
                 argsSwap->info_a_escribir=info_a_escribir;
                 pthread_create(&hiloEscribir, NULL, (void*) manejar_escribir_swap, (void*) argsSwap);
                 pthread_detach(hiloEscribir);
-                free(argsSwap);//memory leak
                 break;
             }
            

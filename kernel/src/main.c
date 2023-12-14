@@ -165,6 +165,8 @@ void iniciar_proceso(char * path, char* size, char* prioridad){
     pcb* proceso = crear_pcb(path, size, prioridad);
     agregar_a_new(proceso);
     send_inicializar_proceso(proceso, fd_memoria);
+    recibir_operacion(fd_memoria);
+    recibir_mensaje(logger_kernel,fd_memoria);
 }
 
 void finalizar_proceso(char * pid){
@@ -314,6 +316,7 @@ void agregar_a_ready(pcb* proceso){
 	list_destroy(lista_a_loguear);
     free(lista);
     sem_post(&cantidad_ready);
+    sem_post(&control_interrupciones_prioridades);
 }
 
 void agregar_a_exec(pcb* proceso){
@@ -373,7 +376,6 @@ void* planif_largo_plazo(void* args){
         agregar_a_ready(proceso);
         sem_post(&sem_plan_largo);
         //ARREGLAR PARA PRIORIDADES
-        //sem_post(&control_interrupciones_prioridades);
         pthread_mutex_unlock(&mutex_plani_larga);
     }
 }

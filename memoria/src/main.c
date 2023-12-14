@@ -88,6 +88,7 @@ static void procesar_conexion(void *void_args) {
             t_list* tabla_paginas = inicializar_proceso(proceso, bloques_reservados);
             list_add(lista_tablas_de_procesos, tabla_paginas);
             //VER TEMA DE Q NO EJECUTE INSTRUCCIONES SIN ANTES RECIBIR LA LISTA DE SWAP
+            enviar_mensaje("OK INICIALIZAR", cliente_socket);
             pcb_destroyer(proceso);
             list_destroy(bloques_reservados);//memory leaks
             break;
