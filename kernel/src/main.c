@@ -390,6 +390,7 @@ void* planif_corto_plazo(void* args){
         // Verificar si la planificación está activa y hay procesos en la cola de ready
         if (planificacion_activa && !list_is_empty(cola_ready->elements)) {
             proceso_a_ejecutar = obtener_siguiente_proceso(algoritmo_planificacion);
+            imprimir_lista_archivos_proceso(proceso_a_ejecutar->archivos);
         }
 
         if (proceso_a_ejecutar != NULL) {
@@ -801,6 +802,14 @@ void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
     }
 }
 
+void imprimir_lista_archivos_proceso(t_list* archivos) {
+    printf("Archivos del proceso:\n");
+    for (int i = 0; i < list_size(archivos); i++) {
+        t_archivo_proceso* archivo = list_get(archivos, i);
+        printf("Nombre: %s, Modo de apertura: %s\n", archivo->nombre_archivo, archivo->modo_apertura);
+    }
+}
+
 void abrir_proceso_encolado(t_archivo* archivo){
    if(queue_size(archivo->bloqueados_archivo) > 0){
         //sacar de bloqueado el sigueinte proceso
@@ -808,41 +817,43 @@ void abrir_proceso_encolado(t_archivo* archivo){
         t_proceso_bloqueado_archivo* siguiente_proceso = queue_pop(archivo->bloqueados_archivo);
         pthread_mutex_unlock(&archivo->mutex_archivo);
 
-//  W R W
-
         if (strcmp(siguiente_proceso->modo_apertura, "R") == 0)
         {
             pcb* proceso = buscar_y_remover_pcb_cola(cola_block, siguiente_proceso->pid, cantidad_block, mutex_block);
             //agregar a la lista de archivos del proceso
 
             //abre el archivo y lo agrega a la lista de archivos del proceso
+            archivo->modo_apertura = "R";
             t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
             list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
-            archivo->modo_apertura = "R";
             agregar_a_ready(proceso);
+            //imprimir_lista_archivos_proceso(proceso->archivos);
 
-            for(int i = 0; i <queue_size(archivo->bloqueados_archivo); i++){
+            for(int i = 0; i < queue_size(archivo->bloqueados_archivo); i++){
                 pthread_mutex_lock(&archivo->mutex_archivo);
                 t_proceso_bloqueado_archivo* siguiente_siguiente_proceso = queue_peek(archivo->bloqueados_archivo);
                 pthread_mutex_unlock(&archivo->mutex_archivo);
 
                 if (strcmp(siguiente_siguiente_proceso->modo_apertura, "R") == 0){
                     pthread_mutex_lock(&archivo->mutex_archivo);
-                    t_proceso_bloqueado_archivo* siguiente_proceso = queue_pop(archivo->bloqueados_archivo);
+                    siguiente_siguiente_proceso = queue_pop(archivo->bloqueados_archivo);
                     pthread_mutex_unlock(&archivo->mutex_archivo);
 
-                    pcb* proceso = buscar_y_remover_pcb_cola(cola_block, siguiente_proceso->pid, cantidad_block, mutex_block);
+                    pcb* otro_proceso = buscar_y_remover_pcb_cola(cola_block, siguiente_siguiente_proceso->pid, cantidad_block, mutex_block);
                     //agregar a la lista de archivos del proceso
 
                     //abre el archivo y lo agrega a la lista de archivos del proceso
-                    t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
-                    list_add(proceso->archivos, archivo_proceso);
-                    //manda el pcb a cpu para seguir ejecutando
                     archivo->modo_apertura = "R";
-                    agregar_a_ready(proceso);
+                    t_archivo_proceso *otro_archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
+                    list_add(otro_proceso->archivos, otro_archivo_proceso);
+                    //manda el pcb a cpu para seguir ejecutando
+                    agregar_a_ready(otro_proceso);
+                    //imprimir_lista_archivos_proceso(otro_proceso->archivos);
+                    
+                }else{
+                    break;
                 }
-                return;
             }
             
         } else if (strcmp(siguiente_proceso->modo_apertura, "W") == 0) {
@@ -850,10 +861,10 @@ void abrir_proceso_encolado(t_archivo* archivo){
             //agregar a la lista de archivos del proceso
 
             //abre el archivo y lo agrega a la lista de archivos del proceso
+            archivo->modo_apertura = "W";
             t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
             list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
-            archivo->modo_apertura = "W";
             agregar_a_ready(proceso);
         }
         
@@ -1063,6 +1074,7 @@ void manejar_recibir_cpu(){
                     //hago recv truncate porq es lo mismo pero en vez de tamanio manda posicion
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &posicion, &proceso);
                     ejecutar_f_seek(nombre_archivo, posicion, proceso);
+                    imprimir_lista_archivos_proceso(proceso->archivos);
                     log_info(logger_kernel, "PID: %d -  Actualizar puntero Archivo: %s - Puntero: %d", proceso->pid, nombre_archivo, posicion);
                     break;
                 }

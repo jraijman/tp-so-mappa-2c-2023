@@ -58,6 +58,13 @@ typedef struct {
 
  typedef struct {
     int fd;
+    DireccionFisica direccion;
+    int puntero;
+    char* nombre;
+} t_proceso_args;
+
+ typedef struct {
+    int fd;
     char* nombre;
     int tamanio;
     bool* bitmapBloques;
@@ -71,6 +78,8 @@ void* manejar_pedido_swap(void* arg);
 void* manejar_escribir_swap(void* arg);
 void* manejar_finalizar_proceso(void* arg);
 void* manejar_truncar(void* arg);
+void* manejar_write_proceso(void* args);
+void* manejar_read_proceso(void* args);
 
 
 #endif 

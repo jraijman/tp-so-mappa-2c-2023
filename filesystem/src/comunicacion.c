@@ -70,31 +70,19 @@ static void procesar_conexion(void* void_args) {
                 p = list_get(paquete,2);
                 int puntero=*p;
                 free(p);
-                char* nombre=list_get(paquete,3);
-                int nroBloque=puntero/tam_bloque;
-                int bloqueInicial=obtener_bloqueInicial(nombre);
-                int tamanoArchivo=abrir_archivo(nombre);
-                if(puntero>tamanoArchivo || puntero<0){
-                    log_info(logger_filesystem,"El puntero excede al tamaño del archivo o no es válido");
-                }else{
-                    log_info(logger_filesystem,"Puntero válido");
-                    int bloqueArchivo = obtener_bloque(bloqueInicial, nroBloque);
-                    t_paquete* peticionMemoria = crear_paquete(F_WRITE);
-                    agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
-                    agregar_a_paquete(peticionMemoria, &(direccion.desplazamiento), sizeof(int));
-                    enviar_paquete(peticionMemoria,conexion_filesystem_memoria);
-                    recibir_operacion(conexion_filesystem_memoria);                
-                    t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
-                    void* info=list_get(infoEscribir,0);
-                    log_info(logger_filesystem,"ESCRIBO UN BLOQUE");
-                    escribir_bloque_void(bloqueArchivo+cant_bloques_swap,info);
-                    log_info(logger_filesystem,"ESCRIBII UN BLOQUE");
-                    list_destroy(paquete);
-                    eliminar_paquete(peticionMemoria);
-                    list_destroy(infoEscribir);
-                    free(info);
-                    enviar_mensaje("OK F_WRITE",cliente_socket);
-                }
+                char* nombre = list_get(paquete,3);
+                list_destroy(paquete);
+
+                pthread_t hilo_write;
+                t_proceso_args* args = malloc(sizeof(t_proceso_args));
+                args->fd = cliente_socket;
+                args->direccion = direccion;
+                args->puntero = puntero;
+                args->nombre = nombre;
+
+                pthread_create(&hilo_write, NULL, (void*) manejar_write_proceso, (void*) args);
+                pthread_detach(hilo_write);
+
                 break;
             }
             case F_READ:{
@@ -110,32 +98,18 @@ static void procesar_conexion(void* void_args) {
                 int puntero=*p;
                 free(p);
                 char* nombre= list_get(paquete,3);
-                int bloqueInicial = obtener_bloqueInicial(nombre);
-                int bloqueArchivo = obtener_bloque(bloqueInicial, puntero/tam_bloque);
-                void* info = leer_bloque(bloqueArchivo + cant_bloques_swap);
-                imprimir_contenido(info, tam_bloque);
-                //creo paquete para mandar a memoria dir fisica y leido
-                t_paquete* escribir=crear_paquete(F_READ);
-                agregar_a_paquete(escribir, info, tam_bloque);
-                agregar_a_paquete(escribir, &(direccion.marco), sizeof(int));
-                agregar_a_paquete(escribir, &(direccion.desplazamiento), sizeof(int));
-                enviar_paquete(escribir,conexion_filesystem_memoria);
-                //recibo confirmacion de memoria
-                recibir_operacion(conexion_filesystem_memoria);
-                t_list* confirmacion=recibir_paquete(conexion_filesystem_memoria);
-                p = list_get(confirmacion,0);
-                int confirma=*p;
-                free(p);
-                if(confirma==1){
-                    enviar_mensaje("Lectura realizada correctamente",cliente_socket);
-                }
-                else{
-                    enviar_mensaje("La lectura falló",cliente_socket);
-                }
-                free(info);
                 list_destroy(paquete);
-                list_destroy(confirmacion);
-                eliminar_paquete(escribir);
+
+                pthread_t hilo_read;
+                t_proceso_args* args = malloc(sizeof(t_proceso_args));
+                args->fd = cliente_socket;
+                args->direccion = direccion;
+                args->puntero = puntero;
+                args->nombre = nombre;
+
+                pthread_create(&hilo_read, NULL, (void*) manejar_read_proceso, (void*) args);
+                pthread_detach(hilo_read);
+                
                 break;
             }
             case FINALIZAR_PROCESO:{   
@@ -356,6 +330,83 @@ void* manejar_truncar(void* arg){
     truncarArchivo(nombre,tamanio,bitmapBloques);
     enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
 
+    free(nombre);
+    free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void* manejar_write_proceso(void* arg){
+    t_proceso_args* args = (t_proceso_args*) arg;
+    int cliente_socket = args->fd;
+    DireccionFisica direccion = args->direccion;
+    int puntero = args->puntero;
+    char* nombre = args->nombre;
+
+    int nroBloque=puntero/tam_bloque;
+    int bloqueInicial=obtener_bloqueInicial(nombre);
+    int tamanoArchivo=abrir_archivo(nombre);
+    if(puntero>tamanoArchivo || puntero<0){
+        log_info(logger_filesystem,"El puntero excede al tamaño del archivo o no es válido");
+    }else{
+        log_info(logger_filesystem,"Puntero válido");
+        int bloqueArchivo = obtener_bloque(bloqueInicial, nroBloque);
+        t_paquete* peticionMemoria = crear_paquete(F_WRITE);
+        agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
+        agregar_a_paquete(peticionMemoria, &(direccion.desplazamiento), sizeof(int));
+        enviar_paquete(peticionMemoria,conexion_filesystem_memoria);
+        recibir_operacion(conexion_filesystem_memoria);                
+        t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
+        void* info=list_get(infoEscribir,0);
+        log_info(logger_filesystem,"ESCRIBO UN BLOQUE");
+        escribir_bloque_void(bloqueArchivo+cant_bloques_swap,info);
+        log_info(logger_filesystem,"ESCRIBII UN BLOQUE");
+        eliminar_paquete(peticionMemoria);
+        list_destroy(infoEscribir);
+        free(info);
+        enviar_mensaje("OK F_WRITE",cliente_socket);
+    }
+    
+    free(nombre);
+    free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void* manejar_read_proceso(void* arg){
+    t_proceso_args* args = (t_proceso_args*) arg;
+    int cliente_socket = args->fd;
+    DireccionFisica direccion = args->direccion;
+    int puntero = args->puntero;
+    char* nombre = args->nombre;
+
+    int bloqueInicial = obtener_bloqueInicial(nombre);
+    int bloqueArchivo = obtener_bloque(bloqueInicial, puntero/tam_bloque);
+    void* info = leer_bloque(bloqueArchivo + cant_bloques_swap);
+    imprimir_contenido(info, tam_bloque);
+    //creo paquete para mandar a memoria dir fisica y leido
+    t_paquete* escribir=crear_paquete(F_READ);
+    agregar_a_paquete(escribir, info, tam_bloque);
+    agregar_a_paquete(escribir, &(direccion.marco), sizeof(int));
+    agregar_a_paquete(escribir, &(direccion.desplazamiento), sizeof(int));
+    enviar_paquete(escribir,conexion_filesystem_memoria);
+    //recibo confirmacion de memoria
+    recibir_operacion(conexion_filesystem_memoria);
+    t_list* confirmacion=recibir_paquete(conexion_filesystem_memoria);
+    int *p = list_get(confirmacion,0);
+    int confirma=*p;
+    free(p);
+    if(confirma==1){
+        enviar_mensaje("Lectura realizada correctamente",cliente_socket);
+    }
+    else{
+        enviar_mensaje("La lectura falló",cliente_socket);
+    }
+    free(info);
+    
+    list_destroy(confirmacion);
+    eliminar_paquete(escribir);
+    
     free(nombre);
     free(args); 
     // Termina el hilo
