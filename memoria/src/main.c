@@ -120,7 +120,8 @@ static void procesar_conexion(void *void_args) {
             //recibo la info a escribir y la dir fisica
             DireccionFisica direccion;
             t_list* infoEscribir=recibir_paquete(cliente_socket);
-            char* info=list_get(infoEscribir,0);
+            void* info=list_get(infoEscribir,0);
+            imprimir_contenido(info, 16);
             int*p = list_get(infoEscribir,1);
             direccion.marco=*p;
             free(p);
@@ -131,15 +132,15 @@ static void procesar_conexion(void *void_args) {
             list_destroy(infoEscribir);
             // Simula un retardo en el acceso a memoria según la configuración.
             usleep(RETARDO_REPUESTA * 1000);
-            uint32_t* infoUint = malloc(sizeof(uint32_t));
-            memcpy(infoUint, info, sizeof(uint32_t));
-            // Escribe el valor en el espacio de usuario en la posición especificada.
-            escribir_marco_en_memoria(direccion, infoUint);
+            escribir_bloque_en_memoria_void(info, direccion.marco);
             // Registra información sobre la lectura en el logger.
-            log_info(logger_memoria, "ESCRIBIR ARCHIVO EN MEMORIA - Dirección física: %d | %d, escrito: %d", direccion.marco, direccion.desplazamiento, *infoUint);
             // Registra el valor leído en el logger y lo envía de vuelta al módulo cliente (FS).
             //log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
-
+            t_paquete* paquete=crear_paquete(F_READ);
+            int confirmacion = 1;
+            agregar_a_paquete(paquete, &confirmacion, tam_pagina);
+            enviar_paquete(paquete,cliente_socket);
+            eliminar_paquete(paquete);
             break;
         }
         case F_WRITE:{
@@ -252,7 +253,7 @@ static void procesar_conexion(void *void_args) {
 void imprimir_contenido(void* puntero, size_t tamano) {
     unsigned char* bytes = (unsigned char*) puntero;
     for (size_t i = 0; i < tamano; i++) {
-        printf("%d", bytes[i]);
+        printf("%c", bytes[i]);
     }
     printf("\n");
 }
@@ -482,6 +483,15 @@ t_list* buscar_tabla_pagina(int pid_actual){
 }
 //escribe en memoria el bloque que le llega del swap en memoria
 void escribir_bloque_en_memoria(char* bloque_swap,int nro_marco){
+    int marco_en_memoria = nro_marco * tam_pagina;
+    pthread_mutex_lock(&mx_memoria);
+    memcpy(memoria + marco_en_memoria, bloque_swap, tam_pagina);
+    pthread_mutex_unlock(&mx_memoria);
+}
+
+
+//escribe en memoria el bloque que le llega del swap en memoria
+void escribir_bloque_en_memoria_void(void* bloque_swap,int nro_marco){
     int marco_en_memoria = nro_marco * tam_pagina;
     pthread_mutex_lock(&mx_memoria);
     memcpy(memoria + marco_en_memoria, bloque_swap, tam_pagina);

@@ -49,12 +49,28 @@ typedef struct {
     char* info_a_escribir;
 } t_pedido_escribir_swap_args;
 
+ typedef struct {
+    int fd;
+    int cantidad_bloques;
+    bool* bitmapSwap;
+    int* bloques_a_liberar;
+} t_finalizar_proceso_args;
+
+ typedef struct {
+    int fd;
+    char* nombre;
+    int tamanio;
+    bool* bitmapBloques;
+} t_truncar_args;
+
 
 int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket,bool* bitmapBloques, bool* bitmapSwap);
 
 void* manejar_iniciar_proceso(void* arg);
 void* manejar_pedido_swap(void* arg);
 void* manejar_escribir_swap(void* arg);
+void* manejar_finalizar_proceso(void* arg);
+void* manejar_truncar(void* arg);
 
 
 #endif 

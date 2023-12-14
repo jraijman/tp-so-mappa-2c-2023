@@ -78,12 +78,12 @@ void log_valor_espacio_usuario(char* valor, int tamanio);
 int obtener_nro_marco_memoria(int num_pagina, int pid_actual);
 int tratar_page_fault(int num_pagina, int pid_actual);
 void escribir_bloque_en_memoria(char* bloque_swap, int nro_marco);
+void escribir_bloque_en_memoria_void(void* bloque_swap,int nro_marco);
 void* leer_marco_de_memoria(int nro_marco);
 uint32_t* leer_registro_de_memoria_uint(DireccionFisica direccion);
 entrada_pagina * buscar_en_tabla_por_direccionfisica(int direccionfisica);
 void marcar_pagina_modificada(int dirFisica);
 t_list* buscar_tabla_pagina(int pid_actual);
-
 
 
 #endif 

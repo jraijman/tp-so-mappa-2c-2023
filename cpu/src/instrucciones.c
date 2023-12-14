@@ -93,6 +93,7 @@ void sleepInstruccion(pcb* contexto, Instruccion instruccion, t_log* logger, int
     log_info(logger,ANSI_COLOR_YELLOW "EJECUTANDO INSTRUCCION SLEEP");
     // SLEEP (Tiempo): Esta instrucción representa una syscall bloqueante. Se deberá devolver el Contexto de Ejecución actualizado al Kernel junto a la cantidad de segundos que va a bloquearse el proceso.
     char* tiempo = instruccion.operando1;
+    log_info(logger_cpu,"DESALOJO EL PCB SLEEP CON PC %d", contexto->pc);
     send_pcbDesalojado(contexto, "SLEEP", tiempo, fd_dispatch, logger);    
 }
 
@@ -155,7 +156,7 @@ void movOutInstruccion(pcb* contexto, Instruccion instruccion,DireccionFisica di
         agregar_a_paquete(paquete,registro_origen,sizeof(uint32_t));
         enviar_paquete(paquete, fd_memoria);
         eliminar_paquete(paquete);
-        log_info(logger, "PID: %d - Acción: LEER - Dirección Física: %d | %d - Valor: %d", contexto->pid, direccionFisica.marco,direccionFisica.desplazamiento,*registro_origen);
+        log_info(logger, "PID: %d - Acción: ESCRIBIR - Dirección Física: %d | %d - Valor: %d", contexto->pid, direccionFisica.marco,direccionFisica.desplazamiento,*registro_origen);
         }
     }else{
         log_error(logger,"Registro no reconocido en instruccion MOV_OUT");

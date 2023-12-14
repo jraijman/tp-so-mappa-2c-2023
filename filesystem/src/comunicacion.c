@@ -43,20 +43,19 @@ static void procesar_conexion(void* void_args) {
                 int cantidad_bloques = *puntero;
                 free(puntero);//memory leak
                 list_destroy(paquete);
-                int bloques_reservados[cantidad_bloques];
-                if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados,bitmapSwap)){
-                    t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
-                    for(int i=0; i<cantidad_bloques;i++)
-                    {
-                        int bloque = bloques_reservados[i];
-                        agregar_a_paquete(paqueteReserva, &bloque, sizeof(int));
-                    }
-                    enviar_paquete(paqueteReserva, cliente_socket);
-                    eliminar_paquete(paqueteReserva);
-                }else{
-                    enviar_mensaje("Error al reservar los bloques SWAP",cliente_socket);
-                    log_error(logger,"Error al reservar los bloques SWAP");
-                }
+                //int bloques_reservados[cantidad_bloques];
+
+                int* bloques_reservados = malloc(sizeof(int) * cantidad_bloques);
+
+                pthread_t hiloInicializar;
+                t_finalizar_proceso_args* args = malloc(sizeof(t_finalizar_proceso_args));
+                args->fd = cliente_socket;
+                args->cantidad_bloques = cantidad_bloques;
+                args->bloques_a_liberar = bloques_reservados;
+                args->bitmapSwap = bitmapSwap;
+
+                pthread_create(&hiloInicializar, NULL, (void*) manejar_iniciar_proceso, (void*) args);
+                pthread_detach(hiloInicializar);
                 break;
             }
             case F_WRITE:{
@@ -79,22 +78,23 @@ static void procesar_conexion(void* void_args) {
                     log_info(logger_filesystem,"El puntero excede al tamaño del archivo o no es válido");
                 }else{
                     log_info(logger_filesystem,"Puntero válido");
-                int bloqueArchivo=obtener_bloque(bloqueInicial,nroBloque);
-                t_paquete* peticionMemoria=crear_paquete(F_WRITE);
-                agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
-                agregar_a_paquete(peticionMemoria, &(direccion.desplazamiento), sizeof(int));
-                enviar_paquete(peticionMemoria,conexion_filesystem_memoria);
-                recibir_operacion(conexion_filesystem_memoria);                
-                t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
-                void* info=list_get(infoEscribir,0);
-                log_info(logger_filesystem,"ESCRIBO UN BLOQUE");
-                escribir_bloque_void(bloqueArchivo+cant_bloques_swap,info);
-                log_info(logger_filesystem,"ESCRIBII UN BLOQUE");
-                list_destroy(paquete);
-                eliminar_paquete(peticionMemoria);
-                list_destroy(infoEscribir);
-                free(info);
-                enviar_mensaje("OK F_WRITE",cliente_socket);}
+                    int bloqueArchivo = obtener_bloque(bloqueInicial, nroBloque);
+                    t_paquete* peticionMemoria = crear_paquete(F_WRITE);
+                    agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
+                    agregar_a_paquete(peticionMemoria, &(direccion.desplazamiento), sizeof(int));
+                    enviar_paquete(peticionMemoria,conexion_filesystem_memoria);
+                    recibir_operacion(conexion_filesystem_memoria);                
+                    t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
+                    void* info=list_get(infoEscribir,0);
+                    log_info(logger_filesystem,"ESCRIBO UN BLOQUE");
+                    escribir_bloque_void(bloqueArchivo+cant_bloques_swap,info);
+                    log_info(logger_filesystem,"ESCRIBII UN BLOQUE");
+                    list_destroy(paquete);
+                    eliminar_paquete(peticionMemoria);
+                    list_destroy(infoEscribir);
+                    free(info);
+                    enviar_mensaje("OK F_WRITE",cliente_socket);
+                }
                 break;
             }
             case F_READ:{
@@ -110,9 +110,10 @@ static void procesar_conexion(void* void_args) {
                 int puntero=*p;
                 free(p);
                 char* nombre= list_get(paquete,3);
-                int bloqueInicial= obtener_bloqueInicial(nombre);
-                int bloqueArchivo= obtener_bloque(bloqueInicial, puntero/tam_bloque);
-                char* info=leer_bloque(bloqueArchivo);
+                int bloqueInicial = obtener_bloqueInicial(nombre);
+                int bloqueArchivo = obtener_bloque(bloqueInicial, puntero/tam_bloque);
+                void* info = leer_bloque(bloqueArchivo + cant_bloques_swap);
+                imprimir_contenido(info, tam_bloque);
                 //creo paquete para mandar a memoria dir fisica y leido
                 t_paquete* escribir=crear_paquete(F_READ);
                 agregar_a_paquete(escribir, info, tam_bloque);
@@ -120,6 +121,7 @@ static void procesar_conexion(void* void_args) {
                 agregar_a_paquete(escribir, &(direccion.desplazamiento), sizeof(int));
                 enviar_paquete(escribir,conexion_filesystem_memoria);
                 //recibo confirmacion de memoria
+                recibir_operacion(conexion_filesystem_memoria);
                 t_list* confirmacion=recibir_paquete(conexion_filesystem_memoria);
                 p = list_get(confirmacion,0);
                 int confirma=*p;
@@ -141,21 +143,25 @@ static void procesar_conexion(void* void_args) {
                 int*puntero = list_get(paquete,0);
                 int cantidad_bloques=*puntero;
                 free(puntero);
-               
-                int bloques_a_liberar [cantidad_bloques];
+                int* bloques_a_liberar = malloc(sizeof(int) * cantidad_bloques);
+                //int bloques_a_liberar [cantidad_bloques];
                 for(int i=1; i<cantidad_bloques+1; i++){
                     int*puntero2 = list_get(paquete,i);
                     bloques_a_liberar[i-1]=* puntero2;
                     free(puntero2);//memory leak
                 }
-                if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques,bitmapSwap)){
-                    //enviar_mensaje("SWAP LIBERADO",cliente_socket);
-                    log_info(logger, "Se liberaron los bloques SWAP");
-                }else{
-                    log_error(logger, "Error al liberar los bloques SWAP");
-                    //enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
-                }
                 list_destroy(paquete);
+
+
+                pthread_t hiloFinalizar;
+                t_finalizar_proceso_args* args = malloc(sizeof(t_finalizar_proceso_args));
+                args->fd = cliente_socket;
+                args->bloques_a_liberar = bloques_a_liberar;
+                args->cantidad_bloques = cantidad_bloques;
+                args->bitmapSwap = bitmapSwap;
+
+                pthread_create(&hiloFinalizar, NULL, (void*) manejar_finalizar_proceso, (void*) args);
+                pthread_detach(hiloFinalizar);
                 break;
             }
             case ABRIR_ARCHIVO:{
@@ -189,8 +195,17 @@ static void procesar_conexion(void* void_args) {
                 int tamanio=*puntero;
                 free(puntero);
                 list_destroy(paquete);
-                truncarArchivo(nombre,tamanio,bitmapBloques);
-                enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
+
+                pthread_t hiloTruncar;
+                t_truncar_args* args = malloc(sizeof(t_truncar_args));
+                args->fd = cliente_socket;
+                args->nombre = nombre;
+                args->tamanio = tamanio;
+                args->bitmapBloques = bitmapBloques;
+
+                pthread_create(&hiloTruncar, NULL, (void*) manejar_truncar, (void*) args);
+                pthread_detach(hiloTruncar);
+                
                 break;
             }
             case PEDIDO_SWAP:{
@@ -235,6 +250,14 @@ static void procesar_conexion(void* void_args) {
     return;
 }
 
+void imprimir_contenido(void* puntero, size_t tamano) {
+    unsigned char* bytes = (unsigned char*) puntero;
+    for (size_t i = 0; i < tamano; i++) {
+        printf("%c", bytes[i]);
+    }
+    printf("\n");
+}
+
 int server_escuchar_filesystem(t_log* logger,char* server_name,int server_socket,bool* bitmapBloques, bool* bitmapSwap){
     int cliente_socket = esperar_cliente(logger, server_name, server_socket);
     if (cliente_socket != -1) {
@@ -261,6 +284,8 @@ void* manejar_pedido_swap(void* arg){
     send_leido_swap(cliente,info_leida,tam_bloque);
     free(info_leida);
     free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
 }
 
 void* manejar_escribir_swap(void* arg){
@@ -272,4 +297,67 @@ void* manejar_escribir_swap(void* arg){
     escribir_bloque(num_bloque,info_a_escribir);
     free(info_a_escribir);
     free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void* manejar_finalizar_proceso(void* arg){
+    t_finalizar_proceso_args* args = (t_finalizar_proceso_args*) arg;
+    int cliente_socket = args->fd;
+    int* bloques_a_liberar = args->bloques_a_liberar;
+    int cantidad_bloques = args->cantidad_bloques;
+    bool *bitmapSwap = args->bitmapSwap;
+
+    if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques,bitmapSwap)){
+        //enviar_mensaje("SWAP LIBERADO",cliente_socket);
+        log_info(logger_filesystem, "Se liberaron los bloques SWAP");
+    }else{
+        log_error(logger_filesystem, "Error al liberar los bloques SWAP");
+        //enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
+    }
+    free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void* manejar_iniciar_proceso(void* arg){
+    t_finalizar_proceso_args* args = (t_finalizar_proceso_args*) arg;
+    int cliente_socket = args->fd;
+    int* bloques_reservados = args->bloques_a_liberar;
+    int cantidad_bloques = args->cantidad_bloques;
+    bool *bitmapSwap = args->bitmapSwap;
+
+    if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados,bitmapSwap)){
+        t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
+        for(int i=0; i<cantidad_bloques;i++)
+        {
+            int bloque = bloques_reservados[i];
+            agregar_a_paquete(paqueteReserva, &bloque, sizeof(int));
+        }
+        enviar_paquete(paqueteReserva, cliente_socket);
+        eliminar_paquete(paqueteReserva);
+    }else{
+        enviar_mensaje("Error al reservar los bloques SWAP",cliente_socket);
+        log_error(logger_filesystem,"Error al reservar los bloques SWAP");
+    }
+
+    free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
+}
+
+void* manejar_truncar(void* arg){
+    t_truncar_args* args = (t_truncar_args*) arg;
+    int cliente_socket = args->fd;
+    char* nombre = args->nombre;
+    int tamanio = args->tamanio;
+    bool* bitmapBloques = args->bitmapBloques;
+
+    truncarArchivo(nombre,tamanio,bitmapBloques);
+    enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
+
+    free(nombre);
+    free(args); 
+    // Termina el hilo
+    pthread_exit(NULL);
 }
