@@ -10,7 +10,6 @@ int main(int argc, char* argv[]){
     // CONFIG y logger
     levantar_config(argv[1]);
 
-
     // Genero conexión a memoria
     conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);  
     //mensaje prueba 
@@ -27,7 +26,6 @@ int main(int argc, char* argv[]){
     op_code cop = recibir_operacion(conexion_cpu_memoria);
     tamPaginaGlobal = recv_tam_pagina(conexion_cpu_memoria);
     log_info(logger_cpu, "Tamaño de página: %d", tamPaginaGlobal);
-
     
     // Espero msjs
     while(server_escuchar(fd_cpu_interrupt, fd_cpu_dispatch));
@@ -100,6 +98,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                 contexto = recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     //log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
+                    
                     ciclo_instruccion(contexto, cliente_socket_dispatch,cliente_socket_dispatch, logger_cpu);
                     pcb_destroyer(contexto);
                     break;    

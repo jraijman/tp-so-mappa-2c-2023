@@ -253,6 +253,7 @@ bool crear_archivo(char* nombre) {
     strcat(ruta, ".fcb");
     t_config* nuevoFCB=config_create(ruta);
     if(nuevoFCB!=NULL){
+        free(nombreArchivo);//memmory leak
         return false;
     }else{
         nuevoFCB=(t_config*)malloc(sizeof(t_config));
@@ -264,7 +265,10 @@ bool crear_archivo(char* nombre) {
         config_set_value(nuevoFCB,"TAMANIO_ARCHIVO", "0");
         config_set_value(nuevoFCB, "BLOQUE_INICIAL", " ");
         config_save(nuevoFCB);
-        free(nuevoFCB);
+        config_destroy(nuevoFCB);//memmory leak
+        free(nombreArchivo); //memmory leak
+        free(nuevoFCB->path); //memmory leak
+        free(nuevoFCB); //memmory leak
         return true;
     }    
 }
@@ -319,6 +323,7 @@ int obtener_bloqueInicial(char* nombre){
     free(ruta);
     if(config!=NULL){
         int bloque=config_get_int_value(config,"BLOQUE_INICIAL");
+        //config_destroy(config);
         return bloque;
     }
     return -1;

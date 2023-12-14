@@ -372,6 +372,8 @@ void* planif_largo_plazo(void* args){
         pcb* proceso = sacar_de_new();
         agregar_a_ready(proceso);
         sem_post(&sem_plan_largo);
+        //ARREGLAR PARA PRIORIDADES
+        //sem_post(&control_interrupciones_prioridades);
         pthread_mutex_unlock(&mutex_plani_larga);
     }
 }
@@ -390,7 +392,7 @@ void* planif_corto_plazo(void* args){
         // Verificar si la planificación está activa y hay procesos en la cola de ready
         if (planificacion_activa && !list_is_empty(cola_ready->elements)) {
             proceso_a_ejecutar = obtener_siguiente_proceso(algoritmo_planificacion);
-            imprimir_lista_archivos_proceso(proceso_a_ejecutar->archivos);
+            //imprimir_lista_archivos_proceso(proceso_a_ejecutar->archivos);
         }
 
         if (proceso_a_ejecutar != NULL) {
@@ -712,6 +714,10 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
             agregar_a_block(proceso);
+
+            //agrego igual a la lista de archivos abiertos
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            list_add(proceso->archivos, archivo_proceso);
             
             //Agregamos pcb a la cola de bloqueados del archivo
             t_proceso_bloqueado_archivo* proceso_bloqueado = malloc(sizeof(t_proceso_bloqueado_archivo));
@@ -741,6 +747,10 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
             agregar_a_block(proceso);
+
+            //agrego igual a la lista de archivos abiertos
+            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
+            list_add(proceso->archivos, archivo_proceso);
             
             //Agregamos pcb a la cola de bloqueados del archivo
             t_proceso_bloqueado_archivo* proceso_bloqueado = malloc(sizeof(t_proceso_bloqueado_archivo));
@@ -791,6 +801,7 @@ void* ejecutar_f_truncate(void * args){
 }
 
 void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
+    imprimir_lista_archivos_proceso(proceso->archivos);
     t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
     if(archivo_proceso != NULL){
         archivo_proceso->puntero = posicion;
@@ -824,11 +835,11 @@ void abrir_proceso_encolado(t_archivo* archivo){
 
             //abre el archivo y lo agrega a la lista de archivos del proceso
             archivo->modo_apertura = "R";
-            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
-            list_add(proceso->archivos, archivo_proceso);
+            archivo->cant_abierto_r ++;
+            //t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
+            //list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
             agregar_a_ready(proceso);
-            //imprimir_lista_archivos_proceso(proceso->archivos);
 
             for(int i = 0; i < queue_size(archivo->bloqueados_archivo); i++){
                 pthread_mutex_lock(&archivo->mutex_archivo);
@@ -845,11 +856,12 @@ void abrir_proceso_encolado(t_archivo* archivo){
 
                     //abre el archivo y lo agrega a la lista de archivos del proceso
                     archivo->modo_apertura = "R";
-                    t_archivo_proceso *otro_archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
-                    list_add(otro_proceso->archivos, otro_archivo_proceso);
+                    archivo->cant_abierto_r ++;
+                    //t_archivo_proceso *otro_archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
+                    //list_add(otro_proceso->archivos, otro_archivo_proceso);
                     //manda el pcb a cpu para seguir ejecutando
                     agregar_a_ready(otro_proceso);
-                    //imprimir_lista_archivos_proceso(otro_proceso->archivos);
+                    imprimir_lista_archivos_proceso(otro_proceso->archivos);
                     
                 }else{
                     break;
@@ -862,12 +874,11 @@ void abrir_proceso_encolado(t_archivo* archivo){
 
             //abre el archivo y lo agrega a la lista de archivos del proceso
             archivo->modo_apertura = "W";
-            t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
-            list_add(proceso->archivos, archivo_proceso);
+            //t_archivo_proceso *archivo_proceso = crear_archivo_proceso(archivo->nombre_archivo, archivo->modo_apertura);
+            //list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
             agregar_a_ready(proceso);
-        }
-        
+        }  
    }
 }
 
@@ -1074,7 +1085,6 @@ void manejar_recibir_cpu(){
                     //hago recv truncate porq es lo mismo pero en vez de tamanio manda posicion
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &posicion, &proceso);
                     ejecutar_f_seek(nombre_archivo, posicion, proceso);
-                    imprimir_lista_archivos_proceso(proceso->archivos);
                     log_info(logger_kernel, "PID: %d -  Actualizar puntero Archivo: %s - Puntero: %d", proceso->pid, nombre_archivo, posicion);
                     break;
                 }
@@ -1135,7 +1145,7 @@ void manejar_recibir_cpu(){
                     printf("Error al recibir mensaje %d \n", cop);
                     break;
             free(extra);
-            free(nombre_archivo);
+            //free(nombre_archivo);
             }
         }   
     }    
