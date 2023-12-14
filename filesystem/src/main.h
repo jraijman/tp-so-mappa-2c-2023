@@ -33,7 +33,7 @@ void achicarArchivo(int bloqueInicio, int tamanoActual, int reduccion, bool* bit
 void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap);
 void ampliarArchivo(int bloqueInicio,int tamanoActual, int ampliacion,bool* bitmap);
 void actualizarFAT(FILE* f, uint32_t ultimoBloque, uint32_t nuevoBloque);
-void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap);
+void reservarBloque(uint32_t bloque, bool* bitmap);
 char* escribir_bloque(int num_bloque, char* info);
 void escribir_bloque_void(int num_bloque, void* info);
 int obtener_bloqueInicial(char* nombre);

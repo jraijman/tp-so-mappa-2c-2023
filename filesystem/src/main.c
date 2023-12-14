@@ -20,6 +20,7 @@ void levantar_config(char* ruta){
     log_info(logger_filesystem,"Config cargada");
 }
 //----------------------------GESTION SWAP----------------------------------
+
 bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap){
     FILE* f=fopen(path_bloques, "rb+");
     if(f!=NULL){
@@ -28,7 +29,7 @@ bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap){
         strcpy(bloque.info,"0");
         for(int i=0;i<cantidad;i++){
             fseek(f,tam_bloque*bloques[i],SEEK_SET);
-            //usleep(retardo_acceso_bloque * 1000);
+            usleep(retardo_acceso_bloque * 1000);
             log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f)/tam_bloque);
             bitmap[bloques[i]]=0;
             fwrite(bloque.info,tam_bloque,1,f);
@@ -37,7 +38,8 @@ bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap){
         fclose(f);
         free(bloque.info);
         return true;
-    }else{fclose(f);return false;}
+    }else{fclose(f);
+    return false;}
 }
 
 bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[], bool* bitmap) {
@@ -91,7 +93,7 @@ char* leer_bloque(int num_bloque){
             fclose(f);
         }else{
             fseek(f, tam_bloque * num_bloque, SEEK_SET);
-            log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld",ftell(f) / tam_bloque-cant_bloques_swap);
+            log_info(logger_filesystem, "ACCESO A BLUUUQUE NRO: %ld",ftell(f) / tam_bloque-cant_bloques_swap);
             fread(info, tam_bloque,1,f);
             fclose(f);
         }
@@ -116,7 +118,6 @@ void escribir_bloque_void(int num_bloque, void* info){
         log_info(logger_filesystem, "ACCESO A BLOQUE %ld",ftell(f) / tam_bloque-cant_bloques_swap);
         fwrite(info, tam_bloque,1,f);   
         }
-        //log_info(logger_filesystem, "LA INFO ESCRITA ES: %s", info);
         fclose(f);
     }
     else{
@@ -220,19 +221,10 @@ void bloqueOcupado(bool* bitmap){
         }
     }
 }
-void reservarBloque(FILE* f, uint32_t bloque, bool* bitmap) {
-    bloque=bloque+cant_bloques_swap;
-    fseek(f,bloque*tam_bloque, SEEK_SET);
-    BLOQUE reservado;
-    reservado.info = malloc(tam_bloque);
-    strcpy(reservado.info, "\0");
-    //usleep(retardo_acceso_bloque * 1000);
-    log_info(logger_filesystem, "ACCESO A BLOQUE NRO: %ld", ftell(f)/tam_bloque-cant_bloques_swap);
-    fwrite(reservado.info, tam_bloque, 1, f);
-    bitmap[bloque-cant_bloques_swap] = 1;
-    bloque=ftell(f)/tam_bloque;
+ 
+void reservarBloque(uint32_t bloque, bool* bitmap) {
+    bitmap[bloque] = 1;
     bloquesLibres--;    
-    free(reservado.info);
 }
 
 void liberarBloque(FILE* f, uint32_t bloqueLib, bool* bitmap) {
@@ -410,7 +402,6 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
 
     int bloquesAmpliar= (tamanoNuevo-tamanoActual)/tam_bloque;
     if(bloquesAmpliar<=bloquesLibres){
-        FILE* bloques=fopen(path_bloques, "rb+");
         FILE* fat=fopen(path_fat,"rb+");
         uint32_t* bloquesOcupados = (uint32_t*)calloc(tamanoNuevo/tam_bloque,sizeof(uint32_t));
         bloquesOcupados[0]=bloqueInicio;
@@ -420,10 +411,9 @@ void ampliarArchivo(int bloqueInicio,int tamanoActual, int tamanoNuevo,bool* bit
             bloqueLibre=buscarBloqueLibre(bitmap);
             bloquesOcupados[i+1]=bloqueLibre;
             actualizarFAT(fat,bloquesOcupados[i],bloquesOcupados[i+1]);
-            reservarBloque(bloques,bloqueLibre,bitmap);
+            reservarBloque(bloqueLibre,bitmap);
         }
         fclose(fat);
-        fclose(bloques);
         free(bloquesOcupados);
     }
 }
@@ -471,9 +461,7 @@ bool truncarArchivo(char* nombre, int tamano, bool* bitmap){
 
 int asignarBloque(char* nombre, bool* bitmap){
     uint32_t bloque= buscarBloqueLibre(bitmap);
-    FILE* bloques= fopen(path_bloques,"rb+");
-    reservarBloque(bloques, bloque, bitmap);
-    fclose(bloques);
+    reservarBloque(bloque, bitmap);
     uint32_t eof = __UINT32_MAX__;
     FILE* fat= fopen(path_fat,"rb+");
     fseek(fat,(bloque)*sizeof(uint32_t),SEEK_SET);
@@ -487,6 +475,7 @@ int asignarBloque(char* nombre, bool* bitmap){
 bool iniciar_fat(int tamano_fat, char* path_fat){
     FAT entrada;
     FILE* f=fopen(path_fat, "rb+");
+    log_info(logger_filesystem,"SIZEOF ENTRADA=%d",sizeof(FAT));
     if(f!=NULL){
         fclose(f);
         return true;
@@ -522,7 +511,6 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Se esperaba: %s [CONFIG_PATH]\n", argv[0]);
         exit(1);
     }
-    
     // CONFIG y logger
     levantar_config(argv[1]);
 
