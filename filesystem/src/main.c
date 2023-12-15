@@ -21,27 +21,29 @@ void levantar_config(char* ruta){
 }
 //----------------------------GESTION SWAP----------------------------------
 
-bool liberar_bloquesSWAP(int bloques[],int cantidad, bool* bitmap){
-    FILE* f=fopen(path_bloques, "rb+");
-    if(f!=NULL){
+bool liberar_bloquesSWAP(int bloques[], int cantidad, bool *bitmap) {
+    FILE *f = fopen(path_bloques, "rb+");
+    
+    if (f != NULL) {
         BLOQUE bloque;
-        bloque.info=malloc(tam_bloque);
-        strcpy(bloque.info,"0");
-        for(int i=0;i<cantidad;i++){
-            fseek(f,tam_bloque*bloques[i],SEEK_SET);
+        bloque.info = calloc(tam_bloque, 1);  // Inicializa con ceros
+        
+        for (int i = 0; i < cantidad; i++) {
+            fseek(f, tam_bloque * bloques[i], SEEK_SET);
             usleep(retardo_acceso_bloque * 1000);
-            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f)/tam_bloque);
-            bitmap[bloques[i]]=0;
-            fwrite(bloque.info,tam_bloque,1,f);
+            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld", ftell(f) / tam_bloque);
+            bitmap[bloques[i]] = 0;
+            fwrite(bloque.info, tam_bloque, 1, f);
             swapLibres++;
         }
+        
         fclose(f);
         free(bloque.info);
         return true;
-    }else{fclose(f);
-    return false;}
+    } else {
+        return false;
+    }
 }
-
 bool reservar_bloquesSWAP(int cant_bloques, int bloques_reservados[], bool* bitmap) {
     if (swapLibres < cant_bloques) {
         return false;
@@ -251,25 +253,36 @@ bool crear_archivo(char* nombre) {
     strcat(ruta,"/");
     strcat(ruta, nombre);
     strcat(ruta, ".fcb");
-    t_config* nuevoFCB=config_create(ruta);
-    if(nuevoFCB!=NULL){
+    t_config* nuevoFCB = config_create(ruta);
+
+    if(nuevoFCB != NULL){
         return false;
-    }else{
-        nuevoFCB=(t_config*)malloc(sizeof(t_config));
-        nuevoFCB->properties=dictionary_create();
-        nuevoFCB->path=ruta;
-        config_save_in_file(nuevoFCB,ruta);
-        nuevoFCB=config_create(ruta);
-        config_set_value(nuevoFCB,"NOMBRE_ARCHIVO", strdup(nombreArchivo));
-        config_set_value(nuevoFCB,"TAMANIO_ARCHIVO", "0");
+    } else {
+        nuevoFCB = (t_config*)malloc(sizeof(t_config));
+        nuevoFCB->properties = dictionary_create();
+        
+        // Libera la memoria asignada previamente a nuevoFCB->path
+        free(nuevoFCB->path);
+        
+        nuevoFCB->path = ruta;
+        config_save_in_file(nuevoFCB, ruta);
+        nuevoFCB = config_create(ruta);
+        config_set_value(nuevoFCB, "NOMBRE_ARCHIVO", nombreArchivo);
+        config_set_value(nuevoFCB, "TAMANIO_ARCHIVO", "0");
         config_set_value(nuevoFCB, "BLOQUE_INICIAL", " ");
         config_save(nuevoFCB);
-        //config_destroy(nuevoFCB);//memmory leak
-        //free(nuevoFCB->path); //memmory leak
-        //free(nuevoFCB); //memmory leak
+
+        free(ruta);
+        
+        dictionary_destroy(nuevoFCB->properties);
+
+        free(nuevoFCB);
+
+        config_destroy(nuevoFCB);
         return true;
     }    
 }
+
 
 int abrir_archivo(char* nombre){
     int tamRuta=strlen(path_fcb)+strlen(nombre)+6;
@@ -310,22 +323,29 @@ void actualizarFcb(char* nombre, int tamano, int bloque){
     }
 }
 
-int obtener_bloqueInicial(char* nombre){
-    int tamRuta=strlen(path_fcb)+strlen(nombre)+6;
+int obtener_bloqueInicial(char* nombre) {
+    int tamRuta = strlen(path_fcb) + strlen(nombre) + 6;
     char* ruta = (char*)malloc(tamRuta);
-    strcpy(ruta,path_fcb);
-    strcat(ruta,"/");
-    strcat(ruta,nombre);
-    strcat(ruta,".fcb");
+    strcpy(ruta, path_fcb);
+    strcat(ruta, "/");
+    strcat(ruta, nombre);
+    strcat(ruta, ".fcb");
+
     config = iniciar_config(ruta);
+    
     free(ruta);
-    if(config!=NULL){
-        int bloque=config_get_int_value(config,"BLOQUE_INICIAL");
-        //config_destroy(config);
+
+    if (config != NULL) {
+        int bloque = config_get_int_value(config, "BLOQUE_INICIAL");
+
+        config_destroy(config);
+
         return bloque;
     }
+
     return -1;
 }
+
 
 int obtener_bloque(int bloqueInicial, int nroBloque){
     FILE* fat = fopen(path_fat,"rb");

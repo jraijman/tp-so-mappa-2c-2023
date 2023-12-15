@@ -56,7 +56,7 @@ static void procesar_conexion(void* void_args) {
 
                 pthread_create(&hiloInicializar, NULL, (void*) manejar_iniciar_proceso, (void*) args);
                 pthread_detach(hiloInicializar);
-                //free(bloques_reservados);
+                
                 break;
             }
             case F_WRITE:{
@@ -282,44 +282,46 @@ void* manejar_finalizar_proceso(void* arg){
     int* bloques_a_liberar = args->bloques_a_liberar;
     int cantidad_bloques = args->cantidad_bloques;
     bool *bitmapSwap = args->bitmapSwap;
-
     if(liberar_bloquesSWAP(bloques_a_liberar,cantidad_bloques,bitmapSwap)){
         //enviar_mensaje("SWAP LIBERADO",cliente_socket);
         log_info(logger_filesystem, "Se liberaron los bloques SWAP");
     }else{
         log_error(logger_filesystem, "Error al liberar los bloques SWAP");
         //enviar_mensaje("ERROR AL LIBERAR SWAP",cliente_socket);
-    }
-    free(args); 
+    } 
+    free(args);
+    free(bloques_a_liberar);
     // Termina el hilo
     pthread_exit(NULL);
 }
 
-void* manejar_iniciar_proceso(void* arg){
-    t_finalizar_proceso_args* args = (t_finalizar_proceso_args*) arg;
+void* manejar_iniciar_proceso(void* arg) {
+    t_finalizar_proceso_args* args = (t_finalizar_proceso_args*)arg;
     int cliente_socket = args->fd;
     int* bloques_reservados = args->bloques_a_liberar;
     int cantidad_bloques = args->cantidad_bloques;
-    bool *bitmapSwap = args->bitmapSwap;
+    bool* bitmapSwap = args->bitmapSwap;
 
-    if(reservar_bloquesSWAP(cantidad_bloques,bloques_reservados,bitmapSwap)){
-        t_paquete* paqueteReserva=crear_paquete(INICIALIZAR_PROCESO);
-        for(int i=0; i<cantidad_bloques;i++)
-        {
+    if (reservar_bloquesSWAP(cantidad_bloques, bloques_reservados, bitmapSwap)) {
+        t_paquete* paqueteReserva = crear_paquete(INICIALIZAR_PROCESO);
+        for (int i = 0; i < cantidad_bloques; i++) {
             int bloque = bloques_reservados[i];
             agregar_a_paquete(paqueteReserva, &bloque, sizeof(int));
         }
         enviar_paquete(paqueteReserva, cliente_socket);
         eliminar_paquete(paqueteReserva);
-    }else{
-        enviar_mensaje("Error al reservar los bloques SWAP",cliente_socket);
-        log_error(logger_filesystem,"Error al reservar los bloques SWAP");
+    } else {
+        enviar_mensaje("Error al reservar los bloques SWAP", cliente_socket);
+        log_error(logger_filesystem, "Error al reservar los bloques SWAP");
     }
 
-    free(args); 
+    free(bloques_reservados);
+    free(args);
+
     // Termina el hilo
     pthread_exit(NULL);
 }
+
 
 void* manejar_truncar(void* arg){
     t_truncar_args* args = (t_truncar_args*) arg;
