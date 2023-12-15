@@ -352,7 +352,6 @@ void* manejar_write_proceso(void* arg){
     if(puntero>tamanoArchivo || puntero<0){
         log_info(logger_filesystem,"El puntero excede al tamaño del archivo o no es válido");
     }else{
-        log_info(logger_filesystem,"Puntero válido");
         int bloqueArchivo = obtener_bloque(bloqueInicial, nroBloque);
         t_paquete* peticionMemoria = crear_paquete(F_WRITE);
         agregar_a_paquete(peticionMemoria, &(direccion.marco), sizeof(int));
@@ -361,9 +360,7 @@ void* manejar_write_proceso(void* arg){
         recibir_operacion(conexion_filesystem_memoria);                
         t_list* infoEscribir = recibir_paquete(conexion_filesystem_memoria);
         void* info=list_get(infoEscribir,0);
-        log_info(logger_filesystem,"ESCRIBO UN BLOQUE");
         escribir_bloque_void(bloqueArchivo+cant_bloques_swap,info);
-        log_info(logger_filesystem,"ESCRIBII UN BLOQUE");
         eliminar_paquete(peticionMemoria);
         list_destroy(infoEscribir);
         free(info);

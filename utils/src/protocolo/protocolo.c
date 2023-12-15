@@ -343,7 +343,6 @@ pcb* desempaquetar_pcb(t_list* paquete, int* counter) {
 	return contexto;
 }
 
-
 void send_pcb(pcb* contexto, int fd_modulo){
 	printf("\n ENVIANDO PCB PID: %d\n", contexto->pid);
     t_paquete* paquete = crear_paquete(ENVIO_PCB);
@@ -357,9 +356,7 @@ pcb* recv_pcb(int fd_modulo){
 	t_list* paquete = recibir_paquete(fd_modulo);
 	int counter = 0;
 	pcb* contexto_recibido = desempaquetar_pcb(paquete, &counter);
-	//printf("\n RECV PCB PID: %d\n", contexto_recibido->pid);
 	list_destroy(paquete);// memory leaks
-	//list_destroy_and_destroy_elements(paquete, free); // este rompe todo
 	return contexto_recibido;
 }
 
@@ -754,7 +751,7 @@ void recv_f_write(int fd,char** nombre_archivo, DireccionFisica* direccion, pcb*
 	list_destroy(paquete);
 }
 
-void recv_f_close(int fd,char** nombre_archivo, pcb**contexto){
+void recv_f_close(int fd, char** nombre_archivo, pcb**contexto){
 	t_list* paquete = recibir_paquete(fd);
 	int counter = 0;
     *contexto = desempaquetar_pcb(paquete, &counter);

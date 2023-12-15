@@ -27,7 +27,7 @@ bool cpu_disponible = true;
 bool hay_interrupcion=false;
 bool hay_exit = false;
 
-bool planificacion_activa = false;
+bool planificacion_activa = true;
 bool archivo_no_existe = false;
 
 int fd_cpu_dispatch;
@@ -113,6 +113,7 @@ pthread_mutex_t mutex_plani_corta;
 pthread_mutex_t mutex_plani_larga;
 pthread_mutex_t manejar_recibir_mem;
 pthread_mutex_t mutex_page_fault;
+pthread_mutex_t mutex_f_close;
 
 // hilos
 pthread_t hilo_consola;

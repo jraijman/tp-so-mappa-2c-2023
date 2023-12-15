@@ -10,7 +10,7 @@
       "request": "launch",
       "program": "${workspaceFolder}/bin/${workspaceFolderBasename}.out",
       "args": [
-        "./config/kernel.config"
+        "./config/baseprioridades.config"
         // TODO: Agregar los argumentos que se necesiten
       ],
       "stopAtEntry": false,

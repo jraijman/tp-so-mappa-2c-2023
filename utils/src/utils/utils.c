@@ -23,9 +23,11 @@ void terminar_programa(t_log* logger, t_config* config)
 	  con las funciones de las commons y del TP mencionadas en el enunciado */
 	if (config != NULL) {
 		config_destroy(config);
+        config=NULL;
 	}
 	if (logger != NULL) {
 		log_destroy(logger);
+        logger=NULL;
 	}
 
 }

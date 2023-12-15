@@ -62,9 +62,9 @@ static void procesar_conexion_interrupt(void* void_args) {
                 break;
             case INTERRUPCION_FINALIZAR:
                 int pid_recibido_finalizar = recv_interrupcion(cliente_socket_interrupt);
-                log_info(logger_cpu, ANSI_COLOR_YELLOW "se finaliza el proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
+                log_info(logger_cpu, ANSI_COLOR_YELLOW "se finaliza el proceso %d, mientras ejecutaba el proceso %d",pid_recibido_finalizar,contexto->pid);
                 if(contexto->pid==pid_recibido_finalizar){
-                recibio_interrupcion = true;
+                    recibio_interrupcion_finalizar = true;
                 }
                 break;
             default: {
@@ -145,7 +145,7 @@ void levantar_config(char* ruta){
 
 void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_socket_interrupt, t_log* logger) {
     //log_info(logger,ANSI_COLOR_BLUE "Inicio del ciclo de instrucción");
-    while (cliente_socket_dispatch != -1 && !recibio_interrupcion && flag_ciclo) {
+    while (cliente_socket_dispatch != -1 && !recibio_interrupcion && !recibio_interrupcion_finalizar && flag_ciclo) {
     Instruccion * instruccion = malloc(sizeof(Instruccion));
     //int direccionFisica;    
     DireccionFisica direccion;
@@ -170,6 +170,9 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
     if(recibio_interrupcion){
         recibio_interrupcion=false;
         send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
+        return;
+    } else if (recibio_interrupcion_finalizar){
+        recibio_interrupcion_finalizar=false;
         return;
     }
 }

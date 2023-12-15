@@ -134,6 +134,7 @@ static void procesar_conexion(void *void_args) {
             // Simula un retardo en el acceso a memoria según la configuración.
             usleep(RETARDO_REPUESTA * 1000);
             escribir_bloque_en_memoria_void(info, direccion.marco);
+            free(info);//memory leaks
             // Registra información sobre la lectura en el logger.
             // Registra el valor leído en el logger y lo envía de vuelta al módulo cliente (FS).
             //log_valor_espacio_usuario_y_enviar(valor_fs, *tamano_fs, cliente_socket);
@@ -169,6 +170,7 @@ static void procesar_conexion(void *void_args) {
             agregar_a_paquete(paquete, valor, tam_pagina);
             enviar_paquete(paquete,cliente_socket);
             eliminar_paquete(paquete);
+            free(valor);//memory leaks
         }
         break;
         case ENVIO_INSTRUCCION:{

@@ -183,7 +183,7 @@ void finalizar_proceso(char * pid){
         procesoAEliminar = buscar_y_remover_pcb_cola(cola_exec, pid_int, cantidad_exec, mutex_exec);
         //TENGO QUE MANDAR UN INTERRUPT A CPU PARA FINALIZAR EL PROCESO 
         t_paquete* paquete = crear_paquete(INTERRUPCION_FINALIZAR);
-        agregar_a_paquete(paquete, &pid, sizeof(int));
+        agregar_a_paquete(paquete, &pid_int, sizeof(int));
         enviar_paquete(paquete, fd_cpu_interrupt);
         eliminar_paquete(paquete);
     }
@@ -212,7 +212,7 @@ void finalizar_proceso(char * pid){
         //liberar_archivos(procesoAEliminar);
         //mandar mensaje a memoria para que libere
         send_terminar_proceso(procesoAEliminar->pid,fd_memoria);
-        }
+    }
  
 }
 void detener_planificacion(){
@@ -382,6 +382,7 @@ void* planif_largo_plazo(void* args){
 
 void* planif_corto_plazo(void* args){
     pthread_t hilo_interrupciones;
+    crear_hilo_interrupcion(algoritmo_planificacion, hilo_interrupciones);
     while(1){
         //semaforo para que no haya mas de un proceso en exec, cuando se bloquea o termina el proceso, hacer signal
         sem_wait(&puedo_ejecutar_proceso);
@@ -407,7 +408,6 @@ void* planif_corto_plazo(void* args){
         sem_post(&sem_plan_corto);
         pthread_mutex_unlock(&mutex_plani_corta);
 
-        crear_hilo_interrupcion(algoritmo_planificacion, hilo_interrupciones);
     }
 }
 
@@ -429,10 +429,12 @@ void crear_hilo_interrupcion(char* algoritmo_planificacion, pthread_t hilo_inter
     }
     else if(strcmp(algoritmo_planificacion,"PRIORIDADES")==0){
         pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_prioridades, NULL);
+        pthread_detach(hilo_interrupciones);
         return;
     }
     else if(strcmp(algoritmo_planificacion,"RR")==0){
         pthread_create(&hilo_interrupciones, NULL, (void*) controlar_interrupcion_rr, NULL);
+        pthread_detach(hilo_interrupciones);
         return;
     }
 }
@@ -473,6 +475,7 @@ void controlar_interrupcion_prioridades(){
             int prioridadAComparar = ((pcb*)list_get(lista_ordenada,0))->prioridad;
             if(hay_exit == false){
                 if(prioridadAComparar < proceso->prioridad){
+                    
                     log_info(logger_kernel,"PID: %d - Desalojado por prioridad", proceso->pid);
                     hay_interrupcion=true;
                     send_interrupcion(proceso->pid,fd_cpu_interrupt);
@@ -507,7 +510,8 @@ pcb* obtenerSiguienteRR(){
 bool cmp(void *a, void *b) { 
     pcb* pa = a;
     pcb* pb = b;
-    int intA = pa->prioridad; int intB = pb->prioridad; 
+    int intA = pa->prioridad;
+    int intB = pb->prioridad; 
     return intA < intB; 
 }
 
@@ -519,7 +523,7 @@ pcb* obtenerSiguientePRIORIDADES(){
 	procesoPlanificado = list_remove(lista_ordenada, 0);
     list_remove_element(cola_ready->elements,procesoPlanificado);
     pthread_mutex_unlock(&mutex_ready);
-    sem_post(&control_interrupciones_prioridades);
+    //sem_post(&control_interrupciones_prioridades);
 	return procesoPlanificado;
 }
 
@@ -808,7 +812,7 @@ void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
     if(archivo_proceso != NULL){
         archivo_proceso->puntero = posicion;
         send_pcb(proceso,fd_cpu_dispatch);
-        //pcb_destroyer(proceso);//no se si va o no
+        pcb_destroyer(proceso);//no se si va o no
     }
     else{
         log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
@@ -864,6 +868,9 @@ void abrir_proceso_encolado(t_archivo* archivo){
                     //manda el pcb a cpu para seguir ejecutando
                     agregar_a_ready(otro_proceso);
                     imprimir_lista_archivos_proceso(otro_proceso->archivos);
+
+                    //free(siguiente_siguiente_proceso->modo_apertura);
+                    free(siguiente_siguiente_proceso);
                     
                 }else{
                     break;
@@ -880,12 +887,21 @@ void abrir_proceso_encolado(t_archivo* archivo){
             //list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
             agregar_a_ready(proceso);
+        }else{
+            log_info(logger_kernel,"NO RECIBI BIEN EL MODO APERTURA");
         }  
+
+        //free(siguiente_proceso->modo_apertura);
+        free(siguiente_proceso);
    }
 }
 
 void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
     t_archivo* archivo = buscar_archivo_global(nombre_archivo);
+    pcb *a_borrar = sacar_de_exec();
+    pcb_destroyer(a_borrar);
+    agregar_a_ready(proceso);
+    sem_post(&puedo_ejecutar_proceso);
 
     if (archivo != NULL) {
         t_archivo_proceso* archivo_proceso = eliminar_y_devolver_archivo_en_proceso(nombre_archivo, proceso);
@@ -902,14 +918,19 @@ void ejecutar_f_close(char *nombre_archivo, pcb* proceso) {
                //si esta en modo lectura, ver si el siguiente proceso en modo lectura
                 archivo->modo_apertura = "";
                 abrir_proceso_encolado(archivo);
+            }else{
+                log_info(logger_kernel,"NO RECIBI BIEN EL MODO APERTURA");
             }
         }
         
+        //free(archivo_proceso->nombre_archivo);
+        //free(archivo_proceso->modo_apertura);
+        free(archivo_proceso);
     } else {
         log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
     }
-
-    send_pcb(proceso, fd_cpu_dispatch);
+    
+    //send_pcb(proceso, fd_cpu_dispatch);
 }
 
 void* ejecutar_f_read(void * args) {
@@ -1064,7 +1085,7 @@ void manejar_recibir_cpu(){
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     //log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
                     pcb_a_borrar = sacar_de_exec();
-                    pcb_destroyer(pcb_a_borrar);
+                    //pcb_destroyer(pcb_a_borrar);
                     agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
                     break;
@@ -1074,12 +1095,15 @@ void manejar_recibir_cpu(){
                     recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura, &proceso);
                     ejecutar_f_open(nombre_archivo, modo_apertura, proceso);
                     log_info(logger_kernel, "PID: %d - Abrir Archivo: %s", proceso->pid, nombre_archivo);
+                    //free(nombre_archivo);
+                    //free(modo_apertura);
                     break;
                 }
                 case F_CLOSE:{
                     recv_f_close(fd_cpu_dispatch, &nombre_archivo, &proceso);
                     ejecutar_f_close(nombre_archivo, proceso);
                     log_info(logger_kernel, "PID: %d - Cerrar Archivo: %s", proceso->pid, nombre_archivo);
+                    //free(nombre_archivo);
                     break;
                 }
                 case F_SEEK:{
@@ -1088,6 +1112,7 @@ void manejar_recibir_cpu(){
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &posicion, &proceso);
                     ejecutar_f_seek(nombre_archivo, posicion, proceso);
                     log_info(logger_kernel, "PID: %d -  Actualizar puntero Archivo: %s - Puntero: %d", proceso->pid, nombre_archivo, posicion);
+                    //free(nombre_archivo);
                     break;
                 }
                 case F_TRUNCATE:{
@@ -1101,6 +1126,7 @@ void manejar_recibir_cpu(){
                     pthread_create(&hilo_truncate, NULL, ejecutar_f_truncate, args);
                     pthread_detach(hilo_consola);
                     log_info(logger_kernel, "PID: %d - Archivo: %s - Tamaño: %d", proceso->pid, nombre_archivo, tamanio_archivo);
+                    //free(nombre_archivo);
                     break;
                 }
                 case F_READ:{
@@ -1147,7 +1173,6 @@ void manejar_recibir_cpu(){
                     printf("Error al recibir mensaje %d \n", cop);
                     break;
             free(extra);
-            //free(nombre_archivo);
             }
         }   
     }    
@@ -1234,6 +1259,7 @@ void iniciar_semaforos(){
 	pthread_mutex_init(&mutex_exit, NULL);
     pthread_mutex_init(&manejar_recibir_mem, NULL);
     pthread_mutex_init(&mutex_page_fault, NULL);
+    pthread_mutex_init(&mutex_f_close, NULL);
 
     //mutex para pausar planificacion
     pthread_mutex_init(&mutex_plani_corta, NULL);
@@ -1320,13 +1346,17 @@ void buscar_proceso_asignado_recurso_y_eliminar(pcb* proceso, t_recurso* recurso
             if(recurso_actual->instancias <= 0){
                 //tengo q desbloquear los bloqueados por el recurso
                 //saco de la cola de bloqueados del recurso
-                pthread_mutex_lock(&recurso_actual->mutex);
-                pcb * procesoQuitadoBloqueados = queue_pop(recurso_actual->bloqueados);
-                queue_push(recurso_actual->procesos, procesoQuitadoBloqueados);
-                pthread_mutex_unlock(&recurso_actual->mutex);
-                //sacar de block y mover a ready
-                buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
-                agregar_a_ready(procesoQuitadoBloqueados);
+                if (queue_size(recurso_actual->bloqueados) > 0)
+                {
+                    pthread_mutex_lock(&recurso_actual->mutex);
+                    pcb * procesoQuitadoBloqueados = queue_pop(recurso_actual->bloqueados);
+                    queue_push(recurso_actual->procesos, procesoQuitadoBloqueados);
+                    pthread_mutex_unlock(&recurso_actual->mutex);
+                    //sacar de block y mover a ready
+                    buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
+                    agregar_a_ready(procesoQuitadoBloqueados);
+                }
+                
             }
             list_remove(recurso_actual->procesos->elements, i);
             recurso_actual->instancias++;
