@@ -408,9 +408,9 @@ void* planif_corto_plazo(void* args){
 
         sem_post(&sem_plan_corto);
         pthread_mutex_unlock(&mutex_plani_corta);
-
     }
 }
+
 
 pcb *obtener_siguiente_proceso(char* algoritmo_planificacion) {
     if (strcmp(algoritmo_planificacion, "FIFO") == 0) {
@@ -442,7 +442,7 @@ void crear_hilo_interrupcion(char* algoritmo_planificacion, pthread_t hilo_inter
 
 void controlar_interrupcion_rr(){
     while(1){
-        sem_wait(&control_interrupciones_rr);
+        //sem_wait(&control_interrupciones_rr);
         cpu_disponible=false;
         usleep(quantum * 1000);
 		if(!cpu_disponible){
@@ -1037,12 +1037,14 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case PCB_WAIT:{
+                    hay_exit = true;
                     //printf("\n manejo wait \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_wait(proceso, extra);
                     break;
                 }
                 case PCB_SIGNAL:{
+                    hay_exit = true;
                     //printf("\n manejo signal \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_signal(proceso, extra);
@@ -1092,6 +1094,7 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_OPEN:{
+                    hay_exit = true;
                     char* modo_apertura;
                     recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura, &proceso);
                     ejecutar_f_open(nombre_archivo, modo_apertura, proceso);
@@ -1108,6 +1111,7 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_SEEK:{
+                    hay_exit = true;
                     int posicion;
                     //hago recv truncate porq es lo mismo pero en vez de tamanio manda posicion
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &posicion, &proceso);
@@ -1117,6 +1121,7 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_TRUNCATE:{
+                    hay_exit = true;
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &tamanio_archivo, &proceso);
                     pthread_t hilo_truncate;
                     // Crear la estructura de argumentos
@@ -1131,6 +1136,7 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_READ:{
+                    hay_exit = true;
                     DireccionFisica dirFisica;
                     recv_f_write(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
                     pthread_t hilo_read;
@@ -1146,6 +1152,7 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_WRITE:{
+                    hay_exit = true;
                     DireccionFisica dirFisica;
                     recv_f_write(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
                     t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
