@@ -32,7 +32,8 @@ bool liberar_bloquesSWAP(int bloques[], int cantidad, bool *bitmap) {
    
     if (f != NULL) {
         BLOQUE bloque;
-        bloque.info = calloc(tam_bloque, 1);  // Inicializa con ceros
+        bloque.info = malloc(tam_bloque);
+        strcpy(bloque.info, "0");
        
         for (int i = 0; i < cantidad; i++) {
             fseek(f, tam_bloque * bloques[i], SEEK_SET);

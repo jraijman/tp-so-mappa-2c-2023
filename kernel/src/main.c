@@ -316,6 +316,7 @@ void agregar_a_ready(pcb* proceso){
 	list_destroy(lista_a_loguear);
     free(lista);
     sem_post(&cantidad_ready);
+    sem_post(&control_interrupciones_rr);
     sem_post(&control_interrupciones_prioridades);
 }
 
@@ -503,7 +504,7 @@ pcb* obtenerSiguienteRR(){
 	pthread_mutex_lock(&mutex_ready);
 	procesoPlanificado = queue_pop(cola_ready);
     pthread_mutex_unlock(&mutex_ready);
-    sem_post(&control_interrupciones_rr);
+    //sem_post(&control_interrupciones_rr);
 	return procesoPlanificado;
 }
 
