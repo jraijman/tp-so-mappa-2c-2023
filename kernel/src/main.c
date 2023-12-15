@@ -1356,7 +1356,6 @@ void buscar_proceso_asignado_recurso_y_eliminar(pcb* proceso, t_recurso* recurso
                     buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
                     agregar_a_ready(procesoQuitadoBloqueados);
                 }
-                
             }
             list_remove(recurso_actual->procesos->elements, i);
             recurso_actual->instancias++;
