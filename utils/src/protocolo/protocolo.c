@@ -232,7 +232,7 @@ t_list* recv_archivos(t_log* logger, int fd_modulo) {
 }
 
 void archivo_destroyer(t_archivo* archivo) {
-    free(archivo->nombre_archivo);
+    //free(archivo->nombre_archivo);
     free(archivo);
 }
 

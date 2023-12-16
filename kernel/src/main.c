@@ -682,7 +682,7 @@ t_archivo* crear_archivo_general(char* nombre_archivo){
 	t_archivo* archivo = malloc(sizeof(t_archivo));
 	archivo->nombre_archivo = nombre_archivo;
 	archivo->bloqueados_archivo = queue_create();
-    archivo->modo_apertura = malloc(2);
+    //archivo->modo_apertura = malloc(2);
     archivo->modo_apertura = "";
     archivo->abierto_w = 0;
     archivo->cant_abierto_r = 0;
@@ -694,7 +694,7 @@ t_archivo_proceso* crear_archivo_proceso(char* nombre_archivo, char* modo_apertu
 	t_archivo_proceso* archivo = malloc(sizeof(t_archivo_proceso));
 	archivo->nombre_archivo = nombre_archivo;
 	archivo->puntero = 0;
-    archivo->modo_apertura = malloc(2);
+    //archivo->modo_apertura = malloc(2);
     archivo->modo_apertura = modo_apertura;
 	return archivo;
 }
