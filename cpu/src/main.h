@@ -15,6 +15,7 @@
 bool recibio_interrupcion;
 bool recibio_interrupcion_finalizar;
 bool flag_ciclo;
+bool ya_desalojo;
 
 int fd_cpu_dispatch;
 int fd_cpu_interrupt;

@@ -98,7 +98,7 @@ void* leer_bloque(int num_bloque){
         usleep(retardo_acceso_bloque * 1000);
         if(num_bloque<cant_bloques_swap){
             fseek(f, tam_bloque * num_bloque, SEEK_SET);
-            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+            log_info(logger_filesystem, "Acceso SWAP: %ld",ftell(f) / tam_bloque);
             fread(info, tam_bloque,1,f);
             fclose(f);
         }else{
@@ -121,7 +121,7 @@ void escribir_bloque_void(int num_bloque, void* info){
         usleep(retardo_acceso_bloque * 1000);
         fseek(f, tam_bloque * num_bloque, SEEK_SET);
         if(num_bloque<cant_bloques_swap){
-            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+            log_info(logger_filesystem, "Acceso SWAP: %ld",ftell(f) / tam_bloque);
             fwrite(info, tam_bloque, 1, f);
         }
         else{
@@ -142,7 +142,7 @@ char* escribir_bloque(int num_bloque, char* info){
         usleep(retardo_acceso_bloque * 1000);
         fseek(f, tam_bloque * num_bloque, SEEK_SET);
         if(num_bloque<cant_bloques_swap){
-            log_info(logger_filesystem, "ACCESO A BLOQUE SWAP NRO: %ld",ftell(f) / tam_bloque);
+            log_info(logger_filesystem, "Acceso SWAP: %ld",ftell(f) / tam_bloque);
             fwrite(info, tam_bloque, 1, f);
         }else{
             usleep(retardo_acceso_bloque * 1000);
@@ -443,7 +443,7 @@ void bloquesArchivo(FILE* fat,int inicio,int tamano,uint32_t* bloques){
         bloques[i]=ftell(fat)/sizeof(uint32_t);
         usleep(retardo_acceso_fat * 1000);
         fread(&siguiente, sizeof(uint32_t), 1, fat);
-        log_info(logger_filesystem, "ACCESO A FAT, ENTRADA %ld", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)));
+        log_info(logger_filesystem, "Acceso FAT - Entrada: %ld - Valor:%d", ((ftell(fat) - sizeof(uint32_t)) / sizeof(uint32_t)), siguiente);
         fseek(fat, siguiente * sizeof(uint32_t), SEEK_SET);
         i++;
     }

@@ -316,18 +316,21 @@ void agregar_a_ready(pcb* proceso){
 	list_destroy(lista_a_loguear);
     free(lista);
     sem_post(&cantidad_ready);
-    sem_post(&control_interrupciones_rr);
     sem_post(&control_interrupciones_prioridades);
 }
 
 void agregar_a_exec(pcb* proceso){
+    pcb_desalojado = false;
+    log_info(logger_kernel, ANSI_COLOR_GREEN "PID: %d - LO METI EN EXEC", proceso->pid);
     cambiar_estado(proceso, EXEC);
     pthread_mutex_lock(&mutex_exec);
     queue_push(cola_exec, proceso);
 	pthread_mutex_unlock(&mutex_exec);
 	sem_post(&cantidad_exec);
 }
+
 pcb* sacar_de_exec(){
+    pcb_desalojado = true;
     sem_wait(&cantidad_exec);
     pthread_mutex_lock(&mutex_exec);
     pcb *proceso = queue_pop(cola_exec);
@@ -402,6 +405,7 @@ void* planif_corto_plazo(void* args){
         if (proceso_a_ejecutar != NULL) {
             agregar_a_exec(proceso_a_ejecutar);
             send_pcb(proceso_a_ejecutar, fd_cpu_dispatch);
+            sem_post(&control_interrupciones_rr);
         }else{
             sem_post(&puedo_ejecutar_proceso);  
         }
@@ -442,21 +446,25 @@ void crear_hilo_interrupcion(char* algoritmo_planificacion, pthread_t hilo_inter
 
 void controlar_interrupcion_rr(){
     while(1){
-        //sem_wait(&control_interrupciones_rr);
+        sem_wait(&control_interrupciones_rr);
         cpu_disponible=false;
+        log_info(logger_kernel, "Inicia Quantum");
         usleep(quantum * 1000);
+        log_info(logger_kernel, "Quantum Finalizado");
 		if(!cpu_disponible){
             if(list_size(cola_exec->elements) > 0 & list_size(cola_ready->elements) > 0){
-                if(hay_exit == false){
+                if(!hay_exit && !pcb_desalojado){
+                    log_debug(logger_kernel, "No hay exit ni pcb desalojado");
                     pthread_mutex_lock(&mutex_exec);
                     pcb * proceso = queue_peek(cola_exec);
                     pthread_mutex_unlock(&mutex_exec);
-                    log_info(logger_kernel,"PID: %d - Desalojado por fin de Quantum", proceso->pid);
                     hay_interrupcion=true;
                     send_interrupcion(proceso->pid,fd_cpu_interrupt);
+                    log_info(logger_kernel, ANSI_COLOR_GREEN "PID: %d - Desalojado por fin de Quantum", proceso->pid);
                     // VER TEMA DE CUANDO CORTAR LA EJECUCION
                 }else{
                     hay_exit = false;
+                    //pcb_desalojado = false;
                 }
             }
 		}
@@ -504,7 +512,6 @@ pcb* obtenerSiguienteRR(){
 	pthread_mutex_lock(&mutex_ready);
 	procesoPlanificado = queue_pop(cola_ready);
     pthread_mutex_unlock(&mutex_ready);
-    //sem_post(&control_interrupciones_rr);
 	return procesoPlanificado;
 }
 
@@ -534,11 +541,12 @@ pcb* obtenerSiguientePRIORIDADES(){
 void manejar_wait(pcb* proceso, char* recurso){
 	t_recurso* recursobuscado= buscar_recurso(recurso);
     pcb * pcb_a_borrar = sacar_de_exec();
-    pcb_destroyer(pcb_a_borrar);
+    //pcb_desalojado = true;
 	if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
 		log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso: %d - Motivo: INVALID_RESOURCE",proceso->pid);
         agregar_a_exit(proceso);
+        pcb_desalojado = false;
         sem_post(&puedo_ejecutar_proceso);
         //mando a memoria que finalizo proceso
         send_terminar_proceso(proceso->pid,fd_memoria);  
@@ -550,7 +558,7 @@ void manejar_wait(pcb* proceso, char* recurso){
 		log_info(logger_kernel,"PID: %d - Wait: %s - Instancias: %d", proceso->pid,recurso,recursobuscado->instancias);
 		if(recursobuscado->instancias < 0){   
             // No hay instancias disponibles, bloquear proceso
-			log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,recurso);
+			log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloo por: %s", proceso->pid,recurso);
             //agregar a la cola de bloqueados del recurso
             pthread_mutex_lock(&recursobuscado->mutex);
             queue_push(recursobuscado->bloqueados,proceso);
@@ -565,16 +573,18 @@ void manejar_wait(pcb* proceso, char* recurso){
             pthread_mutex_lock(&recursobuscado->mutex);
             queue_push((recursobuscado->procesos),proceso);
             pthread_mutex_unlock(&recursobuscado->mutex);
-			agregar_a_exec(proceso);
-			send_pcb(proceso,fd_cpu_dispatch);
+		
+			send_pcb(proceso, fd_cpu_dispatch);
+    	    agregar_a_exec(proceso);
+            sem_post(&control_interrupciones_rr);
 		}
 	}
+    pcb_destroyer(pcb_a_borrar);
 }
 
 void manejar_signal(pcb* proceso, char* recurso){
     t_recurso* recursobuscado = buscar_recurso(recurso);
     pcb * pcb_a_borrar = sacar_de_exec();
-    pcb_destroyer(pcb_a_borrar);
     if(recursobuscado->encontrado == -1){
         // El recurso no existe, enviar proceso a EXIT
         log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso: %d - Motivo: INVALID_RESOURCE",proceso->pid);
@@ -609,12 +619,16 @@ void manejar_signal(pcb* proceso, char* recurso){
                 //sacar de block y mover a ready
                 buscar_y_remover_pcb_cola(cola_block, procesoQuitadoBloqueados->pid, cantidad_block, mutex_block);
                 agregar_a_ready(procesoQuitadoBloqueados);
+                pcb_desalojado = false;
             }
             // Devuelvo pcb a cpu
+     
             agregar_a_exec(proceso);
             send_pcb(proceso,fd_cpu_dispatch);
+            sem_post(&control_interrupciones_rr);
         }
     }
+    pcb_destroyer(pcb_a_borrar);
 }
 
 t_recurso* buscar_recurso(char* recurso){
@@ -713,14 +727,12 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
     if(strcmp(modo_apertura, "R") == 0){
         //validar si hay lock de escritura activo
         if(strcmp(archivo->modo_apertura, "W") == 0){
-            //saco de exec
-            pcb* pcb_a_borrar = sacar_de_exec();
-            pcb_destroyer(pcb_a_borrar);
-            sem_post(&puedo_ejecutar_proceso);
 
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
+            sem_post(&puedo_ejecutar_proceso);
             agregar_a_block(proceso);
+            //pcb_desalojado = true;
 
             //agrego igual a la lista de archivos abiertos
             t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
@@ -741,19 +753,18 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
              //manda el pcb a cpu para seguir ejecutando
             archivo->modo_apertura = "R";
             archivo->cant_abierto_r ++;
-            send_pcb(proceso,fd_cpu_dispatch);
+            agregar_a_exec(proceso);
+            send_pcb(proceso, fd_cpu_dispatch);
         }
     }
     else if(strcmp(modo_apertura, "W") == 0){
         if(strcmp(archivo->modo_apertura, "W") == 0 || strcmp(archivo->modo_apertura, "R") == 0){
-            //saco de exec
-            pcb* pcb_a_borrar = sacar_de_exec();
-            pcb_destroyer(pcb_a_borrar);
-            sem_post(&puedo_ejecutar_proceso);
 
             //bloquea proceso y lo agrega a la cola de bloqueados del archivo
             log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
+            sem_post(&puedo_ejecutar_proceso);
             agregar_a_block(proceso);
+            //pcb_desalojado = true;
 
             //agrego igual a la lista de archivos abiertos
             t_archivo_proceso *archivo_proceso = crear_archivo_proceso(nombre_archivo, modo_apertura);
@@ -772,6 +783,7 @@ void ejecutar_f_open(char* nombre_archivo, char* modo_apertura, pcb* proceso){
             list_add(proceso->archivos, archivo_proceso);
             //manda el pcb a cpu para seguir ejecutando
             archivo->modo_apertura = "W";
+            agregar_a_exec(proceso);
             send_pcb(proceso,fd_cpu_dispatch);
         }
     }
@@ -783,7 +795,7 @@ void* ejecutar_f_truncate(void * args){
     int tamanio_archivo = argumentos->tamanio;
     pcb* proceso = argumentos->proceso;
 
-    log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
+    log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid, nombre_archivo);
     //saco de exec
     pcb* pcb_a_borrar = sacar_de_exec();
     pcb_destroyer(pcb_a_borrar);
@@ -799,6 +811,8 @@ void* ejecutar_f_truncate(void * args){
 
     proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
     agregar_a_ready(proceso);
+    pcb_desalojado = false;
+    sem_post(&control_interrupciones_rr);
 
 
     // Libera la memoria de la estructura de argumentos
@@ -812,8 +826,8 @@ void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
     t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
     if(archivo_proceso != NULL){
         archivo_proceso->puntero = posicion;
+        agregar_a_exec(proceso);
         send_pcb(proceso,fd_cpu_dispatch);
-        pcb_destroyer(proceso);//no se si va o no
     }
     else{
         log_info(logger_kernel, "El proceso %d no tiene abierto el archivo %s", proceso->pid, nombre_archivo);
@@ -947,6 +961,7 @@ void* ejecutar_f_read(void * args) {
     sem_post(&puedo_ejecutar_proceso);
     //bloqueamos el proceso
     agregar_a_block(proceso);
+    //pcb_desalojado = true;
     
     //mandamos a fs q lea
     int puntero = (buscar_archivo_en_pcb(nombre_archivo, proceso))->puntero;
@@ -975,11 +990,11 @@ void* ejecutar_f_write(void * args) {
 
    
     log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: %s", proceso->pid,nombre_archivo);
-    pcb* a_borrar = sacar_de_exec();
-    pcb_destroyer(a_borrar);
-    sem_post(&puedo_ejecutar_proceso);
+    
     //bloqueamos el proceso
     agregar_a_block(proceso);
+    sem_post(&puedo_ejecutar_proceso);
+    //pcb_desalojado = true;
     
     //mandamos a fs q escriba
     int puntero = (buscar_archivo_en_pcb(nombre_archivo, proceso))->puntero;
@@ -993,6 +1008,7 @@ void* ejecutar_f_write(void * args) {
     //proceso a ready
     proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
     agregar_a_ready(proceso);
+    pcb_desalojado = false;
 
 
     // Libera la memoria de la estructura de argumentos
@@ -1037,14 +1053,12 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case PCB_WAIT:{
-                    hay_exit = true;
                     //printf("\n manejo wait \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_wait(proceso, extra);
                     break;
                 }
                 case PCB_SIGNAL:{
-                    hay_exit = true;
                     //printf("\n manejo signal \n");
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     manejar_signal(proceso, extra);
@@ -1088,15 +1102,20 @@ void manejar_recibir_cpu(){
                     recv_pcbDesalojado(fd_cpu_dispatch, &proceso, &extra);
                     //log_info(logger_kernel,"RECIBI UN PCB DESALOJADO");
                     pcb_a_borrar = sacar_de_exec();
-                    //pcb_destroyer(pcb_a_borrar);
                     agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
+
+                    log_info(logger_kernel, ANSI_COLOR_PINK "Esta en exec: %d, Se quiere borrar: %d", pcb_a_borrar->pid, proceso->pid);
+                    
+                    //pcb_destroyer(pcb_a_borrar);
                     break;
                 }
                 case F_OPEN:{
-                    hay_exit = true;
                     char* modo_apertura;
                     recv_f_open(fd_cpu_dispatch, &nombre_archivo, &modo_apertura, &proceso);
+                    //saco de exec
+                    pcb* pcb_a_borrar = sacar_de_exec();
+                    pcb_destroyer(pcb_a_borrar);
                     ejecutar_f_open(nombre_archivo, modo_apertura, proceso);
                     log_info(logger_kernel, "PID: %d - Abrir Archivo: %s", proceso->pid, nombre_archivo);
                     //free(nombre_archivo);
@@ -1111,18 +1130,20 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_SEEK:{
-                    hay_exit = true;
                     int posicion;
                     //hago recv truncate porq es lo mismo pero en vez de tamanio manda posicion
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &posicion, &proceso);
+                    //saco de exec
+                    pcb* pcb_a_borrar = sacar_de_exec();
+                    pcb_destroyer(pcb_a_borrar);
                     ejecutar_f_seek(nombre_archivo, posicion, proceso);
                     log_info(logger_kernel, "PID: %d -  Actualizar puntero Archivo: %s - Puntero: %d", proceso->pid, nombre_archivo, posicion);
                     //free(nombre_archivo);
                     break;
                 }
                 case F_TRUNCATE:{
-                    hay_exit = true;
                     recv_f_truncate(fd_cpu_dispatch, &nombre_archivo, &tamanio_archivo, &proceso);
+                    //pcb_desalojado = true;
                     pthread_t hilo_truncate;
                     // Crear la estructura de argumentos
                     HiloArgs3* args = malloc(sizeof(HiloArgs3));
@@ -1136,7 +1157,6 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_READ:{
-                    hay_exit = true;
                     DireccionFisica dirFisica;
                     recv_f_write(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
                     pthread_t hilo_read;
@@ -1152,9 +1172,12 @@ void manejar_recibir_cpu(){
                     break;
                 }
                 case F_WRITE:{
-                    hay_exit = true;
                     DireccionFisica dirFisica;
+
                     recv_f_write(fd_cpu_dispatch, &nombre_archivo, &dirFisica, &proceso);
+                    pcb* a_borrar = sacar_de_exec();
+                    pcb_destroyer(a_borrar);
+
                     t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
 
                     if(strcmp(archivo_proceso->modo_apertura, "W") == 0){
@@ -1169,8 +1192,6 @@ void manejar_recibir_cpu(){
                     }
                     else{
                         log_info(logger_kernel, ANSI_COLOR_PINK "Finaliza el proceso: %d - Motivo: INVALID_WRITE",proceso->pid);
-                        pcb* a_borrar = sacar_de_exec();
-                        pcb_destroyer(a_borrar);
                         agregar_a_exit(proceso);
                         sem_post(&puedo_ejecutar_proceso);
                         send_terminar_proceso(proceso->pid, fd_memoria);  
@@ -1472,6 +1493,7 @@ void* manejar_page_fault(void * args){
     
     log_info(logger_kernel, ANSI_COLOR_CYAN "Page Fault PID: %d - Pagina: %d", proceso->pid,pagina);
     agregar_a_block(proceso);
+    //pcb_desalojado = true;
 
     sem_post(&puedo_ejecutar_proceso);
 
@@ -1483,6 +1505,7 @@ void* manejar_page_fault(void * args){
         log_info(logger_kernel, ANSI_COLOR_PINK "PID: %d - PAGINA CARGADA: %d", proceso->pid, pagina);
         proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
         agregar_a_ready(proceso);
+        sem_post(&control_interrupciones_rr);
     }
     else{
         printf("Error al recibir mensaje %s \n", respuesta);
@@ -1506,6 +1529,7 @@ void* manejar_sleep(void * args){
     int tiempo = atoi(extra);
     log_info(logger_kernel, ANSI_COLOR_CYAN "PID: %d - Bloqueado por: SLEEP %d", proceso->pid,tiempo);
     agregar_a_block(proceso);
+    //pcb_desalojado = true;
 
     sem_post(&puedo_ejecutar_proceso);
     sem_post(&sem_sleep);
@@ -1513,6 +1537,8 @@ void* manejar_sleep(void * args){
     sleep(tiempo);
     proceso = buscar_y_remover_pcb_cola(cola_block, proceso->pid, cantidad_block, mutex_block);
     agregar_a_ready(proceso);
+    pcb_desalojado = false;
+    sem_post(&control_interrupciones_rr);
 
     // Libera la memoria de la estructura de argumentos
     free(hiloArgs);

@@ -146,6 +146,7 @@ static void procesar_conexion(void* void_args) {
                 t_paquete* paqueteEnviar;
                 if(tamano!=-1){
                     paqueteEnviar = crear_paquete(ARCHIVO_EXISTE);
+                    log_info(logger_filesystem, "Abrir Archivo: %s", nombre);
                 }else{
                     paqueteEnviar = crear_paquete(ARCHIVO_NO_EXISTE);
                 }
@@ -160,6 +161,7 @@ static void procesar_conexion(void* void_args) {
                 char* nombre = list_get(paquete,0);
                 list_destroy(paquete);
                 crear_archivo(nombre);
+                log_info(logger_filesystem, "Crear Archivo: %s", nombre);
                 enviar_mensaje("OK crear archivo",cliente_socket);
                 free(nombre);
                 break;
@@ -333,6 +335,8 @@ void* manejar_truncar(void* arg){
     truncarArchivo(nombre,tamanio,bitmapBloques);
     enviar_mensaje("ARCHIVO TRUNCADO", cliente_socket);
 
+    log_info(logger_filesystem, "Truncar Archivo: %s - Tamaño: %d", nombre, tamanio);
+
     free(nombre);
     free(args); 
     // Termina el hilo
@@ -349,6 +353,7 @@ void* manejar_write_proceso(void* arg){
     int nroBloque=puntero/tam_bloque;
     int bloqueInicial=obtener_bloqueInicial(nombre);
     int tamanoArchivo=abrir_archivo(nombre);
+    log_info(logger_filesystem,"Acceso Bloque - Archivo: %s - Bloque Archivo: %d",nombre,nroBloque);
     if(puntero>tamanoArchivo || puntero<0){
         log_info(logger_filesystem,"El puntero excede al tamaño del archivo o no es válido");
     }else{
@@ -365,6 +370,7 @@ void* manejar_write_proceso(void* arg){
         list_destroy(infoEscribir);
         free(info);
         enviar_mensaje("OK F_WRITE",cliente_socket);
+         log_info(logger_filesystem, "Escribir Archivo: %s - Puntero: %d - Memoria: %d | %d", nombre, puntero, direccion.marco, direccion.desplazamiento);
     }
     
     free(nombre);
@@ -383,6 +389,7 @@ void* manejar_read_proceso(void* arg){
     int bloqueInicial = obtener_bloqueInicial(nombre);
     int bloqueArchivo = obtener_bloque(bloqueInicial, puntero/tam_bloque);
     void* info = leer_bloque(bloqueArchivo + cant_bloques_swap);
+    log_info(logger_filesystem,"Acceso Bloque - Archivo: %s - Bloque Archivo: %d",nombre,bloqueArchivo);
     imprimir_contenido(info, tam_bloque);
     //creo paquete para mandar a memoria dir fisica y leido
     t_paquete* escribir=crear_paquete(F_READ);
@@ -397,6 +404,7 @@ void* manejar_read_proceso(void* arg){
     int confirma=*p;
     free(p);
     if(confirma==1){
+        log_info(logger_filesystem, "“Leer Archivo: %s - Puntero: %d - Memoria: %d | %d", nombre, puntero, direccion.marco, direccion.desplazamiento);
         enviar_mensaje("Lectura realizada correctamente",cliente_socket);
     }
     else{

@@ -10,6 +10,8 @@ int main(int argc, char* argv[]){
     // CONFIG y logger
     levantar_config(argv[1]);
 
+    ya_desalojo = false;
+
     // Genero conexión a memoria
     conexion_cpu_memoria = crear_conexion(logger_cpu, "MEMORIA", ip_memoria, puerto_memoria);  
     //mensaje prueba 
@@ -57,7 +59,7 @@ static void procesar_conexion_interrupt(void* void_args) {
                 int pid_recibido = recv_interrupcion(cliente_socket_interrupt);
                 log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion al proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
                 if(contexto->pid==pid_recibido){
-                recibio_interrupcion = true;
+                    recibio_interrupcion = true;
                 } 
                 break;
             case INTERRUPCION_FINALIZAR:
@@ -95,6 +97,7 @@ static void procesar_conexion_dispatch(void* void_args) {
                 break;
             case ENVIO_PCB: 
                 flag_ciclo = true;
+                ya_desalojo = false;
                 contexto = recv_pcb(cliente_socket_dispatch);
                 if (contexto->pid!=-1) {
                     //log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí PCB con ID: %d", contexto->pid);
@@ -167,9 +170,15 @@ void ciclo_instruccion(pcb* contexto, int cliente_socket_dispatch, int cliente_s
         free(instruccion->operando2);
         free(instruccion);
     }
+
     if(recibio_interrupcion){
+
         recibio_interrupcion=false;
-        send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
+
+        if (!ya_desalojo){
+            send_pcbDesalojado(contexto,"INTERRUPCION","",cliente_socket_dispatch, logger);
+        }
+        
         return;
     } else if (recibio_interrupcion_finalizar){
         recibio_interrupcion_finalizar=false;
@@ -187,15 +196,19 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,Direcci
     } else if (strcmp(instruccion.opcode, "SUB") == 0) {
         subInstruccion(contexto_ejecucion, instruccion, logger_cpu);
     } else if (strcmp(instruccion.opcode, "SLEEP") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         sleepInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "WAIT") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         waitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "SIGNAL") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         signalInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode, "EXIT") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         exitInstruccion(contexto_ejecucion, instruccion, logger_cpu,fd_dispatch);
     } else if (strcmp(instruccion.opcode,"MOV_IN")==0){
@@ -203,22 +216,28 @@ void executeInstruccion(pcb* contexto_ejecucion, Instruccion instruccion,Direcci
     } else if (strcmp(instruccion.opcode,"MOV_OUT")==0){
         movOutInstruccion(contexto_ejecucion,instruccion,direccion,fd_memoria,logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_OPEN") == 0) {
+        //ya_desalojo = true;
         flag_ciclo = false;
         fOpenInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_CLOSE") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         fCloseInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_SEEK") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         fSeekInstruccion(contexto_ejecucion, instruccion,direccion, fd_dispatch, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_READ") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         fReadInstruccion(contexto_ejecucion, instruccion,direccion, fd_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_WRITE") == 0) {
+        ya_desalojo = true;
         flag_ciclo = false;
         fWriteInstruccion(contexto_ejecucion, instruccion,direccion, fd_dispatch,fd_memoria, logger_cpu);
     } else if (strcmp(instruccion.opcode, "F_TRUNCATE") == 0) {
         flag_ciclo = false;
+        ya_desalojo = true;
         fTruncateInstruccion(contexto_ejecucion, instruccion, fd_dispatch, logger_cpu);
     }
     else if (strcmp(instruccion.opcode, "JNZ") == 0) {

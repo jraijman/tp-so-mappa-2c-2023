@@ -26,6 +26,7 @@ typedef struct{
 bool cpu_disponible = true;
 bool hay_interrupcion=false;
 bool hay_exit = false;
+bool pcb_desalojado = false;
 
 bool planificacion_activa = true;
 bool archivo_no_existe = false;
@@ -176,6 +177,7 @@ t_list* inicializar_recursos();
 int* string_to_int_array(char** array_de_strings);
 t_recurso* buscar_recurso(char* recurso);
 bool lista_contiene_id(t_list* lista, pcb * proceso);
+bool lista_contiene_pid(t_list* lista, int pid);
 bool cmp(void *a, void *b);
 void liberar_recursos_proceso(pcb* proceso);
 void* manejar_sleep(void * args);
