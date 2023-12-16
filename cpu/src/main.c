@@ -57,7 +57,7 @@ static void procesar_conexion_interrupt(void* void_args) {
                 break;
             case INTERRUPCION:
                 int pid_recibido = recv_interrupcion(cliente_socket_interrupt);
-                log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion al proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
+                //log_info(logger_cpu, ANSI_COLOR_YELLOW "Recibí una interrupcion al proceso %d, mientras ejecutaba el proceso %d",pid_recibido,contexto->pid);
                 if(contexto->pid==pid_recibido){
                     recibio_interrupcion = true;
                 } 
