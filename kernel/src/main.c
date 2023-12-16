@@ -321,7 +321,6 @@ void agregar_a_ready(pcb* proceso){
 
 void agregar_a_exec(pcb* proceso){
     pcb_desalojado = false;
-    log_info(logger_kernel, ANSI_COLOR_GREEN "PID: %d - LO METI EN EXEC", proceso->pid);
     cambiar_estado(proceso, EXEC);
     pthread_mutex_lock(&mutex_exec);
     queue_push(cola_exec, proceso);
@@ -822,7 +821,7 @@ void* ejecutar_f_truncate(void * args){
 }
 
 void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
-    imprimir_lista_archivos_proceso(proceso->archivos);
+    //imprimir_lista_archivos_proceso(proceso->archivos);
     t_archivo_proceso* archivo_proceso = buscar_archivo_en_pcb(nombre_archivo, proceso);
     if(archivo_proceso != NULL){
         archivo_proceso->puntero = posicion;
@@ -834,13 +833,13 @@ void ejecutar_f_seek(char *nombre_archivo, int posicion,pcb* proceso){
     }
 }
 
-void imprimir_lista_archivos_proceso(t_list* archivos) {
+/*void imprimir_lista_archivos_proceso(t_list* archivos) {
     printf("Archivos del proceso:\n");
     for (int i = 0; i < list_size(archivos); i++) {
         t_archivo_proceso* archivo = list_get(archivos, i);
         printf("Nombre: %s, Modo de apertura: %s\n", archivo->nombre_archivo, archivo->modo_apertura);
     }
-}
+}*/
 
 void abrir_proceso_encolado(t_archivo* archivo){
    if(queue_size(archivo->bloqueados_archivo) > 0){
@@ -882,7 +881,7 @@ void abrir_proceso_encolado(t_archivo* archivo){
                     //list_add(otro_proceso->archivos, otro_archivo_proceso);
                     //manda el pcb a cpu para seguir ejecutando
                     agregar_a_ready(otro_proceso);
-                    imprimir_lista_archivos_proceso(otro_proceso->archivos);
+                    //imprimir_lista_archivos_proceso(otro_proceso->archivos);
 
                     //free(siguiente_siguiente_proceso->modo_apertura);
                     free(siguiente_siguiente_proceso);
@@ -1105,7 +1104,7 @@ void manejar_recibir_cpu(){
                     agregar_a_ready(proceso);
                     sem_post(&puedo_ejecutar_proceso);
 
-                    log_info(logger_kernel, ANSI_COLOR_PINK "Esta en exec: %d, Se quiere borrar: %d", pcb_a_borrar->pid, proceso->pid);
+                    //log_info(logger_kernel, ANSI_COLOR_PINK "Esta en exec: %d, Se quiere borrar: %d", pcb_a_borrar->pid, proceso->pid);
                     
                     //pcb_destroyer(pcb_a_borrar);
                     break;
